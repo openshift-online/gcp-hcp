@@ -25,7 +25,7 @@ Our internal tooling (Grafana, Atlantis, ArgoCD) requires secure access control 
 
 ### Constraints
 
-- **API Deprecation**: Google deprecated the IAP OAuth Admin API (March 2026 shutdown), eliminating programmatic OAuth client management
+- **API Deprecation**: Google deprecated the IAP OAuth Admin API (March 19, 2026 shutdown), eliminating programmatic OAuth client management. See the [Google Cloud deprecation notice](https://cloud.google.com/docs/deprecations) for details.
 - **External Brand Requirement**: Must support @redhat.com users (not just GCP organization members)
 - **GKE Autopilot**: Must work with GKE Autopilot clusters and Gateway API infrastructure
 - **No Custom Authentication System**: Cannot deploy/maintain custom identity providers
