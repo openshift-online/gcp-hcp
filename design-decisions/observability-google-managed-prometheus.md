@@ -151,9 +151,9 @@ Testing in GCP environment validated all acceptance criteria: 3 HCP namespaces w
 
 The GCP-343 spike deliverables provide detailed implementation guidance:
 
-- **Technical comparison and architecture**: [experiments/google-managed-prometheus/README.md](https://github.com/openshift/gcp-hcp/blob/main/experiments/google-managed-prometheus/README.md) - Detailed comparison of GMP PodMonitoring vs cluster-wide Prometheus, network policy requirements, recording rules comparison
-- **Cost analysis and projections**: [experiments/google-managed-prometheus/COST-ANALYSIS.md](https://github.com/openshift/gcp-hcp/blob/main/experiments/google-managed-prometheus/COST-ANALYSIS.md) - Comprehensive cost breakdown at 10, 100, 500, 1,000 HCP scale, ROSA filtering baseline, alerting costs, recording rules impact estimates
-- **Cost control strategy**: [experiments/google-managed-prometheus/GMP-COST-CONTROL-STRATEGY.md](https://github.com/openshift/gcp-hcp/blob/main/experiments/google-managed-prometheus/GMP-COST-CONTROL-STRATEGY.md) - Prometheus-level filtering implementation, allowlist examples, two-tier collection architecture, verification procedures
+- **Technical comparison and architecture**: [experiments/google-managed-prometheus/README.md](https://github.com/openshift-online/gcp-hcp/blob/main/experiments/google-managed-prometheus/README.md) - Detailed comparison of GMP PodMonitoring vs cluster-wide Prometheus, network policy requirements, recording rules comparison
+- **Cost analysis and projections**: [experiments/google-managed-prometheus/COST-ANALYSIS.md](https://github.com/openshift-online/gcp-hcp/blob/main/experiments/google-managed-prometheus/COST-ANALYSIS.md) - Comprehensive cost breakdown at 10, 100, 500, 1,000 HCP scale, ROSA filtering baseline, alerting costs, recording rules impact estimates
+- **Cost control strategy**: [experiments/google-managed-prometheus/GMP-COST-CONTROL-STRATEGY.md](https://github.com/openshift-online/gcp-hcp/blob/main/experiments/google-managed-prometheus/GMP-COST-CONTROL-STRATEGY.md) - Prometheus-level filtering implementation, allowlist examples, two-tier collection architecture, verification procedures
 
 **Reference Dashboards:**
 - Argo CD monitoring dashboard (operational)
@@ -195,4 +195,4 @@ The GCP-343 spike deliverables provide detailed implementation guidance:
 
 **Related Documentation:**
 - Jira Epic: https://issues.redhat.com/browse/GCP-343 - Observability Spike for HCP Monitoring
-- Experiment Repository: [gcp-hcp/experiments/google-managed-prometheus/](https://github.com/openshift/gcp-hcp/tree/main/experiments/google-managed-prometheus)
+- Experiment Repository: [gcp-hcp/experiments/google-managed-prometheus/](https://github.com/openshift-online/gcp-hcp/tree/main/experiments/google-managed-prometheus)
