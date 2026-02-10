@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/component: monitoring
   annotations:
     # Workload Identity binding
-    iam.gke.io/gcp-service-account: prometheus-agent-hcp@int-mgt-us-c1-yjiv.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: prometheus-agent-hcp@<GCP_PROJECT_ID>.iam.gserviceaccount.com
 
 ---
 # ClusterRole for cluster-wide Prometheus
@@ -103,9 +103,9 @@ spec:
 
   # External labels (will be added to all metrics)
   externalLabels:
-    project_id: "int-mgt-us-c1-yjiv"
-    location: "us-central1"
-    cluster: "int-mgt-us-c1-yjiv-gke"
+    project_id: "<GCP_PROJECT_ID>"
+    location: "<GCP_REGION>"
+    cluster: "<GKE_CLUSTER_NAME>"
     prometheus: "cluster-wide"
 
   # ServiceMonitor selector - select ALL ServiceMonitors cluster-wide

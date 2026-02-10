@@ -31,6 +31,7 @@ GCP HCP requires platform-wide observability for HyperShift Hosted Control Plane
 - Self-managed Prometheus operational overhead is acceptable vs fully-managed GMP collection
 - Grafana dashboards will be managed as code via GitOps (ArgoCD)
 - Recording rules can reduce alerting query costs significantly
+- Google's Prometheus fork respects standard `metric_relabel_configs` and `remoteWrite` `writeRelabelConfigs` for GCM export filtering
 
 ## Alternatives Considered
 
@@ -153,7 +154,6 @@ The GCP-343 spike deliverables provide detailed implementation guidance:
 - **Technical comparison and architecture**: [experiments/google-managed-prometheus/README.md](https://github.com/openshift/gcp-hcp/blob/main/experiments/google-managed-prometheus/README.md) - Detailed comparison of GMP PodMonitoring vs cluster-wide Prometheus, network policy requirements, recording rules comparison
 - **Cost analysis and projections**: [experiments/google-managed-prometheus/COST-ANALYSIS.md](https://github.com/openshift/gcp-hcp/blob/main/experiments/google-managed-prometheus/COST-ANALYSIS.md) - Comprehensive cost breakdown at 10, 100, 500, 1,000 HCP scale, ROSA filtering baseline, alerting costs, recording rules impact estimates
 - **Cost control strategy**: [experiments/google-managed-prometheus/GMP-COST-CONTROL-STRATEGY.md](https://github.com/openshift/gcp-hcp/blob/main/experiments/google-managed-prometheus/GMP-COST-CONTROL-STRATEGY.md) - Prometheus-level filtering implementation, allowlist examples, two-tier collection architecture, verification procedures
-- **Meeting notes and decisions**: [experiments/google-managed-prometheus/MEETING-NOTES.txt](https://github.com/openshift/gcp-hcp/blob/main/experiments/google-managed-prometheus/MEETING-NOTES.txt) - Spike deliverables walkthrough, acceptance criteria validation
 
 **Reference Dashboards:**
 - Argo CD monitoring dashboard (operational)
