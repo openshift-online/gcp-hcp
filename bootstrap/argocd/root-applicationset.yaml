@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: root-app
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: root-app
+    app.kubernetes.io/part-of: gke-bootstrap
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+  template:
+    metadata:
+      name: 'root-app-{{ .name }}'
+      labels:
+        app.kubernetes.io/name: root-app
+        app.kubernetes.io/instance: '{{ .name }}'
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      project: default
+      source:
+        repoURL: '{{ index .metadata.annotations "meta_git_repo" }}'
+        targetRevision: '{{ index .metadata.annotations "meta_git_revision" }}'
+        # Path computed by Terraform and stored in cluster secret annotations
+        path: '{{ index .metadata.annotations "meta_argocd_path" }}'
+        helm:
+          # Pass all meta_ prefixed annotations as Helm values (prefix stripped)
+          values: |
+            {{- range $key, $value := .metadata.annotations }}
+            {{- if hasPrefix "meta_" $key }}
+            {{ trimPrefix "meta_" $key }}: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+      destination:
+        server: '{{ .server }}'
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true

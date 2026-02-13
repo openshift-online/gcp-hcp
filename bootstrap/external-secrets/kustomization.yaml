@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - controller.yaml
+
+# controller.yaml is generated from the external-secrets Helm chart.
+# To update: ./update.sh <VERSION>
+# To check versions: ./update.sh
+
+# TEST: Override image to test projectid metadata fallback fix
+# Remove this after merging upstream fix
+images:
+  - name: ghcr.io/external-secrets/external-secrets
+    newName: quay.io/patmarti/external-secrets
+    digest: sha256:19288a5c140093ba864f30defbd0d80bfd5e2a8ae4d435ba7dbc48b54b974b73

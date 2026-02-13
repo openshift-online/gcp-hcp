@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-metadata-annotations-template
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cluster-metadata-annotations-template
+    app.kubernetes.io/part-of: gke-bootstrap
+data:
+  # Template for dynamically creating annotations from all meta_ fields in Secret Manager
+  # This iterates over ALL fields from Secret Manager and creates annotations for metadata fields
+  annotations: |-
+    {{- range $key, $value := . }}
+    {{- if hasPrefix "meta_" $key }}
+    {{ $key }}: "{{ $value }}"
+    {{- end }}
+    {{- end }}

@@ -1,0 +1,69 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Set namespace for all namespaced ArgoCD resources
+# The install.yaml doesn't include namespace, so kustomize adds it
+namespace: argocd
+
+resources:
+  - namespace.yaml
+  - install.yaml
+  - service-account.yaml
+  - secret-store.yaml
+  - cluster-metadata-annotations-template.yaml
+  - external-secret-argocd-cluster.yaml
+  - external-secret-git-credentials.yaml
+  - root-applicationset.yaml
+
+# Add mutation: ignore annotation to configmaps that will be managed by argocd-config
+# ConfigSync creates them initially, but allows ArgoCD to freely update them
+# This prevents resource fights between ConfigSync and ArgoCD
+patches:
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-cm
+        annotations:
+          client.lifecycle.config.k8s.io/mutation: ignore
+    target:
+      kind: ConfigMap
+      name: argocd-cm
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-cmd-params-cm
+        annotations:
+          client.lifecycle.config.k8s.io/mutation: ignore
+    target:
+      kind: ConfigMap
+      name: argocd-cmd-params-cm
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-rbac-cm
+        annotations:
+          client.lifecycle.config.k8s.io/mutation: ignore
+    target:
+      kind: ConfigMap
+      name: argocd-rbac-cm
+  # Allow argocd-config to patch the Service (adds appProtocol: HTTPS)
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: argocd-server
+        annotations:
+          client.lifecycle.config.k8s.io/mutation: ignore
+    target:
+      kind: Service
+      name: argocd-server
+  # Seed dex.config at bootstrap so argocd-server initializes its OIDC
+  # http.Client with the correct TLS settings before argocd-config delivers
+  # the full argocd-cm.  See https://github.com/argoproj/argo-cd/issues/26345
+  - path: argocd-cm-patch.yaml
+    target:
+      kind: ConfigMap
+      name: argocd-cm
