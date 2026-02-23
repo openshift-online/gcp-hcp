@@ -26,6 +26,7 @@ Configure ExternalDNS for HyperShift GCP e2e tests to resolve hosted cluster API
    - [ ] Create SA: `external-dns@gcp-hcp-hypershift-ci.iam.gserviceaccount.com`
    - [ ] Grant `roles/dns.admin` on the `gcp-hcp-hypershift-ci` project
    - [ ] Grant the `hypershift-ci` SA `roles/iam.serviceAccountAdmin` on the ExternalDNS SA (required so CI jobs can add/remove WIF bindings on it during setup and deprovision)
+   - [ ] Note: CI jobs create two WIF bindings per test run: `roles/iam.workloadIdentityUser` and `roles/iam.serviceAccountTokenCreator` (both required for cross-project WIF token generation)
 
 3. **Export zone outputs** (modify: `terraform/modules/hypershift-ci/outputs.tf`):
    - [ ] Export `ci_dns_zone_name_servers`
@@ -73,18 +74,18 @@ Configure ExternalDNS for HyperShift GCP e2e tests to resolve hosted cluster API
 **Tasks**:
 
 1. **Update hypershift-install** (modify: `ci-operator/step-registry/hypershift/install/hypershift-install-commands.sh`):
-   - [ ] Change `--external-dns-domain-filter=dummy` to `--external-dns-domain-filter=hypershift-ci.gcp-hcp.openshiftapps.com`
-   - [ ] After install, create WIF binding on ExternalDNS GCP SA for the ephemeral cluster
+   - [ ] Add `--external-dns-domain-filter=hypershift-ci.gcp-hcp.openshiftapps.com` and `--external-dns-google-project=gcp-hcp-hypershift-ci` to `hypershift install`
+   - [ ] After install, create WIF bindings on ExternalDNS GCP SA for the ephemeral cluster (both `roles/iam.workloadIdentityUser` and `roles/iam.serviceAccountTokenCreator` — both required for cross-project WIF)
    - [ ] Annotate K8s SA `external-dns` in namespace `hypershift` with GCP SA email
-   - [ ] Patch ExternalDNS deployment with `--google-project=gcp-hcp-hypershift-ci`, `--txt-owner-id=${CLUSTER_NAME}`, `--txt-suffix=-external-dns`
-   - [ ] Wait for ExternalDNS rollout
+   - [ ] Restart ExternalDNS to pick up WIF credentials
 
 2. **Update base domain** (modify: `ci-operator/step-registry/hypershift/gcp/run-e2e/hypershift-gcp-run-e2e-commands.sh`):
    - [ ] Change `BASE_DOMAIN="in.${CLUSTER_NAME}.int.gcp-hcp.devshift.net"` to `BASE_DOMAIN="in.${CLUSTER_NAME}.hypershift-ci.gcp-hcp.openshiftapps.com"`
+   - [ ] Restore `--e2e.external-dns-domain` flag (required for Route hostname generation on non-OpenShift clusters)
 
-3. **Clean up DNS records and WIF binding** (modify: `ci-operator/step-registry/gke/deprovision/gke-deprovision-commands.sh`):
+3. **Clean up DNS records and WIF bindings** (modify: `ci-operator/step-registry/gke/deprovision/gke-deprovision-commands.sh`):
    - [ ] Delete all DNS records matching `*.in.${CLUSTER_NAME}.hypershift-ci.gcp-hcp.openshiftapps.com` from the CI zone via `gcloud dns record-sets` (catches orphans if ExternalDNS didn't reconcile before shutdown)
-   - [ ] Remove WIF binding during cleanup (`|| true` to avoid blocking)
+   - [ ] Remove both WIF bindings during cleanup (`|| true` to avoid blocking)
 
 4. **Run `make update`** to regenerate Prow job configs
 

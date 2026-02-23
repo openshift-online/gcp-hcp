@@ -56,7 +56,7 @@ Use a dedicated public Cloud DNS zone (`hypershift-ci.gcp-hcp.openshiftapps.com`
 
 * CI ExternalDNS SA (`external-dns@gcp-hcp-hypershift-ci`) only has `roles/dns.admin` on the CI project — cannot modify DNS in any other environment
 * `hypershift-ci` SA has `roles/iam.serviceAccountAdmin` scoped to the CI ExternalDNS SA only — this allows CI jobs to create and remove WIF bindings per test run, without granting IAM permissions on any other service account
-* WIF bindings are scoped to ephemeral GKE cluster identities — cannot impersonate production SAs
+* Cross-project WIF requires two roles per binding: `roles/iam.workloadIdentityUser` and `roles/iam.serviceAccountTokenCreator` — both scoped to the CI ExternalDNS SA only, cannot impersonate production SAs
 * NS delegation in the commons `gcp-hcp.openshiftapps.com` zone is a static, read-only record from CI's perspective
 
 ### Operability:
