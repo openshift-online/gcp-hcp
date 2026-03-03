@@ -42,6 +42,119 @@ type GCPServiceAccountsEmails struct {
 make api
 ```
 
+### Step 1b: HyperShift CLI Flag
+
+**File:** `cmd/cluster/gcp/create.go`
+**Test:** `cmd/cluster/gcp/create_test.go`
+
+Add a CLI flag so users can pass the new service account email when creating a cluster via `hypershift create cluster gcp`. Without this, the `+required` API field cannot be set through the CLI, producing invalid HostedCluster resources.
+
+Follow the pattern of the existing `--cloud-controller-service-account` flag:
+
+1. Add a flag constant:
+```go
+const flagCloudControllerServiceAccount = "cloud-controller-service-account"
+// NEW:
+const flag<ServiceAccount>ServiceAccount = "<service-account>-service-account"
+```
+
+2. Add the field to `RawCreateOptions` and `ValidatedCreateOptions`:
+```go
+type RawCreateOptions struct {
+    // ...
+    <ServiceAccount>ServiceAccount string
+}
+```
+
+3. Register the flag:
+```go
+cmd.Flags().StringVar(&opts.<ServiceAccount>ServiceAccount, flag<ServiceAccount>ServiceAccount, "", "GCP service account email for <Component>")
+```
+
+4. Add required validation in `ValidateCreateOptions()`:
+```go
+if len(opts.<ServiceAccount>ServiceAccount) == 0 {
+    return nil, fmt.Errorf("--%s is required", flag<ServiceAccount>ServiceAccount)
+}
+```
+
+5. Map to the HostedCluster spec in `CompleteCreateOptions()`:
+```go
+hostedCluster.Spec.Platform.GCP.WorkloadIdentity.ServiceAccountsEmails.<ServiceAccount> = opts.<ServiceAccount>ServiceAccount
+```
+
+6. Add test cases in `cmd/cluster/gcp/create_test.go`:
+   - Test that the flag value is correctly set in the HostedCluster spec
+   - Test that a missing flag produces the expected error
+
+### Step 1c: HyperShift Operator Credential Reconciliation
+
+**File:** `hypershift-operator/controllers/hostedcluster/internal/platform/gcp/gcp.go`
+**Test:** `hypershift-operator/controllers/hostedcluster/internal/platform/gcp/gcp_test.go`
+
+Add credential secret creation and validation for the new service account. Follow the pattern of `CloudControllerCredsSecret`:
+
+1. Add a secret constructor function:
+```go
+func <ServiceAccount>CredsSecret(controlPlaneNamespace string) *corev1.Secret {
+    return &corev1.Secret{
+        ObjectMeta: metav1.ObjectMeta{
+            Namespace: controlPlaneNamespace,
+            Name:      "<service-account>-creds",
+        },
+    }
+}
+```
+
+2. Add the entry to the `credentialSecrets` map in `ReconcileCredentials()`:
+```go
+credentialSecrets := map[string]*corev1.Secret{
+    // existing entries...
+    hcluster.Spec.Platform.GCP.WorkloadIdentity.ServiceAccountsEmails.<ServiceAccount>: <ServiceAccount>CredsSecret(controlPlaneNamespace),
+}
+```
+
+3. Add validation in `validateWorkloadIdentityConfiguration()`:
+```go
+if wif.ServiceAccountsEmails.<ServiceAccount> == "" {
+    return fmt.Errorf("<service account> service account email is required")
+}
+```
+
+4. Update tests:
+   - Add a test constant: `test<ServiceAccount>GSA`
+   - Add the field to `validHostedCluster()` helper
+   - Add the field to all test fixtures that build `GCPServiceAccountsEmails`
+   - Add a test case for missing service account validation
+
+### Step 1d: HyperShift E2E Tests
+
+**Files:**
+- `test/e2e/create_cluster_test.go`
+- `test/e2e/v2/tests/api_ux_validation_test.go`
+
+1. Add the new field to the `ServiceAccountsEmails` fixture in `test/e2e/create_cluster_test.go`:
+```go
+ServiceAccountsEmails: hyperv1.GCPServiceAccountsEmails{
+    NodePool:        "nodepool@my-project-123.iam.gserviceaccount.com",
+    ControlPlane:    "controlplane@my-project-123.iam.gserviceaccount.com",
+    CloudController: "cloudcontroller@my-project-123.iam.gserviceaccount.com",
+    Storage:         "storage@my-project-123.iam.gserviceaccount.com",
+    <ServiceAccount>: "<serviceaccount>@my-project-123.iam.gserviceaccount.com",  // NEW
+}
+```
+
+2. Add a validation test entry in `test/e2e/v2/tests/api_ux_validation_test.go` to the `DescribeTable` block where other GSA fields are validated:
+```go
+Entry("it should reject invalid <ServiceAccount> service account email",
+    func(spec *hyperv1.GCPPlatformSpec) {
+        spec.WorkloadIdentity.ServiceAccountsEmails.<ServiceAccount> = "invalid-<service-account>-email"
+    },
+    "<serviceAccount> in body"),
+```
+
+This follows the pattern used by `CloudController`, `Storage`, `ControlPlane`, and `NodePool`.
+
 ---
 
 ## Step 2: HyperShift IAM Bindings
@@ -182,6 +295,9 @@ After making all changes:
 
 - [ ] `make api` runs successfully in hypershift
 - [ ] `make verify` passes in hypershift
+- [ ] `hypershift create cluster gcp --help` shows the new `--<service-account>-service-account` flag
+- [ ] E2E test fixtures in `test/e2e/create_cluster_test.go` include the new field
+- [ ] API UX validation test in `test/e2e/v2/tests/api_ux_validation_test.go` includes the new field
 - [ ] `kustomize/hypershift/update.sh` runs successfully in gcp-hcp-infra
 - [ ] `hypershift.yaml` in gcp-hcp-infra contains the new SA field in the CRD schema
 - [ ] `go build ./...` works in cls-backend
@@ -192,8 +308,9 @@ After making all changes:
 
 1. Run `hypershift create iam gcp` - should create the new service account
 2. Check GCP console for new service account with correct IAM bindings
-3. Create a cluster via CLS - should include new SA email in HostedCluster spec
-4. Verify the component can authenticate using WIF
+3. Run `hypershift create cluster gcp` with the new flag - should set the field in the HostedCluster spec
+4. Create a cluster via CLS - should include new SA email in HostedCluster spec
+5. Verify the component can authenticate using WIF
 
 ---
 
@@ -223,6 +340,12 @@ git checkout -b add-<service-account>-sa
 # Stage changes
 git add api/hypershift/v1beta1/gcp.go
 git add cmd/infra/gcp/iam-bindings.json
+git add cmd/cluster/gcp/create.go
+git add cmd/cluster/gcp/create_test.go
+git add hypershift-operator/controllers/hostedcluster/internal/platform/gcp/gcp.go
+git add hypershift-operator/controllers/hostedcluster/internal/platform/gcp/gcp_test.go
+git add test/e2e/create_cluster_test.go
+git add test/e2e/v2/tests/api_ux_validation_test.go
 git add client/  # Generated client code
 git add vendor/  # Vendored API changes
 
@@ -246,10 +369,13 @@ gh pr create --title "feat(gcp): add <ServiceAccount> service account for <Compo
   --body "## Summary
 - Add \`<ServiceAccount>\` field to \`GCPServiceAccountsEmails\` struct
 - Add IAM bindings for <Component> with required roles
-- Update generated client code
+- Add \`--<service-account>-service-account\` CLI flag to \`hypershift create cluster gcp\`
+- Add credential secret and WIF validation in hypershift-operator
+- Update generated client code and tests
 
 ## Test plan
 - [ ] \`make verify\` passes
+- [ ] \`hypershift create cluster gcp\` accepts the new flag
 - [ ] \`hypershift create iam gcp\` creates the new service account
 - [ ] New service account has correct IAM role bindings
 
