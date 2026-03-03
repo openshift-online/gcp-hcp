@@ -1,6 +1,15 @@
+---
+name: Add-GCP-Service-Account
+description: >
+  Use when adding a new GCP service account for Workload Identity Federation (WIF)
+  in HyperShift and related GCP HCP repositories. Covers API types, IAM bindings,
+  CRD regeneration, CLS backend/controller propagation, and CLI updates across
+  hypershift, gcp-hcp-infra, cls-backend, cls-controller, and gcp-hcp-cli.
+---
+
 # Add GCP Service Account for WIF
 
-This command documents the steps required to add a new GCP service account for Workload Identity Federation (WIF) in HyperShift and related projects.
+This skill documents the steps required to add a new GCP service account for Workload Identity Federation (WIF) in HyperShift and related projects.
 
 ## Overview
 
@@ -359,8 +368,6 @@ IAM roles:
 - roles/...
 - roles/...
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)
-
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # Push and create PR
@@ -379,7 +386,7 @@ gh pr create --title "feat(gcp): add <ServiceAccount> service account for <Compo
 - [ ] \`hypershift create iam gcp\` creates the new service account
 - [ ] New service account has correct IAM role bindings
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
+Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ### PR 2: gcp-hcp-infra
@@ -434,8 +441,6 @@ git commit -m "feat: add <ServiceAccount>Email to WIFServiceAccountsRef
 
 Support the new <ServiceAccount> service account for GCP clusters.
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)
-
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # Push and create PR
@@ -448,7 +453,7 @@ the new <Component> service account for GCP HyperShift clusters.
 ## Dependencies
 - Requires hypershift PR: <link>
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
+Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ### PR 4: CLS Controller (apahim/cls-controller)
@@ -471,8 +476,6 @@ git commit -m "feat: add <serviceAccount> to HostedCluster template
 Include the new <ServiceAccount> service account in the HostedCluster
 workloadIdentity configuration.
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)
-
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # Push and create PR
@@ -486,7 +489,7 @@ Add \`<serviceAccount>\` field to the HostedCluster template's
 - Requires hypershift PR: <link>
 - Requires cls-backend PR: <link>
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
+Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ### PR 5: gcphcp CLI (apahim/gcp-hcp-cli)
@@ -508,8 +511,6 @@ git commit -m "feat: add <service-account> to SERVICE_ACCOUNTS mapping
 
 Support the new <ServiceAccount> service account from hypershift IAM output.
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)
-
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
 # Push and create PR
@@ -522,7 +523,7 @@ gh pr create --title "feat: add <service-account> to SERVICE_ACCOUNTS mapping" \
 ## Dependencies
 - Requires hypershift PR: <link>
 
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
+Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ---

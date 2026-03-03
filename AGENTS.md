@@ -31,6 +31,20 @@ The skill is automatically invoked when:
 
 For detailed MCP tool integration examples, see the upstream skill documentation.
 
+## Architecture Skill
+
+The `gcp-hcp:architecture` skill provides architectural context and design decisions for agents working on GCP HCP code. It is auto-invoked when working on GCP platform changes and can be manually invoked with an optional topic filter.
+
+Topics: networking, identity, observability, infrastructure, ingress, storage, operators, testing, automation, naming, dns, fleet.
+
+## Repository Knowledge Map
+
+- **Design Decisions**: `design-decisions/` — 26 architectural decisions with rationale and trade-offs
+- **Implementation Plans**: `implementation-plans/` — active feature implementation plans
+- **Architecture**: `experiments/arch/` — L1 Context, L2 Container, L3 Component decomposition
+- **Studies**: `studies/` — deep-dive analysis (e.g., WIF SA key management)
+- **Quality Standards**: `docs/definition-of-done.md`, `docs/jira-story-template.md`
+
 # Security Rules
 
 ### Security Principles
