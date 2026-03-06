@@ -28,8 +28,8 @@ This repository is also a Claude Code plugin that provides skills for agents wor
 Replace `<path-to-local-clone>` with the path to your local clone of this repo (e.g., `~/go/src/github.com/openshift-online/gcp-hcp`):
 
 ```bash
-/plugin marketplace add <path-to-local-clone>
-/plugin install gcp-hcp@gcp-hcp
+claude plugin marketplace add <path-to-local-clone>
+claude plugin install gcp-hcp@gcp-hcp
 ```
 
 Skills are then available in every session, from any repository.
@@ -37,8 +37,8 @@ Skills are then available in every session, from any repository.
 **Updating** (after pulling new changes):
 
 ```bash
-/plugin marketplace update gcp-hcp
-/plugin update gcp-hcp@gcp-hcp
+claude plugin marketplace update gcp-hcp
+claude plugin update gcp-hcp@gcp-hcp
 ```
 
 **Option 2: Per-session**
