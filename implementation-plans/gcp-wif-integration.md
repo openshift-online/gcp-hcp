@@ -1,5 +1,10 @@
 # GCP Hosted Clusters WIF Integration Design
 
+**Date**:
+
+2026-03-02 - update plan to match implementation
+2025-10-30 (original)
+
 ## Overview
 
 This document outlines the design of the GCP Workload Identity Federation (WIF) workflow for HyperShift GCP Hosted Clusters. The approach removes the need for long-lived service account keys by using credential files that reference Google Service Accounts and Kubernetes service account tokens.
@@ -50,14 +55,14 @@ hypershift create iam gcp [flags]
 |------|-------------|---------------|
 | `--infra-id` | Cluster infrastructure identifier | Used as prefix for WI pool, provider, and GSA names |
 | `--project-id` | GCP Project ID where resources will be created | Must have required APIs enabled |
-| `--cluster-oidc-jwks-file` | Path to a local JSON file containing OIDC provider's public key in JWKS format | Required for configuring the Workload Identity Provider |
+| `--oidc-jwks-file` | Path to a local JSON file containing OIDC provider's public key in JWKS format | Required for configuring the Workload Identity Provider |
 
 #### Optional Arguments
 
 | Flag | Default | Description | GCP Specifics |
 |------|---------|-------------|---------------|
-| `--additional-labels` | none | Additional labels for created resources | GCP resource labeling for organization |
 | `--output-file` | stdout | Path to output JSON file with GSA details | Contains GSA emails and WIF configuration |
+| `--oidc-issuer-url` | generated | Custom OIDC issuer URL | Defaults to `https://hypershift-{infra-id}-oidc` |
 
 
 #### Overview of operations 
@@ -71,7 +76,7 @@ sequenceDiagram
     participant WIP as Workload Identity Pool
     participant GSA as Google Service Accounts
     
-    User->>CLI: hypershift create iam gcp<br/>--infra-id my-cluster<br/>--project-id my-project<br/>--cluster-oidc-jwks-file jwks.json
+    User->>CLI: hypershift create iam gcp<br/>--infra-id my-cluster<br/>--project-id my-project<br/>--oidc-jwks-file jwks.json
     
     Note over CLI,GSA: Validation Phase
     CLI->>GCP: Validate project access & APIs
@@ -79,33 +84,30 @@ sequenceDiagram
     CLI->>CLI: Parse JWKS file
     
     Note over CLI,GSA: Workload Identity Setup
-    CLI->>WIP: Create WI Pool (my-cluster-wi-pool)
+    CLI->>WIP: Create WI Pool ({infra-id}-wi-pool)
     WIP-->>CLI: Pool created with ID
-    
+
     CLI->>WIP: Create OIDC Provider with JWKS
     WIP-->>CLI: Provider configured
-    
+
     CLI->>WIP: Configure attribute mappings<br/>(namespace, service account)
     WIP-->>CLI: Mappings configured
-    
+
     Note over CLI,GSA: Service Account Creation
-    
-    CLI->>GSA: Create storage GSA
-    GSA-->>CLI: my-cluster-storage@project.iam.gserviceaccount.com
-        
-    CLI->>GSA: Create additional component GSAs...
+
+    CLI->>GSA: Create nodepool-mgmt GSA
+    GSA-->>CLI: {infra-id}-nodepool-mgmt@project.iam.gserviceaccount.com
+
+    CLI->>GSA: Create ctrlplane-op, cloud-controller,<br/>gcp-pd-csi, image-registry GSAs
     GSA-->>CLI: All GSAs created
     
     Note over CLI,GSA: Role Assignment
      
-    CLI->>GCP: Bind roles/compute.storageAdmin to storage GSA
-    GCP-->>CLI: Role bound
-    
-    CLI->>GCP: Bind additional roles to GSAs...
+    CLI->>GCP: Bind component-specific roles to each GSA
     GCP-->>CLI: All roles assigned
     
     Note over CLI,GSA: Identity Federation
-    CLI->>GCP: Create WIF binding for storage K8s SA → storage GSA
+    CLI->>GCP: Create WIF binding for gcp-pd-csi K8s SA → gcp-pd-csi GSA
     GCP-->>CLI: Binding created
     
     CLI->>GCP: Create WIF bindings for all K8s SAs...
@@ -116,7 +118,7 @@ sequenceDiagram
     CLI-->>User: iam-output.json
 ```
 
-##### sample out Format
+##### Sample Output Format
 
 ```json
 {
@@ -129,21 +131,21 @@ sequenceDiagram
     "audience": "//iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/my-cluster-wi-pool/providers/my-cluster-k8s-provider"
   },
   "serviceAccounts": {
-    "storageGSA": "my-cluster-storage-hypershift@my-gcp-project.iam.gserviceaccount.com",
-    "cloudControllerGSA": "my-cluster-cloud-controller-hypershift@my-gcp-project.iam.gserviceaccount.com",
-    "nodePoolManagementGSA": "my-cluster-node-pool-hypershift@my-gcp-project.iam.gserviceaccount.com",
-    "controlPlaneOperatorGSA": "my-cluster-control-plane-hypershift@my-gcp-project.iam.gserviceaccount.com",
-    ...
-    ...
+    "nodepool-mgmt": "my-cluster-nodepool-mgmt@my-gcp-project.iam.gserviceaccount.com",
+    "ctrlplane-op": "my-cluster-ctrlplane-op@my-gcp-project.iam.gserviceaccount.com",
+    "cloud-controller": "my-cluster-cloud-controller@my-gcp-project.iam.gserviceaccount.com",
+    "gcp-pd-csi": "my-cluster-gcp-pd-csi@my-gcp-project.iam.gserviceaccount.com",
+    "image-registry": "my-cluster-image-registry@my-gcp-project.iam.gserviceaccount.com"
   }
 }
 ```
 
 ##### Notes
-- WIF pool provider is configured with the specified jwks file, making the issuer url  irrelevant
+- WIF pool provider is configured with the specified jwks file, making the issuer url irrelevant (a custom issuer URL can still be provided via `--oidc-issuer-url`)
 - Google Service Accounts are created as needed for each cluster component/operator that needs to access GCP APIs
-- GSA will be applied this naming convention: `{infra-id}-{component}@{project}.iam.gserviceaccount.com`
-- To start with, pre-defined admin level roles will be to GSA, this will enhanced to granular roles and permissions in later phases
+- GSA naming convention: `{infra-id}-{component}@{project}.iam.gserviceaccount.com`
+- Service account definitions and role bindings are loaded from an embedded `iam-bindings.json` file
+- Five service accounts are created: `nodepool-mgmt`, `ctrlplane-op`, `cloud-controller`, `gcp-pd-csi`, `image-registry`
 
 
 
@@ -158,10 +160,10 @@ The cluster creation process requires two key inputs from the IAM infrastructure
 
 **Key Integration Steps:**
 
-1. **OIDC Configuration**: The HostedCluster specification includes reference to the oidc private key  (provided via `HostedCluster.spec.serviceAccountSigningKey`). The cluster is configured with this private key to sign service account JWT tokens.
-2. **Credential Reference**: The HostedCluster specification also includes references to the Google Service Account emails created during IAM infrastructure setup
-3. **Credential File Generation**: For each cluster component (storage, ingress, etc.), the operator generates GCP credential files that combine the GSA email with Workload Identity Federation configuration  
-4. **Secret Creation**: These credential files are stored as Kubernetes secrets in the control plane namespace, making them available to cluster operators
+1. **OIDC Configuration**: The HostedCluster specification includes reference to the oidc private key (provided via `HostedCluster.spec.serviceAccountSigningKey`). The cluster is configured with this private key to sign service account JWT tokens.
+2. **Credential Reference**: The HostedCluster specification includes WIF pool configuration (`WorkloadIdentity.ProjectNumber`, `PoolID`, `ProviderID`) and individual service account emails (`WorkloadIdentity.ServiceAccountsEmails`) populated via individual CLI flags
+3. **Credential File Generation**: For each cluster component, the operator generates GCP `external_account` credential files that combine the GSA email with Workload Identity Federation configuration via `buildGCPWorkloadIdentityCredentials()`
+4. **Secret Creation**: These credential files are stored as Kubernetes secrets (with key `application_default_credentials.json`) in the control plane namespace: `node-management-creds`, `control-plane-operator-creds`, `cloud-controller-manager-creds`, `gcp-pd-cloud-credentials`, `image-registry-creds`
 5. **Automatic Authentication**: Once deployed, cluster operators automatically authenticate to GCP using their mounted credential files and OIDC-signed service account tokens, without requiring any long-lived keys
 
 
@@ -176,17 +178,17 @@ sequenceDiagram
     
     Note over User,CPO: Cluster Creation with WIF Integration
     
-    User->>CLI: hypershift create cluster gcp<br/>--iam-json iam-output.json<br/>--private-key cluster.pem
-    
-    CLI->>HO: Create HostedCluster with<br/>GSA references from iam-json and oidc privatekey 
+    User->>CLI: hypershift create cluster gcp<br/>--workload-identity-project-number ...<br/>--workload-identity-pool-id ...<br/>--workload-identity-provider-id ...<br/>--node-pool-service-account ...<br/>--control-plane-service-account ...<br/>(+ cloud-controller, storage, image-registry SAs)
+
+    CLI->>HO: Create HostedCluster with<br/>WorkloadIdentity config and SA emails 
     
     Note over HO,CPO: Control Plane Secret Creation
     
     HO->>HO: ReconcileCredentials()<br/>Read GSA emails from HostedCluster spec
-    
-    loop For each component (storage, ingress, etc.)
-        HO->>HO: Build GCP credential file<br/>with GSA email + WIF config
-        HO->>HO: Create secret in control plane namespace<br/>(e.g., cloud-controller-creds)
+
+    loop For each component (nodePool, controlPlane, cloudController, storage, imageRegistry)
+        HO->>HO: buildGCPWorkloadIdentityCredentials()<br/>with GSA email + WIF config
+        HO->>HO: Create secret in control plane namespace<br/>(e.g., cloud-controller-manager-creds)
     end
     
     HO->>CPO: Deploy Control Plane Operator<br/>with credential secrets mounted
@@ -243,14 +245,14 @@ sequenceDiagram
     Note over Pod,SVC: Credential File Approach (similar to AWS)
     
     Pod->>FS: Read GCP credentials file
-    Note over FS: /var/run/secrets/gcp/credentials
+    Note over FS: /home/.gcp/application_default_credentials.json
     FS-->>Pod: service_account_email + token_url
     
     Pod->>FS: Read service account token
     Note over FS: /var/run/secrets/openshift/serviceaccount/token
     FS-->>Pod: JWT token
     
-    Pod->>GCP: Initialize SDK with credentials file
+    Pod->>GCP: Initialize SDK via GOOGLE_APPLICATION_CREDENTIALS
     GCP->>STS: GenerateAccessToken with K8s JWT
     Note over GCP,STS: GSA email + JWT token
     
@@ -266,13 +268,14 @@ sequenceDiagram
 
 ## Implementation Plan
 
-### Phase 1: 
+### Phase 1: (IMPLEMENTED)
 1. Implement `cmd/infra/gcp/create_iam.go` - Workload Identity pool and GSA creation
-2. Implement `hypershift-operator/controllers/hostedcluster/internal/platform/gcp/gcp.go` - Credential management 
-3. Extend `api/hypershift/v1beta1/gcp.go` - Add RolesRef struct for WIF/GSA
-4. Extend `cmd/cluster/gcp/create.go` - Cluster creation with GCP to include RolesRef
-5. Implement `cmd/infra/gcp/destroy_iam.go` - Cleanup process
-6. Add comprehensive testing for each of the above
+2. Implement `cmd/infra/gcp/iam.go` - Core IAM manager with `iam-bindings.json` for embedded service account definitions
+3. Implement `hypershift-operator/controllers/hostedcluster/internal/platform/gcp/gcp.go` - Credential management (`ReconcileCredentials`, `buildGCPWorkloadIdentityCredentials`)
+4. Extend `api/hypershift/v1beta1/gcp.go` - Add `GCPWorkloadIdentityConfig` and `GCPServiceAccountsEmails` types
+5. Extend `cmd/cluster/gcp/create.go` - Cluster creation with individual WIF flags (`--workload-identity-*`, `--*-service-account`)
+6. Implement `cmd/infra/gcp/destroy_iam.go` - Cleanup process
+7. Add comprehensive testing for each of the above (unit tests in all packages, E2E API validation)
 
 ### Phase 2: Future
 1. Assign minimal/granular permissions to roles
@@ -282,35 +285,62 @@ sequenceDiagram
 
 ### Required API Extensions
 
-Extend `GCPPlatformSpec` to include GSA references (similar to AWS `AWSRolesRef`):
+Extend `GCPPlatformSpec` to include WIF configuration and GSA references (similar to AWS `AWSRolesRef`):
 
 ```go
-// Planned extension to api/hypershift/v1beta1/gcp.go
+// Implemented in api/hypershift/v1beta1/gcp.go
 type GCPPlatformSpec struct {
     Project string `json:"project"`
     Region  string `json:"region"`
-    
-    // rolesRef contains references to Google Service Accounts 
-    // created by the infrastructure setup.
-    // +optional
-    RolesRef GCPRolesRef `json:"rolesRef,omitempty"`
+
+    // networkConfig specifies VPC configuration for Private Service Connect
+    NetworkConfig GCPNetworkConfig `json:"networkConfig"`
+
+    // endpointAccess controls API endpoint accessibility
+    EndpointAccess GCPEndpointAccessType `json:"endpointAccess,omitempty"`
+
+    // resourceLabels applied to all GCP resources (max 60)
+    ResourceLabels []GCPResourceLabel `json:"resourceLabels,omitempty"`
+
+    // workloadIdentity configures Workload Identity Federation
+    // +required
+    // +immutable
+    WorkloadIdentity GCPWorkloadIdentityConfig `json:"workloadIdentity,omitzero"`
 }
 
-type GCPRolesRef struct {
-    
-    // storageGSA is the email of the Google Service Account for storage operations  
-    StorageGSA string `json:"storageGSA"`
-    
-    // nodePoolManagementGSA is the email of the Google Service Account for node pool management
-    NodePoolManagementGSA string `json:"nodePoolManagementGSA"`
-    
-    // controlPlaneOperatorGSA is the email of the Google Service Account for control plane operator
-    ControlPlaneOperatorGSA string `json:"controlPlaneOperatorGSA"`
-    
-    ...
-    ...
+type GCPWorkloadIdentityConfig struct {
+    // projectNumber is the numeric GCP project identifier for WIF
+    ProjectNumber string `json:"projectNumber,omitempty"`
+
+    // poolID is the workload identity pool identifier
+    PoolID string `json:"poolID,omitempty"`
+
+    // providerID is the workload identity provider identifier
+    ProviderID string `json:"providerID,omitempty"`
+
+    // serviceAccountsEmails contains Google Service Account emails
+    ServiceAccountsEmails GCPServiceAccountsEmails `json:"serviceAccountsEmails,omitzero"`
+}
+
+type GCPServiceAccountsEmails struct {
+    // nodePool: GSA email for CAPG controllers (NodePool management)
+    NodePool string `json:"nodePool,omitempty"`
+
+    // controlPlane: GSA email for Control Plane Operator
+    ControlPlane string `json:"controlPlane,omitempty"`
+
+    // cloudController: GSA email for Cloud Controller Manager
+    CloudController string `json:"cloudController,omitempty"`
+
+    // storage: GSA email for GCP PD CSI Driver
+    Storage string `json:"storage,omitempty"`
+
+    // imageRegistry: GSA email for Image Registry Operator
+    ImageRegistry string `json:"imageRegistry,omitempty"`
 }
 ```
+
+All WIF fields are **immutable** after cluster creation. Cross-field validation rules ensure all service account emails belong to the same GCP project as `spec.platform.gcp.project`.
 
 
 ## Cleanup Process
@@ -336,17 +366,11 @@ hypershift destroy iam gcp [flags]
 
 #### Optional Arguments
 
-| Flag | Default | Description | GCP Specifics |
-|------|---------|-------------|---------------|
-| `--dry-run` | `false` | Show what would be destroyed without actually deleting | Safety feature for validation |
-
-
 #### Safety Features
 
 - **Resource validation**: Verifies resources belong to the specified cluster before deletion
-- **Dry-run mode**: Shows what would be deleted without performing actual operations
 - **Error handling**: Continues cleanup even if some resources are already deleted
-- **Confirmation prompts**: Optional interactive confirmation for destructive operations
+- **Not-found detection**: Handles idempotent cleanup via `isNotFoundError()` checks
 
 
 

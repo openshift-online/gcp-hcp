@@ -2,8 +2,9 @@
 
 ***Scope***: GCP-HCP
 
-**Date**: 
+**Date**:
 
+2026-03-02 - update plan to match implementation
 2025-11-03 - update controller architecture
 2025-10-30 (original)
 
@@ -16,8 +17,8 @@ This document provides detailed implementation guidance for GCP Private Service 
 This implementation covers two main deliverables:
 
 **Card 1: GCP PSC API Types and CRD Infrastructure**
-- GCP platform types (GCPResourceReference, GCPEndpointAccessType, GCPNetworkConfigCustomer)
-- Extended GCPPlatformSpec with CustomerNetworkConfig
+- GCP platform types (GCPResourceReference, GCPEndpointAccessType, GCPNetworkConfig)
+- Extended GCPPlatformSpec with NetworkConfig
 - GCPPrivateServiceConnect CRD definition and creation
 - Feature gates, validation, scheme registration, and manifest generation
 
@@ -62,19 +63,19 @@ const (
 )
 ```
 
-**GCPNetworkConfigCustomer**
+**GCPNetworkConfig**
 ```go
-// GCPNetworkConfigCustomer specifies customer VPC configuration for GCP clusters
-// Customer-focused configuration for PSC endpoint creation
-type GCPNetworkConfigCustomer struct {
-    // Project is the customer's GCP project ID
-    Project string `json:"project"`
-
-    // Network is the customer's VPC network name
+// GCPNetworkConfig specifies VPC configuration for GCP clusters and Private Service Connect endpoint creation.
+type GCPNetworkConfig struct {
+    // Network is the VPC network name
+    // +required
+    // +immutable
     Network GCPResourceReference `json:"network"`
 
-    // PSCSubnet is the customer's subnet for PSC endpoint and workers
-    PSCSubnet GCPResourceReference `json:"pscSubnet"`
+    // PrivateServiceConnectSubnet is the subnet for Private Service Connect endpoints
+    // +required
+    // +immutable
+    PrivateServiceConnectSubnet GCPResourceReference `json:"privateServiceConnectSubnet"`
 }
 ```
 
@@ -85,13 +86,17 @@ type GCPNetworkConfigCustomer struct {
 type GCPPlatformSpec struct {
     // ... existing fields ...
 
-    // CustomerNetworkConfig specifies customer VPC configuration for PSC
-    // Required for customer VPC configuration in PSC deployments
-    CustomerNetworkConfig *GCPNetworkConfigCustomer `json:"customerNetworkConfig"`
+    // NetworkConfig specifies VPC configuration for Private Service Connect.
+    // Required for VPC configuration in Private Service Connect deployments.
+    // +required
+    NetworkConfig GCPNetworkConfig `json:"networkConfig"`
 
-    // EndpointAccess controls cluster endpoint accessibility
-    // Defaults to "Private"
-    EndpointAccess GCPEndpointAccessType `json:"endpointAccess"`
+    // EndpointAccess controls API endpoint accessibility for the HostedControlPlane on GCP.
+    // Allowed values: "Private", "PublicAndPrivate". Defaults to "Private".
+    // +kubebuilder:validation:Enum=PublicAndPrivate;Private
+    // +kubebuilder:default=Private
+    // +optional
+    EndpointAccess GCPEndpointAccessType `json:"endpointAccess,omitempty"`
 }
 ```
 
@@ -101,15 +106,17 @@ type GCPPlatformSpec struct {
 ```go
 // GCPPrivateServiceConnectSpec defines the desired state of PSC infrastructure
 type GCPPrivateServiceConnectSpec struct {
+    // LoadBalancerIP is the IP address of the Internal Load Balancer
+    LoadBalancerIP string `json:"loadBalancerIP"`
+
     // ForwardingRuleName is the name of the Internal Load Balancer forwarding rule
-    ForwardingRuleName string `json:"forwardingRuleName"`
+    ForwardingRuleName string `json:"forwardingRuleName,omitempty"`
 
     // ConsumerAcceptList specifies which customer projects can connect
     ConsumerAcceptList []string `json:"consumerAcceptList"`
 
     // NATSubnet is the subnet used for NAT by the Service Attachment
-    // Auto-populated by the Hypershift Operator (implementation out of scope)
-    NATSubnet string `json:"natSubnet"`
+    NATSubnet string `json:"natSubnet,omitempty"`
 }
 ```
 
@@ -117,6 +124,9 @@ type GCPPrivateServiceConnectSpec struct {
 ```go
 // GCPPrivateServiceConnectStatus defines the observed state of PSC infrastructure
 type GCPPrivateServiceConnectStatus struct {
+    // Conditions represent the current state of PSC infrastructure
+    Conditions []metav1.Condition `json:"conditions,omitempty"`
+
     // Management Side Status (Service Attachment)
 
     // ServiceAttachmentName is the name of the created Service Attachment
@@ -131,15 +141,21 @@ type GCPPrivateServiceConnectStatus struct {
     // EndpointIP is the reserved IP address for the PSC endpoint
     EndpointIP string `json:"endpointIP,omitempty"`
 
-    // DNSZoneName is the private DNS zone name
-    DNSZoneName string `json:"dnsZoneName,omitempty"`
-
-    // DNSRecords lists the created DNS A records
-    DNSRecords []string `json:"dnsRecords,omitempty"`
-
-    // Conditions represent the current state of PSC infrastructure
-    Conditions []metav1.Condition `json:"conditions,omitempty"`
+    // DNSZones contains DNS zone information created for this cluster
+    DNSZones []DNSZoneStatus `json:"dnsZones,omitempty"`
 }
+
+**DNSZoneStatus**
+```go
+// DNSZoneStatus represents DNS zone information
+type DNSZoneStatus struct {
+    // Name is the DNS zone name
+    Name string `json:"name"`
+
+    // Records lists the DNS records created in this zone
+    Records []string `json:"records,omitempty"`
+}
+```
 ```
 
 **Complete CRD Definition**
@@ -159,10 +175,10 @@ type GCPPrivateServiceConnect struct {
 **File Location**: `/api/hypershift/v1beta1/gcpprivateserviceconnect_types.go`
 
 Complete CRD definition following AWSEndpointService pattern with:
-- **GCPPrivateServiceConnectSpec**: ForwardingRuleName, ConsumerAcceptList, NATSubnet
+- **GCPPrivateServiceConnectSpec**: LoadBalancerIP, ForwardingRuleName, ConsumerAcceptList, NATSubnet
 - **GCPPrivateServiceConnectStatus**: Comprehensive status tracking for both sides
   - Management side: ServiceAttachmentName, ServiceAttachmentURI (like AWS EndpointServiceName)
-  - Customer side: EndpointIP, DNSZoneName, DNSRecords (like AWS EndpointID, DNSNames, DNSZoneID)
+  - Customer side: EndpointIP, DNSZones (like AWS EndpointID, DNSNames, DNSZoneID)
 
 ### Feature Gate Integration
 
@@ -197,10 +213,12 @@ func init() {
 **Generated Files**:
 ```
 /cmd/install/assets/hypershift-operator/zz_generated.crd-manifests/
-└── gcpprivateserviceconnects.hypershift.openshift.io.yaml
+├── gcpprivateserviceconnects-CustomNoUpgrade.crd.yaml
+└── gcpprivateserviceconnects-TechPreviewNoUpgrade.crd.yaml
 
 /api/hypershift/v1beta1/zz_generated.featuregated-crd-manifests/
-└── GCPPlatform.yaml
+└── gcpprivateserviceconnects.hypershift.openshift.io/
+    └── GCPPlatform.yaml
 ```
 
 **Requirements**:
@@ -245,7 +263,7 @@ Customer Side (control-plane-operator):
 ### Management Side
 
 **Files to Create**:
-- `/hypershift-operator/controllers/platform/gcp/gcppsc_controller.go` (new management-side controller)
+- `/hypershift-operator/controllers/platform/gcp/privateserviceconnect_controller.go` (new management-side controller)
 - `/hypershift-operator/main.go` (add controller setup)
 
 **Management Controller Responsibilities**:
@@ -258,8 +276,9 @@ Customer Side (control-plane-operator):
 ### Customer Side
 
 **Files to Create**:
-- `/control-plane-operator/controllers/gcppsc/observer.go` (GCPPrivateServiceObserver controller)
-- `/control-plane-operator/controllers/gcppsc/gcppsc_controller.go` (GCPPrivateServiceConnectReconciler controller)
+- `/control-plane-operator/controllers/gcpprivateserviceconnect/observer.go` (GCPPrivateServiceObserver controller)
+- `/control-plane-operator/controllers/gcpprivateserviceconnect/psc_endpoint_controller.go` (GCPPrivateServiceConnectReconciler controller)
+- `/control-plane-operator/controllers/gcpprivateserviceconnect/dns.go` (DNS zone and record management)
 - `/control-plane-operator/main.go` (add controller setup)
 
 **GCPPrivateServiceObserver Controller Responsibilities**:
@@ -271,7 +290,7 @@ Customer Side (control-plane-operator):
 - Watch GCPPrivateServiceConnect CRDs in control plane namespace
 - Create PSC Endpoint in customer VPC
 - Create DNS zone and records in customer project
-- Update status.EndpointIP, status.DNSRecords
+- Update status.EndpointIP, status.DNSZones
 
 ### Status Propagation and Monitoring
 
