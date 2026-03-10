@@ -89,7 +89,7 @@ This template provides a standardized structure for creating Jira Epics. Epics r
 
 **Feature**: [Parent Feature, if applicable]
 **Assignee**: [DRI for this Epic]
-**Priority**: [P0/P1/P2/P3]
+**Priority**: [Blocker/Critical/Major/Normal/Minor]
 **Sprint Target**: [Target sprint(s) or quarter]
 **Size Estimate**: Small / Medium / Large
 
@@ -154,6 +154,6 @@ All Management Cluster workloads have appropriate resource requests and limits c
 ### Metadata
 **Feature**: Hypershift GCP Support
 **Assignee**: TBD
-**Priority**: P1
+**Priority**: Critical
 **Sprint Target**: Q1 2026
 **Size Estimate**: Medium

@@ -99,7 +99,7 @@ Use Kubernetes operators and custom controllers to watch node health metrics, tr
 
 ### Metadata
 **Epic(s)**: TBD
-**Priority**: P0 (Demo Critical)
+**Priority**: Blocker
 **Demo Critical**: Yes
 **Size Estimate**: Large
 **DRI**: TBD
