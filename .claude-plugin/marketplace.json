@@ -1,0 +1,14 @@
+{
+  "name": "gcp-hcp",
+  "owner": {
+    "name": "openshift-online"
+  },
+  "plugins": [
+    {
+      "name": "gcp-hcp",
+      "source": "./claude-plugin/gcp-hcp",
+      "description": "GCP Hosted Control Planes architecture, design decisions, and implementation plans",
+      "version": "0.0.1"
+    }
+  ]
+}
