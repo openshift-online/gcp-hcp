@@ -137,7 +137,7 @@ Before implementing the CI infrastructure, we need team decisions on several arc
 - [x] Required GCP IAM roles and permissions → See Appendix G for complete IAM roles table.
 - [x] Quota requirements for running E2E tests → Standard quotas sufficient. GCP-HCP team will set appropriate limits during project setup.
 - [x] GCP Project Creation → Dynamic projects per-test. CI infrastructure (folder, project, SA) via Terraform in `gcp-hcp-infra`. See Story 2 and Appendix G.
-- [x] CI Authentication Method → **Service Account with static credentials**. Matches existing OpenShift CI patterns for AWS/Azure.
+- [x] CI Authentication Method → **Service Account with static credentials**. Matches existing OpenShift CI patterns for AWS/Azure. **Superseded**: being migrated to WIF — see [hypershift-ci-wif-migration](./hypershift-ci-wif-migration.md).
 - [x] Cluster Profile → **Dedicated `hypershift-gcp` profile** with own quota slice. GCP tests won't use resources from AWS-based hypershift-ci cluster.
 
 **Reference**:
@@ -1169,6 +1169,8 @@ Configure budget alerts and monitoring to control CI spending and detect cost an
 
 ### Story 11: Investigate CI Service Account Key Rotation Strategy
 
+> **Superseded** by the WIF migration — see [hypershift-ci-wif-migration](./hypershift-ci-wif-migration.md). Static key rotation is no longer needed as the key will be eliminated entirely.
+
 **Summary**: Investigate options for rotating the CI service account key used for GCP E2E tests
 
 **Description**:
@@ -1520,7 +1522,7 @@ This mirrors real-world deployments where:
 | CI Rollout Strategy | Start with `always_run: false`, `skip_report: true`. Promotion to blocking TBD (likely after internal preview). |
 | GCP Project Source | **HCM org account**. Dynamic projects created per-test under GCP HCP org CI folder. |
 | Project Lifecycle | Dynamic projects per-test under CI folder. Projects deleted on cleanup. See Appendix G. |
-| CI Authentication | **Service Account with static credentials** stored in Vault. Matches existing OpenShift CI patterns for AWS/Azure (HyperShift team owns the cloud accounts). |
+| CI Authentication | **Service Account with static credentials** stored in Vault (superseded — being migrated to WIF, see [hypershift-ci-wif-migration](./hypershift-ci-wif-migration.md)). |
 | CI Isolation | Direct folder permissions on CI folder only. CI SA cannot affect managed service projects in sibling folders. |
 | CI Folder Location | Under GCP HCP folder. New `gcp-hcp-ci` folder for test isolation. |
 | Cluster Profile | **Dedicated `hypershift-gcp` profile** with own quota slice. GCP tests won't use resources from the AWS-based hypershift-ci cluster, so having a separate profile avoids artificially limiting AWS cluster capacity. See Appendix D. |

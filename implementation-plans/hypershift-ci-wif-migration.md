@@ -29,7 +29,6 @@ Additional mitigation layers:
 
 A single WIF pool (`openshift-ci`) with one OIDC provider per build cluster. This keeps IAM simple — one `principalSet://` binding on the SA covers all providers, and the attribute condition is consistent across clusters. Adding or removing a build cluster is a single Terraform change (add/remove a provider) with no IAM modifications. If trust needs to be revoked for a specific cluster, its provider can be deleted or disabled within the pool without affecting others. The Terraform module uses `for_each` on a `wif_providers` variable map of `{ provider_id => issuer_uri }`.
 
-
 **Authentication flow:**
 
 ```mermaid
@@ -84,10 +83,10 @@ Single PR in `gcp-hcp-infra` containing all Terraform changes. The first `atlant
        type = map(object({
          issuer_uri = string
        }))
+       # Populate with all build clusters that have the arm64 capability
        default = {
          build01 = { issuer_uri = "https://build01-oidc.s3.us-east-1.amazonaws.com" }
-         build03 = { issuer_uri = "https://d3fwbo89i814ul.cloudfront.net" }
-         build11 = { issuer_uri = "https://ccoctl-build11-oidc.s3.us-east-2.amazonaws.com" }
+         # ... add all arm64-capable clusters
        }
      }
      ```
@@ -109,16 +108,12 @@ Single PR in `gcp-hcp-infra` containing all Terraform changes. The first `atlant
 5. **Add WIF outputs** (modify: `terraform/modules/hypershift-ci/outputs.tf` and `terraform/config/hypershift-ci/main.tf`):
    - `wif_pool_name` - Full resource name of the WIF pool
    - `wif_provider_names` - Map of provider ID to full resource name (for CI script lookup)
-   - `project_number` - GCP project number (needed for STS audience URI construction)
+   - `project_number` - GCP project number
 
 6. **Clean up static key references**:
    - Remove SA key generation instructions from `terraform/modules/hypershift-ci/service-account.tf` header comment
    - Remove SA key generation instructions from `terraform/config/hypershift-ci/main.tf` header comment
    - Replace with WIF authentication documentation pointing to `workload-identity-federation.tf`
-
-### Dependencies
-
-- **DPTP team**: Feedback on `public-oidc` capability or public OIDC on GCP build clusters (asked 2026-04-07). See Open Items.
 
 ### Acceptance Criteria
 
@@ -159,10 +154,8 @@ Card 1 provisions the WIF infrastructure in GCP. This card updates the CI step s
    - Ensure `kubectl` and `jq` are available in the CI step image
    - Fail fast with a clear error if the OIDC issuer is not recognized
 
-2. **Ensure jobs only land on WIF-compatible clusters** (depends on DPTP response to Open Item 1):
-   - If DPTP enables public OIDC on GCP build clusters: no action needed — all clusters become WIF-compatible
-   - If DPTP adds a `public-oidc` capability: add `capabilities: [public-oidc]` to the job config in `ci-operator/config/openshift/hypershift/`
-   - If neither: jobs remain pinned to build01 via the existing `build-tmpfs` capability (fragile — document the risk)
+2. **Ensure jobs only land on WIF-compatible clusters**:
+   - Jobs are pinned to AWS build clusters via the existing `arm64` capability, which is only available on clusters with public OIDC issuers
 
 3. **Run `make update`** to regenerate Prow job configs
 
@@ -177,8 +170,6 @@ Card 1 provisions the WIF infrastructure in GCP. This card updates the CI step s
 ### Dependencies
 
 - **Card 1**: WIF pool and OIDC providers must be applied before this card starts.
-- **DPTP team**: Resolution of Open Item 1 determines whether we need a `public-oidc` capability, all clusters get public OIDC, or we rely on the existing `build-tmpfs` pinning.
-
 
 ### Acceptance Criteria
 
@@ -195,33 +186,10 @@ Card 1 provisions the WIF infrastructure in GCP. This card updates the CI step s
 
 | Concern | Mitigation |
 |---------|-----------|
-| **GCP build clusters lack public OIDC** (build04, build08) | Jobs must be restricted to WIF-compatible clusters via capability or pinning. See Open Items. |
+| **GCP build clusters lack public OIDC** | Jobs are pinned to AWS build clusters via the `arm64` capability. |
 | **Federation scope**: Attribute condition must be updated when new test names are added | Condition matches on both namespace (`ci-op-*`) and SA name (`e2e-gke`, `e2e-v2-gke`). Adding a new test requires updating `wif_attribute_condition`. |
 | **OIDC issuer stability**: If a build cluster is rebuilt, the issuer URL or signing keys change | One WIF provider per cluster. Broken provider only affects that cluster's jobs. Variable-driven config allows quick updates. |
 | **Token lifetime**: The static key never expires; WIF tokens do. CI steps can run for 2-3 hours. | Validate token expiration behavior during implementation. The GCP SDK may re-read the token file and re-exchange automatically, or the script may need to refresh the token periodically. |
 | **Rollback path**: If WIF breaks CI | Keep the static key in Vault until post-validation. Only revoke after confirmed stability. |
-| **New build clusters added**: Future clusters may or may not have public OIDC | `public-oidc` capability (if approved) makes this self-managing. Otherwise, add new providers to Terraform as clusters are added. |
+| **New build clusters added**: Future clusters may or may not have public OIDC | Add new WIF providers to Terraform as clusters are added. CI scripts fail fast on unrecognized issuers. |
 
----
-
-## Open Items
-
-### 1. Build cluster OIDC availability (BLOCKER)
-
-**Status**: Waiting on DPTP feedback (asked 2026-04-07)
-
-GCP WIF requires a publicly accessible OIDC issuer to verify token signatures. Not all build clusters have one:
-
-| Cluster | Cloud | OIDC Issuer | Public | WIF Compatible |
-|---------|-------|-------------|--------|---------------|
-| build01 | AWS | `https://build01-oidc.s3.us-east-1.amazonaws.com` | Yes | Yes |
-| build03 | AWS | `https://d3fwbo89i814ul.cloudfront.net` | Yes | Yes |
-| build04 | GCP | `https://kubernetes.default.svc` | No | **No** |
-| build08 | GCP | `https://kubernetes.default.svc` | No | **No** |
-| build11 | AWS | `https://ccoctl-build11-oidc.s3.us-east-2.amazonaws.com` | Yes | Yes |
-
-Jobs are currently pinned to build01 via the `build-tmpfs` capability, but this is incidental — if `build-tmpfs` is added to build04/build08, jobs could land on a cluster where WIF fails silently.
-
-**Options proposed to DPTP**:
-1. **`public-oidc` capability** — add a new capability to clusters with public OIDC endpoints; our jobs would require it. Low-cost, explicit, future-proof.
-2. **Configure public OIDC on GCP build clusters** — solves it for everyone but requires DPTP to reconfigure GCP clusters.
