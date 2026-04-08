@@ -102,7 +102,7 @@ Single PR in `gcp-hcp-infra` containing all Terraform changes. The first `atlant
      - `allowed_audiences` set to a custom string (e.g., `gcp-hcp-hypershift-ci-wif`) shared across all providers — NOT the default issuer URL
      - Attribute mapping: `google.subject` = `assertion.sub`, `attribute.namespace` = `assertion['kubernetes.io']['namespace']`, `attribute.service_account` = `assertion['kubernetes.io']['serviceaccount']['name']`
      - Attribute condition from variable (restricts to `ci-op-*` namespaces AND specific test SA names)
-   - `google_service_account_iam_member.wif_workload_identity_user` - Allow federated identities (`principalSet://.../openshift_ci/*`) to impersonate the `hypershift-ci` SA
+   - `google_service_account_iam_member.wif_workload_identity_user` - Allow federated identities (`principalSet://.../openshift-ci/*`) to impersonate the `hypershift-ci` SA
    - Pool and providers depend on `null_resource.atlantis_iam_ready`
 
 5. **Add WIF outputs** (modify: `terraform/modules/hypershift-ci/outputs.tf` and `terraform/config/hypershift-ci/main.tf`):
