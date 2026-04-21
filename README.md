@@ -2,6 +2,13 @@
 
 Documentation, design decisions, and experiments for Hypershift on GCP managed service
 
+## Quick Start
+
+```bash
+make setup       # Show dependency installation instructions
+make lint        # Run linters
+```
+
 ## Repository Structure
 
 - `design-decisions/` -- Architecture Decision Records (ADRs) covering all aspects of system design.
