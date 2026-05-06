@@ -67,6 +67,25 @@ Useful JQL queries for risk management:
 - **High-severity risks**: `issuetype = Risk AND project = GCP AND "Risk Score" >= 10`
 - **Risks needing owners**: `issuetype = Risk AND project = GCP AND assignee = EMPTY AND status != Closed`
 
+## Qualifying a Risk
+
+Before creating a Risk issue, confirm the concern actually qualifies as a risk. A risk is an **uncertain future event** that could negatively affect the project if it occurs. Many concerns that feel like risks are actually planned work, known tech debt, or open design questions — these belong as stories, epics, or tasks instead.
+
+**A concern qualifies as a risk when:**
+
+- There is **genuine uncertainty** about whether or how it will happen. If you already know the problem exists and what the fix is, it's a backlog item — not a risk.
+- It describes something that **might happen**, not something that has already happened or is a known state. "Config Connector uses `roles/editor`" is a fact (file a story). "A compromised credential could grant cross-region access before cluster separation is complete" is a risk.
+- The **trigger is outside the team's full control** — external dependencies, upstream projects, vendor decisions, or timing uncertainties.
+- There is a **credible scenario** where the concern materializes before the team can address it. Proximity to a milestone matters.
+
+**A concern does NOT qualify as a risk when:**
+
+- **The condition has already been resolved.** If the architecture or implementation has evolved past the concern, there is nothing to track.
+- **It's too vague to assess.** A risk needs enough specificity to evaluate probability, impact, and a response plan. If it can't clear that bar, it isn't ready to be a Risk issue. Refine it first.
+- **It's planned work with no time pressure.** "We haven't built quota monitoring yet" is not a risk when production is months away — it's a backlog item. It only becomes a risk if there's a credible scenario of reaching a milestone without the gap being closed.
+- **It's an open design question with active engagement.** If there's a structured process underway to resolve the question (vendor engagement, spike, design review), track it there. A risk only emerges if the resolution process itself is at risk of failing or not completing in time.
+- **It's work that is already underway with a known path.** If active work covers the concern (e.g., a feature in progress, a PAM entitlement being implemented), the work stream itself is the tracking mechanism.
+
 ## Process
 
 ### 1. Identify
