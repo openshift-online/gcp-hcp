@@ -42,9 +42,9 @@ Level 2: Story / Task / Bug (GCP)          [Execution - Individual Work]
 
 ### Parent Link Field
 - **Purpose**: Links all other hierarchical relationships
-- **Direction**: Epics → Features → Initiatives → Outcomes → Strategic Goals
+- **Direction**: Epics → Features/Initiatives, Features/Initiatives → Outcomes → Strategic Goals
 - **Field ID**: `customfield_12313140`
-- **Example**: Epic GCP-50 links to Feature GCP-10
+- **Example**: Epic GCP-50 links to Feature GCP-10, or Epic GCP-60 links to Initiative GCP-20
 
 **Why Two Fields?**
 - Epic Link field predates the Parent Link field in Jira's evolution
@@ -63,14 +63,34 @@ Work from the **bottom-up**. Start with the work item, then create parents only 
 - ✅ **Task alone** - Team process work, one-off documentation (Level 2 only)
 - ✅ **Stories → Epic** - Related Stories grouped under an Epic (Levels 2-3)
 - ✅ **Stories → Epic → Feature** - Capability spanning multiple Epics (Levels 2-4)
-- ✅ **Stories → Epic → Initiative** - Large initiative grouping Features (Levels 2-4)
-- ✅ **Epic alone** - Self-contained Epic without needing a Feature parent (Level 3 only)
+- ✅ **Stories → Epic → Initiative** - Large strategic effort spanning multiple Epics (Levels 2-4)
+- ✅ **Epic alone** - Self-contained Epic without needing a parent (Level 3 only)
 
 ### Rarely Used by GCP Team
 
 - Stories → Epic → Feature → Outcome → Strategic Goal (full 6-level hierarchy)
 
 **Outcomes and Strategic Goals** (Levels 5-6) are managed at the org-wide strategy level (HPSTRAT/HATSTRAT projects), not within the GCP project.
+
+---
+
+## Feature vs Initiative (Level 4)
+
+Feature and Initiative are **mutually exclusive** issue types at Level 4. Choose one based on the nature of the work:
+
+### Feature
+- **Purpose**: Tangible pieces of value delivered to **customers** as part of the product roadmap
+- **Audience**: External - customer-facing capabilities
+- **Delivery means**: Customers can use new functionality in the product
+- **Example**: "Customers can now configure custom encryption keys for their clusters"
+
+### Initiative
+- **Purpose**: Larger goals that do **not directly contribute to the product roadmap**; typically **architectural or improvement-focused** work
+- **Audience**: Internal - Red Hat/team capabilities
+- **Delivery means**: Red Hat associates can do something more/better/differently
+- **Example**: "Underlying architecture changed to improve reliability (while maintaining existing functionality)"
+
+**Key distinction**: If customers will directly use the new capability → Feature. If it's internal improvement/architectural work → Initiative.
 
 ---
 
@@ -83,16 +103,16 @@ Work from the **bottom-up**. Start with the work item, then create parents only 
 - Work will span multiple iterations but doesn't need Feature-level coordination
 
 ### Create a Feature (Level 4) when:
-- Multiple Epics need coordination and represent a broader capability
-- Work represents a major product capability visible to customers or stakeholders
+- Work delivers **customer-facing** product capabilities
+- Multiple Epics need coordination to deliver a cohesive customer capability
+- Work will be visible on the product roadmap
 - Portfolio-level tracking is needed for quarterly/milestone planning
-- Cross-team coordination is required
 
 ### Create an Initiative (Level 4) when:
-- Work represents a major strategic effort grouping multiple Features
-- Cross-team or cross-quarter coordination is required
-- Executive-level visibility and alignment is needed
-- Work aligns with top-level company objectives
+- Work is **internal/architectural** improvement that doesn't directly appear on product roadmap
+- Multiple Epics need coordination for architectural or process changes
+- Work improves internal capabilities but doesn't add customer-facing features
+- Examples: infrastructure refactoring, process improvements, technical debt reduction
 
 ### Don't create Outcomes (Level 5) or Strategic Goals (Level 6)
 These are managed at the org-wide strategy level by leadership teams, not within individual project backlogs.
@@ -127,8 +147,7 @@ When creating or updating Jira issues programmatically:
 1. **Check for existing parents first** - Don't auto-create; link to existing issues when appropriate
 2. **Use correct field for link type**:
    - Stories/Tasks/Bugs → Epic: Use **Epic Link field**
-   - Epics → Features/Initiatives: Use **Parent Link field**
-   - Features → Initiatives: Use **Parent Link field**
+   - Epics → Feature or Initiative: Use **Parent Link field** (choose Feature OR Initiative, not both)
 3. **Create Epic first, then link to Feature** - Defensive two-step approach prevents creation failures
 4. **Respect bottom-up principle** - Don't force creation of parent issues unless explicitly requested or contextually necessary
 

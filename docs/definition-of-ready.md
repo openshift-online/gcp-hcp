@@ -29,14 +29,14 @@ The GCP HCP team uses a 6-level Jira hierarchy within the broader Hybrid Platfor
 Key points:
 - ✅ Standalone Stories/Tasks are valid (no Epic needed for small, isolated work)
 - ✅ Use **Epic Link field** for Stories/Tasks/Bugs → Epics
-- ✅ Use **Parent Link field** for Epics → Features → Initiatives
+- ✅ Use **Parent Link field** for Epics → Feature or Initiative (choose one)
 - ❌ Don't create parent issues just to satisfy hierarchy
 
 ---
 
 ## Definition of Ready: Initiative
 
-Initiatives represent large portfolio goals spanning multiple quarters and Features.
+Initiatives represent internal/architectural work at Level 4. See [Jira Hierarchy](./jira-hierarchy.md#feature-vs-initiative-level-4) for Feature vs Initiative distinction.
 
 **Ready Criteria**:
 - [ ] **Title** follows format: `[Action Verb] + [Capability]`
@@ -45,9 +45,8 @@ Initiatives represent large portfolio goals spanning multiple quarters and Featu
 - [ ] **Acceptance Criteria** are specific and measurable (3+ criteria)
 - [ ] **Priority** is set (Blocker/Critical/Major/Normal/Minor)
 - [ ] **Dependencies** are identified (other Initiatives, external teams, approvals)
-- [ ] **DRI** (Directly Responsible Individual) is assigned
-- [ ] **Size Estimate** is set (Small/Medium/Large)
-- [ ] At least one **Feature** has been identified for breakdown
+- [ ] **Assignee** is assigned
+- [ ] At least one **Epic** has been identified for breakdown
 
 **Template**: [docs/jira-feature-template.md](./jira-feature-template.md) (adapt for Initiative level)
 
@@ -55,7 +54,7 @@ Initiatives represent large portfolio goals spanning multiple quarters and Featu
 
 ## Definition of Ready: Feature
 
-Features represent high-level capabilities that decompose into Epics.
+Features represent customer-facing capabilities at Level 4. See [Jira Hierarchy](./jira-hierarchy.md#feature-vs-initiative-level-4) for Feature vs Initiative distinction.
 
 **Ready Criteria**:
 - [ ] **Title** follows format: `[Action Verb] + [Capability]`
@@ -64,10 +63,8 @@ Features represent high-level capabilities that decompose into Epics.
 - [ ] **Acceptance Criteria** are specific and measurable (3+ criteria)
 - [ ] **Priority** is set (Blocker/Critical/Major/Normal/Minor)
 - [ ] **Dependencies** are identified and documented
-- [ ] **DRI** (Directly Responsible Individual) is assigned
-- [ ] **Size Estimate** is set (Small/Medium/Large)
+- [ ] **Assignee** is assigned
 - [ ] **Demo Critical** flag is set (Yes/No)
-- [ ] **Parent Link field** is set to link to parent Initiative **if this Feature is part of a larger Initiative**
 - [ ] At least one **Epic** has been identified for breakdown
 
 **Template**: [docs/jira-feature-template.md](./jira-feature-template.md)
@@ -89,8 +86,7 @@ Epics represent cohesive chunks of work within a Feature (or standalone work).
 - [ ] **Dependencies** are identified and tracked
 - [ ] **Epic Name** custom field is populated
 - [ ] **Parent Link field** is set to link to parent Feature or Initiative **if this Epic is part of a broader Feature/Initiative**
-- [ ] **DRI** (Directly Responsible Individual) is assigned
-- [ ] **Size Estimate** is set (Small/Medium/Large)
+- [ ] **Assignee** is assigned
 - [ ] At least 2-3 **Stories** have been identified for breakdown
 - [ ] **Story Breakdown Checklist** section is started
 
@@ -108,14 +104,17 @@ Stories represent the smallest unit of user-facing work.
 - [ ] **Requirements** include functional and non-functional needs
 - [ ] **Technical Approach** outlines proposed solution and major steps
 - [ ] **Acceptance Criteria** are specific, testable outcomes (3+ criteria as checkboxes)
-- [ ] **Story Points** are estimated using Fibonacci (1, 2, 3, 5, 8) - **Stories should be 1-5 points**
-  - [ ] If 8+, Story must be split into smaller Stories
+- [ ] **Story Points** are estimated using Fibonacci (1, 2, 3, 5, 8, 13)
+  - [ ] Stories sized at 13 points must be split into smaller Stories
+  - [ ] Stories sized at 8 points should be considered for splitting
 - [ ] **Priority** is set (Blocker/Critical/Major/Normal/Minor)
 - [ ] **Epic Link field** is set to link to parent Epic **if this Story is part of a larger Epic**
 - [ ] **Dependencies** are identified (blocking items, other teams, access needs)
 - [ ] **Assignee** is assigned (or team agrees on who will pick it up)
 - [ ] Story is **right-sized** - can be completed in a reasonable timeframe (1-5 days typically)
 - [ ] Story has clear value and is demo-able
+
+**Note**: Stories are the **only** issue type that uses story points. Tasks, Spikes, and Bugs are NOT pointed.
 
 **Splitting Guidance**: If Story has >5 acceptance criteria, touches >3 components, or includes both investigation AND implementation, it should be split. See [Story Sizing Guide](./jira-story-template.md#story-sizing-guide).
 

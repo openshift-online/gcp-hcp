@@ -59,8 +59,7 @@ This template provides a standardized structure for creating Jira Features durin
 **Epic(s)**: [To be created during breakdown]
 **Priority**: [Set during prioritization]
 **Demo Critical**: Yes/No
-**Size Estimate**: Small / Medium / Large
-**DRI**: [Directly Responsible Individual]
+**Assignee**: [Directly Responsible Individual]
 
 ---
 
@@ -101,5 +100,4 @@ Use Kubernetes operators and custom controllers to watch node health metrics, tr
 **Epic(s)**: TBD
 **Priority**: Blocker
 **Demo Critical**: Yes
-**Size Estimate**: Large
-**DRI**: TBD
+**Assignee**: TBD
