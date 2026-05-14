@@ -52,6 +52,12 @@ spec:
         #!/usr/bin/env bash
         set -eux
 
+        TMPFILES=()
+        cleanup() { rm -rf "${TMPFILES[@]}"; }
+        trap cleanup EXIT
+
+        mktmp() { local f; f=$(mktemp "$@"); TMPFILES+=("$f"); echo "$f"; }
+
         push_image() {
           local NAME="$1"
           local CONTAINER_IMAGE="$2"
@@ -59,34 +65,36 @@ spec:
           local TAG="$4"
 
           # Source auth: use select-oci-auth for Quay (where the build image lives)
-          SOURCE_AUTH_FILE=$(mktemp)
+          SOURCE_AUTH_FILE=$(mktmp)
           SOURCE_REPO=${CONTAINER_IMAGE%%@sha256:*}
           SOURCE_REGISTRY=${SOURCE_REPO%%/*}
           select-oci-auth "$CONTAINER_IMAGE" | jq -c \
             '.auths."'"$SOURCE_REPO"'" = .auths."'"$SOURCE_REGISTRY"'" | del(.auths."'"$SOURCE_REGISTRY"'")' > "$SOURCE_AUTH_FILE"
 
           # Destination auth: use docker-credential-gcr via credHelpers
-          DEST_AUTH_DIR=$(mktemp -d)
+          DEST_AUTH_DIR=$(mktmp -d)
+          DEST_REGISTRY=${REPOSITORY%%/*}
           cat > "$DEST_AUTH_DIR/config.json" << AUTHEOF
         {
           "credHelpers": {
-            "us-docker.pkg.dev": "gcr"
+            "${DEST_REGISTRY}": "gcr"
           }
         }
         AUTHEOF
 
-          # Check if destination already has this digest
-          DEST_AUTH_FILE=$(mktemp)
-          DOCKER_CONFIG="$DEST_AUTH_DIR" docker-credential-gcr get <<< "us-docker.pkg.dev" > /dev/null 2>&1 || true
+          # Verify WIF auth works before proceeding
+          if ! DOCKER_CONFIG="$DEST_AUTH_DIR" docker-credential-gcr get <<< "$DEST_REGISTRY" > /dev/null 2>&1; then
+            echo "ERROR: WIF authentication to $DEST_REGISTRY failed. Check gar-wif-config ConfigMap and projected SA token."
+            exit 1
+          fi
+
           DESTINATION_DIGEST=$(DOCKER_CONFIG="$DEST_AUTH_DIR" oras resolve "$REPOSITORY:$TAG" 2>/dev/null || true)
           ORIGIN_DIGEST=$(oras resolve --registry-config "$SOURCE_AUTH_FILE" "$CONTAINER_IMAGE")
 
           if [[ "$DESTINATION_DIGEST" != "$ORIGIN_DIGEST" || -z "$DESTINATION_DIGEST" ]]; then
-            # Create combined auth: source from select-oci-auth + destination from credHelpers
-            DOCKER_CONFIG="$(mktemp -d)"
+            DOCKER_CONFIG="$(mktmp -d)"
             export DOCKER_CONFIG
 
-            # Merge source auth with destination credHelpers
             jq -s '.[0] * .[1]' "$SOURCE_AUTH_FILE" "$DEST_AUTH_DIR/config.json" > "$DOCKER_CONFIG/config.json"
 
             if [[ "$(params.skipAttestations)" == "true" ]]; then
@@ -104,12 +112,12 @@ spec:
         # Read snapshot spec
         IFS='/' read -r SNAPSHOT_NAMESPACE SNAPSHOT_NAME <<< "$(params.snapshot)"
         SNAPSHOT_SPEC=$(kubectl get snapshot "$SNAPSHOT_NAME" -n "$SNAPSHOT_NAMESPACE" \
-          -o jsonpath='{.spec}')
+          -o jsonpath='{.spec}') || { echo "ERROR: Failed to get snapshot $(params.snapshot)"; exit 1; }
 
         # Read release plan mapping
         IFS='/' read -r RP_NAMESPACE RP_NAME <<< "$(params.releasePlan)"
         RP_DATA=$(kubectl get releaseplan "$RP_NAME" -n "$RP_NAMESPACE" \
-          -o jsonpath='{.spec.data.mapping}')
+          -o jsonpath='{.spec.data.mapping}') || { echo "ERROR: Failed to get releaseplan $(params.releasePlan)"; exit 1; }
 
         NUM_COMPONENTS=$(jq '.components | length' <<< "$SNAPSHOT_SPEC")
 
