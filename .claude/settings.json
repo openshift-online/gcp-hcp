@@ -1,27 +1,27 @@
 {
-    "permissions": {
-        "allow": [
-            "WebFetch(domain:docs.cloud.google.com)",
-            "WebFetch(domain:docs.openshift.com)",
-            "Skill(jira)"
-        ]
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.cloud.google.com)",
+      "WebFetch(domain:docs.openshift.com)",
+      "Skill(jira)"
+    ]
+  },
+  "enabledPlugins": {
+    "jira@ai-helpers": true,
+    "gcp-hcp@gcp-hcp": true
+  },
+  "extraKnownMarketplaces": {
+    "openshift-ai-helpers": {
+      "source": {
+        "source": "github",
+        "repo": "openshift-eng/ai-helpers"
+      }
     },
-    "extraKnownMarketplaces": {
-        "openshift-ai-helpers": {
-            "source": {
-                "source": "github",
-                "repo": "openshift-eng/ai-helpers"
-            }
-        },
-        "gcp-hcp": {
-            "source": {
-                "source": "github",
-                "repo": "openshift-online/gcp-hcp"
-            }
-        }
-    },
-    "enabledPlugins": {
-        "jira@ai-helpers": true,
-        "gcp-hcp@gcp-hcp": true
+    "gcp-hcp": {
+      "source": {
+        "source": "github",
+        "repo": "openshift-online/gcp-hcp"
+      }
     }
+  }
 }
