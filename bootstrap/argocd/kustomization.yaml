@@ -15,6 +15,12 @@ resources:
   - external-secret-git-credentials.yaml
   - root-applicationset.yaml
 
+# Pin Dex to v2.45.1 — ArgoCD v3.4.3 ships v2.45.0 which broke the authproxy
+# connector (dexidp/dex#4589, fixed in v2.45.1). Remove once ArgoCD ships ≥v2.45.1.
+images:
+  - name: ghcr.io/dexidp/dex
+    newTag: v2.45.1
+
 # Add mutation: ignore annotation to configmaps that will be managed by argocd-config
 # ConfigSync creates them initially, but allows ArgoCD to freely update them
 # This prevents resource fights between ConfigSync and ArgoCD
