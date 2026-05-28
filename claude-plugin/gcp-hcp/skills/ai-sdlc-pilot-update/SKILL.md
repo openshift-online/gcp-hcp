@@ -28,18 +28,17 @@ Compute:
 **BFS traversal starting at GCP-579:**
 
 Use a queue-based BFS. Start with `["GCP-579"]`.
-Before traversal, fetch and store GCP-579's own fields using `mcp__atlassian__jira_get_issue` with `fields="key,summary,description,status,assignee,issuetype,created,updated"`.
+Before traversal, fetch and store GCP-579's own fields (summary, description, status, issuetype, assignee, created, updated).
 For each key in the queue:
-1. Search for direct children: `parent = KEY ORDER BY updated DESC`
-   - Use `mcp__atlassian__jira_search` with `fields="key,summary,description,status,assignee,issuetype,created,updated"` and `limit=50`
-   - Paginate with `start_at` if `total > 50` (pagination applies per parent-key search, not once globally)
+1. Search Jira for direct children using JQL: `parent = KEY ORDER BY updated DESC`
+   - Fetch up to 50 results per query; paginate if more exist (pagination applies per parent-key search, not once globally)
 2. Fetch each child's key, summary, description, status, assignee, issuetype, created, updated fields
 3. Add each child's key to the queue
 4. Continue until the queue is empty
 
 **After collecting all keys in the hierarchy (including GCP-579 itself, with fields stored for each):**
 
-Fetch changelogs for all discovered keys using `mcp__atlassian__jira_batch_get_changelogs` with `fields="status"` to get status transitions. Filter transitions to those whose timestamp falls within the lookback window.
+For each discovered key (in groups of 20), fetch the issue's changelog and extract status transitions. Filter transitions to those whose timestamp falls within the lookback window.
 
 **Classify findings:**
 
@@ -158,14 +157,7 @@ Apply any requested edits and re-display until the user confirms with "post".
 
 ## Phase 5: Post the Comment
 
-Post the confirmed comment to GCP-579:
-
-```python
-mcp__atlassian__jira_add_comment(
-    issue_key="GCP-579",
-    body=<final_markdown>
-)
-```
+Post the confirmed comment to Jira issue GCP-579.
 
 Confirm success with: "Comment posted to GCP-579."
 
