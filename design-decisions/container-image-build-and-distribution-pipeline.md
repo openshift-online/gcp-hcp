@@ -38,12 +38,44 @@ Layer 1: Build (Konflux)
 Layer 2: Publish (Konflux → GAR via WIF)
   Quay image → cosign copy → GAR commons repo (us-docker.pkg.dev/gcp-hcp-commons/gcp-hcp-images)
 
-Layer 3: Distribute (GAR pull-through cache)
-  Commons GAR → regional pull-through cache ({region}-docker.pkg.dev/{region-project}/gcp-hcp-images)
+Layer 3: Distribute (Regional GAR pull-through caches)
+  Commons GAR → regional cache (gcp-hcp-images)     — our images
+  quay.io     → regional cache (quay-cache)          — upstream OCP images
 
 Layer 4: Consume (MutatingAdmissionPolicy)
-  Pod references commons URL → MAP rewrites to regional cache → kubelet pulls from cache
+  Pod references source URL → MAP rewrites to regional cache → kubelet pulls from cache
 ```
+
+### Image Distribution Strategy
+
+Images are categorized into three tiers based on ownership, each with a different path to the regional cache:
+
+| Tier | Source | Examples | Path to GAR | Regional Cache |
+|------|--------|----------|-------------|----------------|
+| **Tier 1: Team-owned** | Konflux build → GAR commons | gcp-hcp-common-tools, gcp-release-utils | Konflux → WIF → `us-docker.pkg.dev/gcp-hcp-commons/gcp-hcp-images` | Pull-through from commons GAR |
+| **Tier 2: Partner-owned** | Konflux build → GAR commons | HyperShift operator, HyperFleet components | Same as Tier 1 (partner teams publish direct to our GAR) | Pull-through from commons GAR |
+| **Tier 3: Upstream** | Quay.io (Red Hat-managed) | OCP component images (`ocp-v4.0-art-dev`), operator indexes | Remain in quay.io (not republished) | Pull-through from quay.io (authenticated) |
+
+**Tier 1 and 2** images are published directly to our GAR commons repository. They flow through the same `gcp-hcp-images` pull-through cache. Partner teams (HyperShift, HyperFleet) will update their Konflux release pipelines to publish to our GAR alongside their existing Quay targets.
+
+**Tier 3** images stay in quay.io — we do not republish them. Instead, a separate pull-through cache (`quay-cache`) in each region project proxies from quay.io with authenticated upstream access. The quay.io pull secret is stored in Secret Manager in the global project (where all other secrets are managed) and shared by all region caches.
+
+Both cache types are consumed identically: MutatingAdmissionPolicy rewrites source URLs to the regional cache at pod admission time. Separate CEL mutations handle each source registry prefix.
+
+### Regional Cache Architecture
+
+Each region project hosts two pull-through cache repositories:
+
+```
+Region Project ({region}-docker.pkg.dev/{region-project}/)
+├── gcp-hcp-images/     ← pull-through from us-docker.pkg.dev/gcp-hcp-commons/gcp-hcp-images
+│                          (Tier 1 + 2: team and partner images, no upstream auth needed)
+│
+└── quay-cache/          ← pull-through from quay.io
+                           (Tier 3: upstream OCP images, requires pull secret in Secret Manager)
+```
+
+Management clusters pull from their parent region's caches via project-level `artifactregistry.reader` IAM — the same pattern used for `gcp-hcp-images`.
 
 ## Shared Pipeline Evaluation
 
