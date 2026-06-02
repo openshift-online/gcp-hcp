@@ -53,14 +53,11 @@ Images are categorized into three tiers based on ownership, each with a differen
 |------|--------|-------------|----------------|
 | **Tier 1: Team-owned** | Konflux build → GAR commons | Konflux → WIF → `us-docker.pkg.dev/gcp-hcp-commons/gcp-hcp-images` | Pull-through from commons GAR |
 | **Tier 2: Partner-owned** | Konflux build → GAR commons | Same as Tier 1 (partner teams publish direct to our GAR) | Pull-through from commons GAR |
-| **Tier 3: Upstream** | External registries (quay.io, ghcr.io, registry.redhat.io, etc.) | Remain in source registries (not republished) | Pull-through cache per upstream registry |
-| **Not cached** | GKE-managed registries | Already regional (served from GCP infrastructure) | No action needed |
+| **Tier 3: Upstream** | All external registries (quay.io, ghcr.io, registry.redhat.io, gcr.io, etc.) | Remain in source registries (not republished) | Pull-through cache per upstream registry |
 
 **Tier 1 and 2** images are published directly to our GAR commons repository. They flow through the same `gcp-hcp-images` pull-through cache. Partner teams (HyperShift, HyperFleet) will update their Konflux release pipelines to publish to our GAR alongside their existing Quay targets.
 
-**Tier 3** covers all third-party and upstream images — OCP components, operators, controllers, and any other tooling we consume but don't build. These stay in their source registries and are not republished. Instead, a pull-through cache is created in each region project for each upstream registry that needs caching. GAR remote repositories are scoped to a single upstream, so each distinct registry (quay.io, ghcr.io, registry.redhat.io, etc.) gets its own cache. Registries that require authentication store their pull secrets in Secret Manager in the global project.
-
-**GKE-managed images** (GKE system components, Config Connector) are already served from regional GCP infrastructure and do not need caching.
+**Tier 3** covers all images we consume but don't build — OCP components, operators, controllers, GKE system components, Config Connector, and any other upstream dependency. These stay in their source registries and are not republished. Instead, a pull-through cache is created in each region project for each upstream registry. GAR remote repositories are scoped to a single upstream, so each distinct registry gets its own cache. Registries that require authentication store their pull secrets in Secret Manager in the global project. Every upstream registry is cached, including Google-managed registries — regions outside the US (e.g., EU) must not depend on cross-region pulls for any image.
 
 All cache types are consumed identically: MutatingAdmissionPolicy rewrites source URLs to the regional cache at pod admission time. A CEL mutation is configured per source registry prefix. Adding a new upstream registry requires creating a new cache repo and adding a `sourceRepos` entry to the image rewriter chart.
 
