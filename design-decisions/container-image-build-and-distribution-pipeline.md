@@ -45,6 +45,10 @@ Layer 4: Consume (MutatingAdmissionPolicy)
   Pod references commons URL → MAP rewrites to regional cache → kubelet pulls from cache
 ```
 
+## Shared Pipeline Evaluation
+
+The `app-sre/shared-pipelines` pattern was evaluated as a potential model. In that pattern, a dedicated repository holds pipeline definitions and components reference them via `pipelineRef`. We adopted a similar approach: our GAR push pipeline (`push-snapshot-to-gar`) lives in the `gcp-hcp` repository and is referenced via Tekton's git resolver from the Konflux release plan. This provides the same benefits — shared pipeline definitions, centralized updates — without requiring a separate shared-pipelines repository. The standard Quay push path uses Konflux's managed `rh-push-to-external-registry` pipeline from `release-service-catalog`, which is itself a shared pipeline maintained by the releng team.
+
 ## Alternatives Considered
 
 1. **Build in GCP (Cloud Build + GAR)**: Build images using Cloud Build in the commons project and push directly to GAR. Avoids the Konflux-to-GAR bridge but doesn't meet Red Hat's requirement for Konflux as the standard build system.
@@ -143,6 +147,34 @@ A Helm chart (`gar-image-rewriter`) deploys a MutatingAdmissionPolicy to both re
 - **Target**: Pod CREATE operations only — ArgoCD sees no drift because Deployments/StatefulSets are not mutated
 - **Configuration**: Extensible via `sourceRepos[]` list in `values.yaml`. Adding a new source repo requires only a values change and a matching pull-through cache in the region module.
 - **Deployment**: ArgoCD sync-wave `-5` (hard dependency, must exist before wave-0 workloads create pods)
+
+### Onboarding Checklist for New Images
+
+To onboard a new container image to this pipeline:
+
+1. **Image source**: Add `images/{name}/Containerfile` to `gcp-hcp-infra` (or the appropriate source repo)
+2. **Konflux application**: Create application and component resources in `konflux-release-data` under `tenants-config/cluster/kflux-prd-rh02/tenants/gcp-hcp-tenant/applications/{name}/`
+   - `application.yaml` — Application resource
+   - `components/{name}.yaml` — Component with git source, Dockerfile path, and build pipeline (`docker-build-oci-ta`)
+   - `components/image-repository.yaml` — Image repository for build artifacts
+   - `release-plan.yaml` — ReleasePlan pointing to `push-snapshot-to-gar` pipeline with destination `us-docker.pkg.dev/gcp-hcp-commons/gcp-hcp-images/{name}`
+   - `integration-test-enterprise-contract.yaml` — Enterprise contract test scenario
+   - `kustomization.yaml` — Kustomize resource list
+3. **Quay release** (if needed): Add `ReleasePlanAdmission` in `config/kflux-prd-rh02.0fk9.p1/service/ReleasePlanAdmission/gcp-hcp/{name}.yaml`
+4. **Run kustomize build**: Regenerate auto-generated manifests in `tenants-config/auto-generated/`
+5. **Verify**: Merge, wait for build trigger, confirm image appears in both GAR and Quay
+
+No infrastructure changes are needed — the pull-through cache, IAM bindings, and MutatingAdmissionPolicy handle distribution automatically for any image in the `gcp-hcp-images` repository.
+
+### Resolved Blockers
+
+The following blockers were identified and resolved during implementation:
+
+- **Konflux access**: `gcp-hcp-tenant` provisioned on `kflux-prd-rh02` with admin, maintainer, and contributor RBAC bindings
+- **GAR authentication**: WIF pool and OIDC provider configured in `gcp-hcp-commons`; `gar-wif-config` ConfigMap deployed to tenant namespace
+- **Cross-project IAM**: Atlantis and e2e-deployer granted `artifactregistry.admin` on commons GAR repo for managing pull-through cache reader bindings
+- **GKE beta APIs**: `admissionregistration.k8s.io/v1beta1` enabled on integration region and MC clusters (opt-in per config, not default)
+- **IAM propagation races**: Addressed with `time_sleep` resources and project-level IAM bindings (instead of repository-level) to avoid ordering dependencies between parallel Terraform applies
 
 ### Repositories Involved
 
