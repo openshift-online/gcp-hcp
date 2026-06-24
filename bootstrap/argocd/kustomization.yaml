@@ -55,6 +55,16 @@ patches:
     target:
       kind: ConfigMap
       name: argocd-rbac-cm
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-notifications-cm
+        annotations:
+          client.lifecycle.config.k8s.io/mutation: ignore
+    target:
+      kind: ConfigMap
+      name: argocd-notifications-cm
   # Allow argocd-config to patch the Service (adds appProtocol: HTTPS)
   - patch: |-
       apiVersion: v1
