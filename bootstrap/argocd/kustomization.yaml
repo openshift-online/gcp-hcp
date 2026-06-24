@@ -65,6 +65,17 @@ patches:
     target:
       kind: ConfigMap
       name: argocd-notifications-cm
+  # Allow ESO to write github-app-private-key into the notifications secret
+  - patch: |-
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: argocd-notifications-secret
+        annotations:
+          client.lifecycle.config.k8s.io/mutation: ignore
+    target:
+      kind: Secret
+      name: argocd-notifications-secret
   # Allow argocd-config to patch the Service (adds appProtocol: HTTPS)
   - patch: |-
       apiVersion: v1
