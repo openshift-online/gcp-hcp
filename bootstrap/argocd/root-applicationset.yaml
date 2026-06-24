@@ -17,6 +17,11 @@ spec:
   template:
     metadata:
       name: 'root-app-{{ .name }}'
+      annotations:
+        # GCP-840: subscribe to ArgoCD Notifications GitHub triggers (configured in argocd-notifications-cm)
+        notifications.argoproj.io/subscribe.on-pending.github: ""
+        notifications.argoproj.io/subscribe.on-deployed.github: ""
+        notifications.argoproj.io/subscribe.on-failed.github: ""
       labels:
         app.kubernetes.io/name: root-app
         app.kubernetes.io/instance: '{{ .name }}'
