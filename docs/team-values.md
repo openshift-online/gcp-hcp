@@ -1,5 +1,11 @@
 # Team Values
 
+## Working software is the measure
+
+*Everything else serves this goal.*
+
+First and foremost, we value working, secure software in the hands of users. Every practice, investment, and process decision we make serves that goal. The values below describe how we get there.
+
 ## Communicate in the open
 
 *Kind while honest, assume good intent, no sacred cows.*
@@ -30,6 +36,8 @@ Our culture recognizes and rewards the results that drive us forward. We take ti
 
 Users don't benefit from features that don't work. We think about failure modes, observability, and operational burden from the start — not as afterthoughts. We prefer simple, well-understood implementations over clever ones, and we actively reduce the surface area we have to maintain. Every line of code is a liability; we earn the complexity we carry.
 
+We follow an upstream-first philosophy: we build what we need into existing codebases with larger user bases and community support, rather than maintaining our own. We minimize the repositories we own and collaborate with adjacent teams to share infrastructure rather than reinvent it.
+
 ## Run through two-way doors, deliberate before one-way doors
 
 *Move fast on reversible choices, think carefully on irreversible ones.*
@@ -40,4 +48,11 @@ Not every decision carries the same weight. Two-way doors — choices that are c
 
 *Get the fundamentals right, then ship small and learn.*
 
-We invest in composable architecture, reliable CI, and clear operational practices. We eagerly adopt good components from elsewhere — if an off-the-shelf solution fits, that's one less thing to maintain and a sign it's not where we differentiate. When something almost fits, we contribute upstream rather than fork or rewrite. We save our complexity budget for the problems only we can solve. Strong foundations make fast iteration sustainable; fast iteration validates that our foundations are right.
+We invest in composable architecture, reliable CI, and clear operational practices — and we hold ourselves to a high bar on the foundations that make speed sustainable:
+
+- **CI and testing** — Quick, reliable testing signal lets us respond fast to bugs and regressions. If CI is slow or flaky, we fix it before adding features.
+- **Deployment pipeline** — Highly automated, from commit to production. Manual gates are the exception, not the rule.
+- **Security posture** — We start from a "Zero Operator" philosophy and assume CVEs will arrive daily. Strong CI and automated deployment are our first line of defense.
+- **AI-augmented engineering** — We invest in foundations today for AI to hook into our processes — from backlog refinement to development, testing, deployment, and operations. This lets us iterate quickly on agent quality and compound our velocity over time.
+
+We eagerly adopt good components from elsewhere — if an off-the-shelf solution fits, that's one less thing to maintain and a sign it's not where we differentiate. When something almost fits, we contribute upstream rather than fork or rewrite. We save our complexity budget for the problems only we can solve. Strong foundations make fast iteration sustainable; fast iteration validates that our foundations are right.
