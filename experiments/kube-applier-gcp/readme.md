@@ -54,6 +54,20 @@ When the kube-apiserver call cannot be executed,
 2. `.status.conditions["Successful"].reason` is "PreCheckFailed"
 3. `.status.conditions["Successful"].message` is whatever prevented us from calling the kube-apiserver.
 
+## Status reporting
+
+Every `*Desire` status carries an `ObservedDesireUpdateTime` field set to the
+Firestore-managed `UpdateTime` of the spec document that was reconciled. This
+tells the backend "I have processed the spec as of this Firestore revision."
+There is no application-managed generation counter — the server-managed
+`UpdateTime` serves that role.
+
+`ApplyDesireStatus` additionally carries `AppliedResourceGeneration`: the
+Kubernetes `.metadata.generation` of the resource after a successful
+server-side apply. The backend can use this to confirm that its desired spec
+has been applied and the Kubernetes object has advanced to the expected
+generation.
+
 ## Database structure
 Every management cluster has two Firestore **named databases** with IAM-enforced
 directional isolation:
