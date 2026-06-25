@@ -14,8 +14,8 @@ At a high level:
 
 ## Scale
 The scale of the kube-applier is tiny: it covers a single management cluster.
-A single management cluster will have a low hundreds of HostedClusters and if we have about 100 *Desires, we end up
-with about 10k *Desires.
+A single management cluster will have a low hundreds of HostedClusters and if we have about 100 `*Desires`, we end up
+with about 10k `*Desires`.
 Ten thousand is such a small number that with simple poll and iterate at 50 qps, we can scan every three minutes.
 We'll probably actually use a larger burst and smaller QPS, but it's an easy scale to manage.
 The scale of a region is larger, but is handled by Firestore so it will scale far beyond our needs.

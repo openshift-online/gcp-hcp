@@ -137,7 +137,10 @@ func TestEvaluate_Target404Race(t *testing.T) {
 
 	d := newDeleteDesire(t, "cm1", configMapTarget("cm1"))
 	c := &DeleteDesireController{dyn: dyn}
-	mutate, _ := c.evaluate(ctx, d)
+	mutate, evalErr := c.evaluate(ctx, d)
+	if evalErr != nil {
+		t.Fatalf("evaluate returned unexpected error: %v", evalErr)
+	}
 	mutate(d)
 	assertCondition(t, d.Status.Conditions, kubeapplier.ConditionTypeSuccessful, metav1.ConditionTrue, "")
 }
@@ -151,7 +154,10 @@ func TestEvaluate_AlreadyTerminating(t *testing.T) {
 
 	d := newDeleteDesire(t, "cm1", configMapTarget("cm1"))
 	c := &DeleteDesireController{dyn: dyn}
-	mutate, _ := c.evaluate(ctx, d)
+	mutate, evalErr := c.evaluate(ctx, d)
+	if evalErr != nil {
+		t.Fatalf("evaluate returned unexpected error: %v", evalErr)
+	}
 	mutate(d)
 	assertCondition(t, d.Status.Conditions, kubeapplier.ConditionTypeSuccessful, metav1.ConditionFalse, kubeapplier.ConditionReasonWaitingForDeletion)
 }
@@ -174,7 +180,10 @@ func TestEvaluate_DeleteSucceeds_Terminating(t *testing.T) {
 
 	d := newDeleteDesire(t, "cm1", configMapTarget("cm1"))
 	c := &DeleteDesireController{dyn: dyn}
-	mutate, _ := c.evaluate(ctx, d)
+	mutate, evalErr := c.evaluate(ctx, d)
+	if evalErr != nil {
+		t.Fatalf("evaluate returned unexpected error: %v", evalErr)
+	}
 	mutate(d)
 	assertCondition(t, d.Status.Conditions, kubeapplier.ConditionTypeSuccessful, metav1.ConditionFalse, kubeapplier.ConditionReasonWaitingForDeletion)
 	assertConditionMessage(t, d.Status.Conditions, kubeapplier.ConditionTypeSuccessful, "test-uid-123")
@@ -198,7 +207,10 @@ func TestEvaluate_DeleteSucceeds_ImmediateGone(t *testing.T) {
 
 	d := newDeleteDesire(t, "cm1", configMapTarget("cm1"))
 	c := &DeleteDesireController{dyn: dyn}
-	mutate, _ := c.evaluate(ctx, d)
+	mutate, evalErr := c.evaluate(ctx, d)
+	if evalErr != nil {
+		t.Fatalf("evaluate returned unexpected error: %v", evalErr)
+	}
 	mutate(d)
 	assertCondition(t, d.Status.Conditions, kubeapplier.ConditionTypeSuccessful, metav1.ConditionTrue, "")
 }
