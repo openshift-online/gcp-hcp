@@ -75,7 +75,7 @@ repo:<owner>/<repo> is:pr is:open updated:>={start_date}
 - Title or body mentions: "SDLC", "pilot", "agentic", "skill", "claude", "AI"
 
 **For PRs in shared repos** (`openshift-eng/ai-helpers` and any repo not fully owned by the team), additionally require that the PR author is a known GCP HCP team member. Known GitHub handles:
-`apahim`, `cblecker`, `ckandag`, `cristianoveiga`, `jimdaga`, `patjlm`, `kkeane`, `billmvt`
+`apahim`, `cblecker`, `ckandag`, `cristianoveiga`, `floresroger`, `jimdaga`, `patjlm`, `kkeane`, `billmvt`
 
 Skip PRs from other authors in shared repos even if they match the pilot-relevance filters.
 
