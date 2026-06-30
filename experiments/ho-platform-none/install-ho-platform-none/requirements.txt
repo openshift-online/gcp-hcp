@@ -2,10 +2,10 @@
 # Python 3.7+ required
 
 # Core dependencies for YAML processing
-PyYAML>=6.0
+PyYAML==6.0.2
 
 # Optional: Enhanced command line argument handling
-argparse>=1.4.0
+argparse==1.4.0
 
 # Optional: Better date/time handling
-python-dateutil>=2.8.0
+python-dateutil==2.9.0.post0
