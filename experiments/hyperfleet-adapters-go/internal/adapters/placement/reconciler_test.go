@@ -144,24 +144,24 @@ func (m *mockHyperfleetClient) PutClusterStatus(ctx context.Context, clusterID s
 	return m.doPut(ctx, fmt.Sprintf("/clusters/%s/statuses", clusterID), payload)
 }
 
-func (m *mockHyperfleetClient) GetNodePool(ctx context.Context, nodepoolID string) (*hyperfleetapi.NodePoolDetail, error) {
+func (m *mockHyperfleetClient) GetNodePool(ctx context.Context, clusterID, nodepoolID string) (*hyperfleetapi.NodePoolDetail, error) {
 	var np hyperfleetapi.NodePoolDetail
-	if err := m.doGet(ctx, fmt.Sprintf("/nodepools/%s", nodepoolID), &np); err != nil {
+	if err := m.doGet(ctx, fmt.Sprintf("/clusters/%s/nodepools/%s", clusterID, nodepoolID), &np); err != nil {
 		return nil, err
 	}
 	return &np, nil
 }
 
-func (m *mockHyperfleetClient) GetNodePoolStatuses(ctx context.Context, nodepoolID string) (hyperfleetapi.AdapterStatuses, error) {
+func (m *mockHyperfleetClient) GetNodePoolStatuses(ctx context.Context, clusterID, nodepoolID string) (hyperfleetapi.AdapterStatuses, error) {
 	var s hyperfleetapi.AdapterStatuses
-	if err := m.doGet(ctx, fmt.Sprintf("/nodepools/%s/statuses", nodepoolID), &s); err != nil {
+	if err := m.doGet(ctx, fmt.Sprintf("/clusters/%s/nodepools/%s/statuses", clusterID, nodepoolID), &s); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (m *mockHyperfleetClient) PutNodePoolStatus(ctx context.Context, nodepoolID string, payload hyperfleetapi.StatusPayload) error {
-	return m.doPut(ctx, fmt.Sprintf("/nodepools/%s/statuses", nodepoolID), payload)
+func (m *mockHyperfleetClient) PutNodePoolStatus(ctx context.Context, clusterID, nodepoolID string, payload hyperfleetapi.StatusPayload) error {
+	return m.doPut(ctx, fmt.Sprintf("/clusters/%s/nodepools/%s/statuses", clusterID, nodepoolID), payload)
 }
 
 // Ensure mockHyperfleetClient implements Client.
@@ -210,7 +210,7 @@ func TestReconciler(t *testing.T) {
 			},
 			selector:       &mockSelector{mcName: "mc-us-c1", baseDomain: "hc-us-central1-abc.example.com"},
 			expectPUT:      false,
-			expectedResult: common.Result{RequeueAfter: requeueAfter},
+			expectedResult: common.Result{},
 		},
 		{
 			name:           "cluster not found: return empty result, no error",
@@ -223,7 +223,7 @@ func TestReconciler(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:      "reconciled cluster: skip, requeue",
+			name:      "reconciled cluster: skip, wait for next event",
 			clusterID: "cluster-3",
 			cluster: func() *hyperfleetapi.ClusterDetail {
 				c := testCluster("cluster-3", []hyperfleetapi.Condition{
@@ -234,7 +234,7 @@ func TestReconciler(t *testing.T) {
 			statuses:       hyperfleetapi.AdapterStatuses{},
 			selector:       &mockSelector{mcName: "mc-us-c1", baseDomain: "hc-us-central1-abc.example.com"},
 			expectPUT:      false,
-			expectedResult: common.Result{RequeueAfter: requeueAfter},
+			expectedResult: common.Result{},
 		},
 		{
 			name:      "selector error: return error",
@@ -300,11 +300,13 @@ func TestReconciler(t *testing.T) {
 				require.Equal(t, adapterName, captured.Adapter)
 				require.Equal(t, tc.selector.mcName, captured.Data["managementClusterName"])
 				require.Equal(t, tc.selector.baseDomain, captured.Data["baseDomain"])
-				require.Len(t, captured.Conditions, 2)
+				require.Len(t, captured.Conditions, 3)
 				require.Equal(t, "Applied", captured.Conditions[0].Type)
 				require.Equal(t, "True", captured.Conditions[0].Status)
 				require.Equal(t, "Available", captured.Conditions[1].Type)
 				require.Equal(t, "True", captured.Conditions[1].Status)
+				require.Equal(t, "Health", captured.Conditions[2].Type)
+				require.Equal(t, "True", captured.Conditions[2].Status)
 				// ObservedTime must be a valid RFC3339 timestamp.
 				_, timeErr := time.Parse(time.RFC3339, captured.ObservedTime)
 				require.NoError(t, timeErr)

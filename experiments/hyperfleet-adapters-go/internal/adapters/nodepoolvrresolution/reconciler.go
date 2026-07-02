@@ -16,7 +16,6 @@ import (
 const (
 	adapterName         = "nodepool-vr-adapter"
 	defaultChannelGroup = "candidate"
-	requeueShort        = 30 * time.Second
 	requeueLong         = 5 * time.Minute
 )
 
@@ -37,9 +36,16 @@ func NewReconciler(hfClient hyperfleetapi.Client, cincinnati *versionresolution.
 }
 
 // Reconcile implements the nodepool version-resolution adapter reconciliation loop.
-func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.Result, error) {
-	// Step 1: GET /nodepools/{id}
-	np, err := r.hfClient.GetNodePool(ctx, nodepoolID)
+// id is a compound key "clusterID/nodepoolID" as enqueued by the subscriber.
+func (r *Reconciler) Reconcile(ctx context.Context, id string) (common.Result, error) {
+	parts := strings.SplitN(id, "/", 2)
+	if len(parts) != 2 {
+		return common.Result{}, fmt.Errorf("nodepool-vr: invalid workqueue key %q: expected clusterID/nodepoolID", id)
+	}
+	clusterID, nodepoolID := parts[0], parts[1]
+
+	// Step 1: GET /clusters/{clusterID}/nodepools/{nodepoolID}
+	np, err := r.hfClient.GetNodePool(ctx, clusterID, nodepoolID)
 	if err != nil {
 		var notFound *hyperfleetapi.NotFoundError
 		if errors.As(err, &notFound) {
@@ -52,19 +58,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.R
 	// Step 2: If version is empty, wait for it to be set.
 	version := np.Spec.Release.Version
 	if version == "" {
-		r.log.Infof(ctx, "nodepool-vr: nodepool %s: release version not set, requeueing in %s", nodepoolID, requeueShort)
-		return common.Result{RequeueAfter: requeueShort}, nil
+		r.log.Infof(ctx, "nodepool-vr: nodepool %s: release version not set, waiting for next event", nodepoolID)
+		return common.Result{}, nil
 	}
 
-	// Step 3: GET /nodepools/{id}/statuses and check if already resolved.
-	statuses, err := r.hfClient.GetNodePoolStatuses(ctx, nodepoolID)
+	// Step 3: GET /clusters/{clusterID}/nodepools/{nodepoolID}/statuses and check if already resolved.
+	statuses, err := r.hfClient.GetNodePoolStatuses(ctx, clusterID, nodepoolID)
 	if err != nil {
 		return common.Result{}, fmt.Errorf("nodepool-vr: get nodepool statuses %s: %w", nodepoolID, err)
 	}
 	vr := statuses.NodePoolVR()
 	if vr.Ready() && vr.ReleaseVersion == version {
-		r.log.Debugf(ctx, "nodepool-vr: nodepool %s: version %s already resolved, requeueing in %s", nodepoolID, version, requeueLong)
-		return common.Result{RequeueAfter: requeueLong}, nil
+		r.log.Infof(ctx, "nodepool-vr: nodepool %s: version %s already resolved, waiting for next event", nodepoolID, version)
+		return common.Result{}, nil
 	}
 
 	// Step 4: Resolve version via Cincinnati.
@@ -79,8 +85,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.R
 		return common.Result{}, fmt.Errorf("nodepool-vr: cincinnati resolve for nodepool %s: %w", nodepoolID, err)
 	}
 	if info == nil {
-		r.log.Warnf(ctx, "nodepool-vr: nodepool %s: version %s not found in Cincinnati", nodepoolID, version)
-		return common.Result{RequeueAfter: requeueShort}, nil
+		r.log.Warnf(ctx, "nodepool-vr: nodepool %s: version %s not found in Cincinnati, waiting for next event", nodepoolID, version)
+		return common.Result{}, nil
 	}
 
 	// Step 5: PUT /nodepools/{id}/statuses
@@ -116,7 +122,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.R
 		},
 	}
 
-	if err := r.hfClient.PutNodePoolStatus(ctx, nodepoolID, payload); err != nil {
+	if err := r.hfClient.PutNodePoolStatus(ctx, clusterID, nodepoolID, payload); err != nil {
 		return common.Result{}, fmt.Errorf("nodepool-vr: put nodepool status %s: %w", nodepoolID, err)
 	}
 

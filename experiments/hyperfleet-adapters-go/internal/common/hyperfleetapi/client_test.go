@@ -57,22 +57,25 @@ func TestGetCluster_Success(t *testing.T) {
 			ClusterID: "550e8400-e29b-41d4-a716-446655440000",
 			Release:   ReleaseSpec{Version: "4.16.0"},
 			Platform: GCPPlatform{
-				ProjectID:      "my-project",
-				Region:         "us-central1",
-				Network:        "my-vpc",
-				Subnet:         "my-subnet",
-				EndpointAccess: "Private",
-				WorkloadIdentity: WIFConfig{
-					ProjectNumber: "123456789",
-					PoolID:        "pool-id",
-					ProviderID:    "provider-id",
-					ServiceAccountsRef: WIFServiceAccounts{
-						NodePool:        "np@project.iam.gserviceaccount.com",
-						ControlPlane:    "cp@project.iam.gserviceaccount.com",
-						CloudController: "cc@project.iam.gserviceaccount.com",
-						Storage:         "st@project.iam.gserviceaccount.com",
-						ImageRegistry:   "ir@project.iam.gserviceaccount.com",
-						Network:         "net@project.iam.gserviceaccount.com",
+				Type: "GCP",
+				GCP: GCPConfig{
+					ProjectID:      "my-project",
+					Region:         "us-central1",
+					Network:        "my-vpc",
+					Subnet:         "my-subnet",
+					EndpointAccess: "Private",
+					WorkloadIdentity: WIFConfig{
+						ProjectNumber: "123456789",
+						PoolID:        "pool-id",
+						ProviderID:    "provider-id",
+						ServiceAccountsRef: WIFServiceAccounts{
+							NodePool:        "np@project.iam.gserviceaccount.com",
+							ControlPlane:    "cp@project.iam.gserviceaccount.com",
+							CloudController: "cc@project.iam.gserviceaccount.com",
+							Storage:         "st@project.iam.gserviceaccount.com",
+							ImageRegistry:   "ir@project.iam.gserviceaccount.com",
+							Network:         "net@project.iam.gserviceaccount.com",
+						},
 					},
 				},
 			},
@@ -101,9 +104,9 @@ func TestGetCluster_Success(t *testing.T) {
 	assert.Equal(t, want.Generation, got.Generation)
 	assert.Equal(t, want.CreatedBy, got.CreatedBy)
 	assert.Equal(t, want.Spec.InfraID, got.Spec.InfraID)
-	assert.Equal(t, want.Spec.Platform.ProjectID, got.Spec.Platform.ProjectID)
-	assert.Equal(t, want.Spec.Platform.WorkloadIdentity.ServiceAccountsRef.NodePool,
-		got.Spec.Platform.WorkloadIdentity.ServiceAccountsRef.NodePool)
+	assert.Equal(t, want.Spec.Platform.GCP.ProjectID, got.Spec.Platform.GCP.ProjectID)
+	assert.Equal(t, want.Spec.Platform.GCP.WorkloadIdentity.ServiceAccountsRef.NodePool,
+		got.Spec.Platform.GCP.WorkloadIdentity.ServiceAccountsRef.NodePool)
 	assert.Len(t, got.Status.Conditions, 1)
 }
 
@@ -212,7 +215,7 @@ func TestGetClusterStatuses_AccessorMethods(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/hyperfleet/v1/clusters/cluster-1/statuses", r.URL.Path)
-		writeJSON(w, http.StatusOK, statuses)
+		writeJSON(w, http.StatusOK, map[string]any{"items": statuses})
 	}))
 	defer srv.Close()
 
@@ -250,7 +253,7 @@ func TestGetClusterStatuses_AccessorMethods(t *testing.T) {
 
 func TestGetClusterStatuses_MissingAdapters(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, AdapterStatuses{})
+		writeJSON(w, http.StatusOK, map[string]any{"items": AdapterStatuses{}})
 	}))
 	defer srv.Close()
 

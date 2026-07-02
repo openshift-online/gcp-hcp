@@ -34,9 +34,9 @@ type Client interface {
 	GetClusterStatuses(ctx context.Context, clusterID string) (AdapterStatuses, error)
 	PutClusterStatus(ctx context.Context, clusterID string, payload StatusPayload) error
 
-	GetNodePool(ctx context.Context, nodepoolID string) (*NodePoolDetail, error)
-	GetNodePoolStatuses(ctx context.Context, nodepoolID string) (AdapterStatuses, error)
-	PutNodePoolStatus(ctx context.Context, nodepoolID string, payload StatusPayload) error
+	GetNodePool(ctx context.Context, clusterID, nodepoolID string) (*NodePoolDetail, error)
+	GetNodePoolStatuses(ctx context.Context, clusterID, nodepoolID string) (AdapterStatuses, error)
+	PutNodePoolStatus(ctx context.Context, clusterID, nodepoolID string, payload StatusPayload) error
 }
 
 // HTTPClient is the standard-library-based implementation of Client.
@@ -201,29 +201,29 @@ func (c *HTTPClient) PutClusterStatus(ctx context.Context, clusterID string, pay
 	return c.put(ctx, fmt.Sprintf("/clusters/%s/statuses", clusterID), payload)
 }
 
-// GetNodePool fetches a node pool by ID.
-func (c *HTTPClient) GetNodePool(ctx context.Context, nodepoolID string) (*NodePoolDetail, error) {
+// GetNodePool fetches a node pool by cluster and nodepool ID.
+func (c *HTTPClient) GetNodePool(ctx context.Context, clusterID, nodepoolID string) (*NodePoolDetail, error) {
 	var np NodePoolDetail
-	if err := c.get(ctx, fmt.Sprintf("/nodepools/%s", nodepoolID), &np); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/clusters/%s/nodepools/%s", clusterID, nodepoolID), &np); err != nil {
 		return nil, err
 	}
 	return &np, nil
 }
 
 // GetNodePoolStatuses fetches all adapter statuses for a node pool.
-func (c *HTTPClient) GetNodePoolStatuses(ctx context.Context, nodepoolID string) (AdapterStatuses, error) {
+func (c *HTTPClient) GetNodePoolStatuses(ctx context.Context, clusterID, nodepoolID string) (AdapterStatuses, error) {
 	var page struct {
 		Items AdapterStatuses `json:"items"`
 	}
-	if err := c.get(ctx, fmt.Sprintf("/nodepools/%s/statuses", nodepoolID), &page); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/clusters/%s/nodepools/%s/statuses", clusterID, nodepoolID), &page); err != nil {
 		return nil, err
 	}
 	return page.Items, nil
 }
 
 // PutNodePoolStatus updates the adapter status for a node pool.
-func (c *HTTPClient) PutNodePoolStatus(ctx context.Context, nodepoolID string, payload StatusPayload) error {
-	return c.put(ctx, fmt.Sprintf("/nodepools/%s/statuses", nodepoolID), payload)
+func (c *HTTPClient) PutNodePoolStatus(ctx context.Context, clusterID, nodepoolID string, payload StatusPayload) error {
+	return c.put(ctx, fmt.Sprintf("/clusters/%s/nodepools/%s/statuses", clusterID, nodepoolID), payload)
 }
 
 // Ensure HTTPClient implements Client.

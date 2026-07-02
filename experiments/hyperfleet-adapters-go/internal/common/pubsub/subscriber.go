@@ -71,7 +71,10 @@ func (s *Subscriber) Run(ctx context.Context) {
 		}
 
 		var data struct {
-			ID string `json:"id"`
+			ID              string `json:"id"`
+			OwnerReferences *struct {
+				ID string `json:"id"`
+			} `json:"owner_references,omitempty"`
 		}
 		if err := ce.DataAs(&data); err != nil || data.ID == "" {
 			s.log.Errorw("CloudEvent missing resource id in data, discarding",
@@ -82,7 +85,12 @@ func (s *Subscriber) Run(ctx context.Context) {
 			msg.Ack()
 			return
 		}
+		// For nested resources (e.g. nodepools), enqueue as "ownerID/resourceID"
+		// so reconcilers can use both without an extra API call.
 		resourceID := data.ID
+		if data.OwnerReferences != nil && data.OwnerReferences.ID != "" {
+			resourceID = data.OwnerReferences.ID + "/" + data.ID
+		}
 		s.log.Debugw("received CloudEvent, enqueuing resource",
 			"resourceID", resourceID,
 			"msgID", msg.ID,

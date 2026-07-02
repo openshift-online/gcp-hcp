@@ -50,8 +50,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, clusterID string) (common.Re
 	// Step 2: If cluster has Reconciled condition "True" → skip
 	for _, c := range cluster.Status.Conditions {
 		if c.Type == "Reconciled" && c.Status == "True" {
-			r.log.Infof(ctx, "placement: cluster %s already reconciled, requeuing", clusterID)
-			return common.Result{RequeueAfter: requeueAfter}, nil
+			r.log.Infof(ctx, "placement: cluster %s already reconciled, waiting for next event", clusterID)
+			return common.Result{}, nil
 		}
 	}
 
@@ -63,9 +63,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, clusterID string) (common.Re
 
 	placement := statuses.Placement()
 	if placement.Ready() {
-		r.log.Infof(ctx, "placement: cluster %s already placed (mc=%s, domain=%s), requeuing",
+		r.log.Infof(ctx, "placement: cluster %s already placed (mc=%s, domain=%s), waiting for next event",
 			clusterID, placement.ManagementClusterName, placement.BaseDomain)
-		return common.Result{RequeueAfter: requeueAfter}, nil
+		return common.Result{}, nil
 	}
 
 	// Step 4: Select MC and DNS zone
@@ -112,5 +112,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, clusterID string) (common.Re
 	}
 
 	// Step 6: Requeue
+	r.log.Infof(ctx, "placement: cluster %s placed, requeueing after %s", clusterID, requeueAfter)
 	return common.Result{RequeueAfter: requeueAfter}, nil
 }

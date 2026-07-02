@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,9 +19,8 @@ import (
 )
 
 const (
-	adapterName        = "nodepool-adapter"
-	requeueNotReady    = 30 * time.Second
-	requeueAfterApply  = 5 * time.Minute
+	adapterName       = "nodepool-adapter"
+	requeueAfterApply = 5 * time.Minute
 )
 
 // Reconciler implements the nodepool adapter reconciliation loop.
@@ -39,12 +39,19 @@ func New(api hyperfleetapi.Client, transport transport.Client, log logger.Logger
 	}
 }
 
-// Reconcile runs one reconciliation cycle for the given nodepoolID.
-func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.Result, error) {
-	log := r.log.With("nodepoolID", nodepoolID)
+// Reconcile runs one reconciliation cycle for the given id.
+// id is a compound key "clusterID/nodepoolID" as enqueued by the subscriber.
+func (r *Reconciler) Reconcile(ctx context.Context, id string) (common.Result, error) {
+	parts := strings.SplitN(id, "/", 2)
+	if len(parts) != 2 {
+		return common.Result{}, fmt.Errorf("nodepool reconciler: invalid workqueue key %q: expected clusterID/nodepoolID", id)
+	}
+	clusterID, nodepoolID := parts[0], parts[1]
+
+	log := r.log.With("clusterID", clusterID).With("nodepoolID", nodepoolID)
 
 	// Step 1: GET nodepool
-	np, err := r.api.GetNodePool(ctx, nodepoolID)
+	np, err := r.api.GetNodePool(ctx, clusterID, nodepoolID)
 	if err != nil {
 		var nfe *hyperfleetapi.NotFoundError
 		if errors.As(err, &nfe) {
@@ -55,24 +62,24 @@ func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.R
 	}
 
 	// Step 2: GET cluster
-	cluster, err := r.api.GetCluster(ctx, np.ClusterID)
+	cluster, err := r.api.GetCluster(ctx, clusterID)
 	if err != nil {
 		var nfe *hyperfleetapi.NotFoundError
 		if errors.As(err, &nfe) {
-			log.Infof(ctx, "cluster %s not found for nodepool %s, skipping", np.ClusterID, nodepoolID)
+			log.Infof(ctx, "cluster %s not found for nodepool %s, skipping", clusterID, nodepoolID)
 			return common.Result{}, nil
 		}
 		return common.Result{}, fmt.Errorf("nodepool reconciler: get cluster: %w", err)
 	}
 
 	// Step 3: GET cluster statuses
-	clusterStatuses, err := r.api.GetClusterStatuses(ctx, np.ClusterID)
+	clusterStatuses, err := r.api.GetClusterStatuses(ctx, clusterID)
 	if err != nil {
 		return common.Result{}, fmt.Errorf("nodepool reconciler: get cluster statuses: %w", err)
 	}
 
 	// Step 4: GET nodepool statuses
-	nodepoolStatuses, err := r.api.GetNodePoolStatuses(ctx, nodepoolID)
+	nodepoolStatuses, err := r.api.GetNodePoolStatuses(ctx, clusterID, nodepoolID)
 	if err != nil {
 		return common.Result{}, fmt.Errorf("nodepool reconciler: get nodepool statuses: %w", err)
 	}
@@ -83,21 +90,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.R
 	nodepoolVR := nodepoolStatuses.NodePoolVR()
 
 	if !placement.Ready() {
-		log.Infof(ctx, "placement not ready for nodepool %s, requeueing", nodepoolID)
-		return common.Result{RequeueAfter: requeueNotReady}, nil
+		log.Infof(ctx, "placement not ready for nodepool %s, waiting for next event", nodepoolID)
+		return common.Result{}, nil
 	}
 	if !hc.Available() {
-		log.Infof(ctx, "hc-adapter not available for nodepool %s, requeueing", nodepoolID)
-		return common.Result{RequeueAfter: requeueNotReady}, nil
+		log.Infof(ctx, "hc-adapter not available for nodepool %s, waiting for next event", nodepoolID)
+		return common.Result{}, nil
 	}
 	if !nodepoolVR.Ready() {
-		log.Infof(ctx, "nodepool VR not ready for nodepool %s, requeueing", nodepoolID)
-		return common.Result{RequeueAfter: requeueNotReady}, nil
+		log.Infof(ctx, "nodepool VR not ready for nodepool %s, waiting for next event", nodepoolID)
+		return common.Result{}, nil
 	}
 	if nodepoolVR.ReleaseVersion != np.Spec.Release.Version {
-		log.Infof(ctx, "nodepool VR version %q does not match spec version %q for nodepool %s, requeueing",
+		log.Infof(ctx, "nodepool VR version %q does not match spec version %q for nodepool %s, waiting for next event",
+
 			nodepoolVR.ReleaseVersion, np.Spec.Release.Version, nodepoolID)
-		return common.Result{RequeueAfter: requeueNotReady}, nil
+		return common.Result{}, nil
 	}
 
 	// Step 6: Build ManifestWork
@@ -112,7 +120,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.R
 		NodePoolID:         nodepoolID,
 		NodePoolName:       np.Name,
 		NodePoolGeneration: np.Generation,
-		ClusterID:          np.ClusterID,
+		ClusterID:          clusterID,
 		ClusterName:        cluster.Name,
 		Replicas:           defaultReplicas,
 		MachineType:        manifest.DefaultMachineType,
@@ -150,11 +158,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, nodepoolID string) (common.R
 	payload := r.buildStatusPayload(np, mwStatus)
 
 	// Step 10: PUT nodepool status
-	if err := r.api.PutNodePoolStatus(ctx, nodepoolID, payload); err != nil {
+	if err := r.api.PutNodePoolStatus(ctx, clusterID, nodepoolID, payload); err != nil {
 		return common.Result{}, fmt.Errorf("nodepool reconciler: put nodepool status: %w", err)
 	}
 
 	// Step 11: Requeue after 5m
+	log.Infof(ctx, "nodepool reconciler: nodepool %s reconciled, requeueing after %s", nodepoolID, requeueAfterApply)
 	return common.Result{RequeueAfter: requeueAfterApply}, nil
 }
 

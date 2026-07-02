@@ -13,10 +13,9 @@ import (
 )
 
 const (
-	adapterName          = "version-resolution-adapter"
-	defaultChannelGroup  = "candidate"
-	requeueShort         = 30 * time.Second
-	requeueLong          = 5 * time.Minute
+	adapterName         = "version-resolution-adapter"
+	defaultChannelGroup = "candidate"
+	requeueLong         = 5 * time.Minute
 )
 
 // Reconciler resolves the OCP release image for a cluster via Cincinnati.
@@ -48,19 +47,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, clusterID string) (common.Re
 		return common.Result{}, fmt.Errorf("vr: get cluster %s: %w", clusterID, err)
 	}
 
-	// Step 2: If cluster has Reconciled condition == "True", requeue slowly.
+	// Step 2: If cluster has Reconciled condition == "True", skip — Sentinel will re-trigger if needed.
 	for _, cond := range cluster.Status.Conditions {
 		if cond.Type == "Reconciled" && cond.Status == "True" {
-			r.log.Debugf(ctx, "vr: cluster %s: already reconciled, requeueing in %s", clusterID, requeueLong)
-			return common.Result{RequeueAfter: requeueLong}, nil
+			r.log.Infof(ctx, "vr: cluster %s: already reconciled, waiting for next event", clusterID)
+			return common.Result{}, nil
 		}
 	}
 
 	// Step 3: If version is empty, wait for it to be set.
 	version := cluster.Spec.Release.Version
 	if version == "" {
-		r.log.Infof(ctx, "vr: cluster %s: release version not set, requeueing in %s", clusterID, requeueShort)
-		return common.Result{RequeueAfter: requeueShort}, nil
+		r.log.Infof(ctx, "vr: cluster %s: release version not set, waiting for next event", clusterID)
+		return common.Result{}, nil
 	}
 
 	// Step 4: GET /clusters/{id}/statuses and check if already resolved.
@@ -70,8 +69,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, clusterID string) (common.Re
 	}
 	vr := statuses.VersionResolution()
 	if vr.Ready() && vr.ReleaseVersion == version {
-		r.log.Debugf(ctx, "vr: cluster %s: version %s already resolved, requeueing in %s", clusterID, version, requeueLong)
-		return common.Result{RequeueAfter: requeueLong}, nil
+		r.log.Infof(ctx, "vr: cluster %s: version %s already resolved, waiting for next event", clusterID, version)
+		return common.Result{}, nil
 	}
 
 	// Step 5: Resolve version via Cincinnati.
@@ -83,8 +82,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, clusterID string) (common.Re
 		return common.Result{}, fmt.Errorf("vr: cincinnati resolve for cluster %s: %w", clusterID, err)
 	}
 	if info == nil {
-		r.log.Warnf(ctx, "vr: cluster %s: version %s not found in Cincinnati", clusterID, version)
-		return common.Result{RequeueAfter: requeueShort}, nil
+		r.log.Warnf(ctx, "vr: cluster %s: version %s not found in Cincinnati, waiting for next event", clusterID, version)
+		return common.Result{}, nil
 	}
 
 	// Step 6: PUT /clusters/{id}/statuses

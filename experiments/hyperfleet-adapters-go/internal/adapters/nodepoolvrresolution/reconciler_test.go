@@ -43,7 +43,8 @@ type mockHFServer struct {
 func (m *mockHFServer) handler() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/hyperfleet/v1/nodepools/", func(w http.ResponseWriter, r *http.Request) {
+	// Handles /api/hyperfleet/v1/clusters/{clusterID}/nodepools/{nodepoolID}[/statuses]
+	mux.HandleFunc("/api/hyperfleet/v1/clusters/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		isStatuses := strings.HasSuffix(path, "/statuses")
 
@@ -58,7 +59,7 @@ func (m *mockHFServer) handler() http.Handler {
 
 		case r.Method == http.MethodGet && isStatuses:
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(m.statuses) //nolint:errcheck
+			json.NewEncoder(w).Encode(map[string]any{"items": m.statuses}) //nolint:errcheck
 
 		case r.Method == http.MethodPut && isStatuses:
 			var payload hyperfleetapi.StatusPayload
@@ -129,7 +130,7 @@ func TestReconciler_HappyPath(t *testing.T) {
 	}
 
 	r := buildReconciler(t, mock, cincSrv)
-	result, err := r.Reconcile(context.Background(), "np-1")
+	result, err := r.Reconcile(context.Background(), "cluster-1/np-1")
 
 	require.NoError(t, err)
 	require.Equal(t, common.Result{RequeueAfter: requeueLong}, result)
@@ -142,7 +143,7 @@ func TestReconciler_HappyPath(t *testing.T) {
 	require.Equal(t, "4.22.0-ec.4", put.Data["release_version"])
 	require.Equal(t, "candidate-4.22", put.Data["release_channel"])
 	require.Equal(t, "candidate", put.Data["release_channel_group"])
-	require.Len(t, put.Conditions, 2)
+	require.Len(t, put.Conditions, 3)
 
 	// Verify Applied condition.
 	require.Equal(t, "Applied", put.Conditions[0].Type)
@@ -153,6 +154,11 @@ func TestReconciler_HappyPath(t *testing.T) {
 	require.Equal(t, "Available", put.Conditions[1].Type)
 	require.Equal(t, "True", put.Conditions[1].Status)
 	require.Equal(t, "ReleaseImageAvailable", put.Conditions[1].Reason)
+
+	// Verify Health condition.
+	require.Equal(t, "Health", put.Conditions[2].Type)
+	require.Equal(t, "True", put.Conditions[2].Status)
+	require.Equal(t, "VersionResolved", put.Conditions[2].Reason)
 
 	// Verify ObservedTime is a valid RFC3339 timestamp.
 	_, parseErr := time.Parse(time.RFC3339, put.ObservedTime)
@@ -186,11 +192,9 @@ func TestReconciler_AlreadyResolved(t *testing.T) {
 	}
 
 	r := buildReconciler(t, mock, cincSrv)
-	result, err := r.Reconcile(context.Background(), "np-2")
+	_, err := r.Reconcile(context.Background(), "cluster-1/np-2")
 
 	require.NoError(t, err)
-	require.Equal(t, common.Result{RequeueAfter: requeueLong}, result)
-	// No PUT should have been made.
 	require.Empty(t, mock.putCalls)
 }
 
@@ -201,7 +205,7 @@ func TestReconciler_NodepoolNotFound(t *testing.T) {
 	mock := &mockHFServer{nodepoolNotFound: true}
 
 	r := buildReconciler(t, mock, cincSrv)
-	result, err := r.Reconcile(context.Background(), "np-404")
+	result, err := r.Reconcile(context.Background(), "cluster-1/np-404")
 
 	require.NoError(t, err)
 	require.Equal(t, common.Result{}, result)
@@ -225,10 +229,10 @@ func TestReconciler_VersionNotInCincinnati(t *testing.T) {
 	}
 
 	r := buildReconciler(t, mock, cincSrv)
-	result, err := r.Reconcile(context.Background(), "np-5")
+	result, err := r.Reconcile(context.Background(), "cluster-1/np-5")
 
 	require.NoError(t, err)
-	require.Equal(t, common.Result{RequeueAfter: requeueShort}, result)
+	require.Equal(t, common.Result{RequeueAfter: 0}, result)
 	require.Empty(t, mock.putCalls)
 }
 
@@ -250,10 +254,10 @@ func TestReconciler_EmptyVersion(t *testing.T) {
 	}
 
 	r := buildReconciler(t, mock, cincSrv)
-	result, err := r.Reconcile(context.Background(), "np-6")
+	result, err := r.Reconcile(context.Background(), "cluster-1/np-6")
 
 	require.NoError(t, err)
-	require.Equal(t, common.Result{RequeueAfter: requeueShort}, result)
+	require.Equal(t, common.Result{RequeueAfter: 0}, result)
 	require.Empty(t, mock.putCalls)
 }
 

@@ -209,7 +209,7 @@ func TestReconcile_DependenciesNotReady_NoPlacement(t *testing.T) {
 	r := hc.New(apiClient, mockTransport, testLogger(t))
 	result, err := r.Reconcile(ctx, clusterID)
 	require.NoError(t, err)
-	require.Equal(t, 30*time.Second, result.RequeueAfter)
+	require.Equal(t, time.Duration(0), result.RequeueAfter)
 
 	// Apply should NOT have been called.
 	require.Empty(t, mockTransport.ApplyCalls)
@@ -244,7 +244,7 @@ func TestReconcile_DependenciesNotReady_VRVersionMismatch(t *testing.T) {
 	r := hc.New(apiClient, mockTransport, testLogger(t))
 	result, err := r.Reconcile(ctx, clusterID)
 	require.NoError(t, err)
-	require.Equal(t, 30*time.Second, result.RequeueAfter)
+	require.Equal(t, time.Duration(0), result.RequeueAfter)
 
 	require.Empty(t, mockTransport.ApplyCalls)
 }
@@ -293,9 +293,8 @@ func TestReconcile_AlreadyReconciled(t *testing.T) {
 	mockTransport := mock.New()
 
 	r := hc.New(apiClient, mockTransport, testLogger(t))
-	result, err := r.Reconcile(ctx, clusterID)
+	_, err := r.Reconcile(ctx, clusterID)
 	require.NoError(t, err)
-	require.Equal(t, 5*time.Minute, result.RequeueAfter)
 
 	// No Apply or GetStatus should have been called.
 	require.Empty(t, mockTransport.ApplyCalls)

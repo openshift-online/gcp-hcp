@@ -61,7 +61,7 @@ func buildTestServer(
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/nodepools/"+np.ID:
+		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID+"/nodepools/"+np.ID:
 			writeJSON(w, http.StatusOK, np)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID:
 			if cluster == nil {
@@ -71,9 +71,9 @@ func buildTestServer(
 			writeJSON(w, http.StatusOK, cluster)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID+"/statuses":
 			writeJSON(w, http.StatusOK, map[string]any{"items": clusterStatuses})
-		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/nodepools/"+np.ID+"/statuses":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID+"/nodepools/"+np.ID+"/statuses":
 			writeJSON(w, http.StatusOK, map[string]any{"items": nodepoolStatuses})
-		case r.Method == http.MethodPut && r.URL.Path == "/api/hyperfleet/v1/nodepools/"+np.ID+"/statuses":
+		case r.Method == http.MethodPut && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID+"/nodepools/"+np.ID+"/statuses":
 			w.WriteHeader(http.StatusOK)
 		default:
 			t.Logf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -163,15 +163,15 @@ func TestReconcile_HappyPath(t *testing.T) {
 	var putCalled bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/nodepools/"+np.ID:
+		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID+"/nodepools/"+np.ID:
 			writeJSON(w, http.StatusOK, np)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID:
 			writeJSON(w, http.StatusOK, cluster)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID+"/statuses":
 			writeJSON(w, http.StatusOK, map[string]any{"items": clusterStatuses})
-		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/nodepools/"+np.ID+"/statuses":
+		case r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID+"/nodepools/"+np.ID+"/statuses":
 			writeJSON(w, http.StatusOK, map[string]any{"items": nodepoolStatuses})
-		case r.Method == http.MethodPut && r.URL.Path == "/api/hyperfleet/v1/nodepools/"+np.ID+"/statuses":
+		case r.Method == http.MethodPut && r.URL.Path == "/api/hyperfleet/v1/clusters/"+np.ClusterID+"/nodepools/"+np.ID+"/statuses":
 			putCalled = true
 			w.WriteHeader(http.StatusOK)
 		default:
@@ -201,7 +201,7 @@ func TestReconcile_HappyPath(t *testing.T) {
 	api := newTestAPIClient(t, srv)
 	r := New(api, tr, newTestLogger(t))
 
-	result, err := r.Reconcile(context.Background(), np.ID)
+	result, err := r.Reconcile(context.Background(), np.ClusterID+"/"+np.ID)
 	require.NoError(t, err)
 	require.Equal(t, requeueAfterApply, result.RequeueAfter)
 
@@ -244,9 +244,9 @@ func TestReconcile_NoPlacement(t *testing.T) {
 	api := newTestAPIClient(t, srv)
 	r := New(api, tr, newTestLogger(t))
 
-	result, err := r.Reconcile(context.Background(), np.ID)
+	result, err := r.Reconcile(context.Background(), np.ClusterID+"/"+np.ID)
 	require.NoError(t, err)
-	require.Equal(t, requeueNotReady, result.RequeueAfter)
+	require.Equal(t, time.Duration(0), result.RequeueAfter)
 	require.Empty(t, tr.ApplyCalls)
 }
 
@@ -284,9 +284,9 @@ func TestReconcile_HCNotAvailable(t *testing.T) {
 	api := newTestAPIClient(t, srv)
 	r := New(api, tr, newTestLogger(t))
 
-	result, err := r.Reconcile(context.Background(), np.ID)
+	result, err := r.Reconcile(context.Background(), np.ClusterID+"/"+np.ID)
 	require.NoError(t, err)
-	require.Equal(t, requeueNotReady, result.RequeueAfter)
+	require.Equal(t, time.Duration(0), result.RequeueAfter)
 	require.Empty(t, tr.ApplyCalls)
 }
 
@@ -305,15 +305,15 @@ func TestReconcile_NodePoolVRNotReady(t *testing.T) {
 	api := newTestAPIClient(t, srv)
 	r := New(api, tr, newTestLogger(t))
 
-	result, err := r.Reconcile(context.Background(), np.ID)
+	result, err := r.Reconcile(context.Background(), np.ClusterID+"/"+np.ID)
 	require.NoError(t, err)
-	require.Equal(t, requeueNotReady, result.RequeueAfter)
+	require.Equal(t, time.Duration(0), result.RequeueAfter)
 	require.Empty(t, tr.ApplyCalls)
 }
 
 func TestReconcile_NodePoolNotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/nodepools/np-missing" {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/hyperfleet/v1/clusters/cluster-test/nodepools/np-missing" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -326,7 +326,7 @@ func TestReconcile_NodePoolNotFound(t *testing.T) {
 	api := newTestAPIClient(t, srv)
 	r := New(api, tr, newTestLogger(t))
 
-	result, err := r.Reconcile(context.Background(), "np-missing")
+	result, err := r.Reconcile(context.Background(), "cluster-test/np-missing")
 	require.NoError(t, err)
 	require.Equal(t, time.Duration(0), result.RequeueAfter)
 	require.Empty(t, tr.ApplyCalls)
@@ -355,8 +355,8 @@ func TestReconcile_VRVersionMismatch(t *testing.T) {
 	api := newTestAPIClient(t, srv)
 	r := New(api, tr, newTestLogger(t))
 
-	result, err := r.Reconcile(context.Background(), np.ID)
+	result, err := r.Reconcile(context.Background(), np.ClusterID+"/"+np.ID)
 	require.NoError(t, err)
-	require.Equal(t, requeueNotReady, result.RequeueAfter)
+	require.Equal(t, time.Duration(0), result.RequeueAfter)
 	require.Empty(t, tr.ApplyCalls)
 }
