@@ -32,24 +32,20 @@ Level 2: Story / Task / Bug (GCP)          [Execution - Individual Work]
 
 ## Linking Mechanisms
 
-**Two different field types are used:**
+Jira uses the **`parent`** field to establish all parent-child relationships. In the UI and in API responses, these relationships also appear in legacy custom fields for backward compatibility:
 
-### Epic Link Field
+### Epic Link Field (UI / read-only reference)
 - **Purpose**: Links Stories, Tasks, and Bugs to their parent Epic
 - **Direction**: Level 2 → Level 3
-- **Field ID**: `customfield_12310140`
+- **Field ID**: `customfield_10014`
 - **Example**: Story GCP-100 links to Epic GCP-50
 
-### Parent Link Field
+### Parent Link Field (UI / read-only reference)
 - **Purpose**: Links all other hierarchical relationships
 - **Direction**: Epics → Features/Initiatives, Features/Initiatives → Outcomes → Strategic Goals
-- **Field ID**: `customfield_12313140`
 - **Example**: Epic GCP-50 links to Feature GCP-10, or Epic GCP-60 links to Initiative GCP-20
 
-**Why Two Fields?**
-- Epic Link field predates the Parent Link field in Jira's evolution
-- Maintains backward compatibility with existing workflows
-- Both fields serve the same conceptual purpose (establishing parent-child relationships)
+> **For programmatic use (REST API):** Always use the standard `parent` field to set or update parent-child relationships. See [Jira API Technical Reference](#jira-api-technical-reference) for details.
 
 ---
 
@@ -145,73 +141,56 @@ Invalid approaches:
 When creating or updating Jira issues programmatically:
 
 1. **Check for existing parents first** - Don't auto-create; link to existing issues when appropriate
-2. **Use correct field for link type**:
-   - Stories/Tasks/Bugs → Epic: Use **Epic Link field**
-   - Epics → Feature or Initiative: Use **Parent Link field** (choose Feature OR Initiative, not both)
-3. **Two-step approach** - Create the issue first, then set the parent link in a separate edit/update call. Setting hierarchy fields at creation time is unreliable.
+2. **Set the `parent` field** to establish parent-child links at any hierarchy level. Use the parent issue's key (e.g., `"parent": {"key": "GCP-627"}`). This works for:
+   - Stories/Tasks/Bugs → Epic
+   - Epics → Feature or Initiative (choose Feature OR Initiative, not both)
+3. **Set `parent` at creation time** - Include the `parent` field in the create payload. No separate edit call is needed.
 4. **Don't force parent creation** - Only create parent issues when explicitly requested or contextually necessary for grouping/coordination
 
 ### Jira API Technical Reference
 
 > **This section documents the exact API behavior for the GCP project on our Jira Cloud instance (redhat.atlassian.net). AI agents should follow these patterns to avoid trial-and-error API calls.**
+>
+> Field IDs were verified against live API responses in July 2025 ([PR #79 review](https://github.com/openshift-online/gcp-hcp/pull/79#issuecomment-4868112074)).
 
 #### Setting parent links (Story → Epic, Epic → Feature/Initiative)
 
-**Use the standard `parent` field, not the legacy custom fields.** The legacy custom field IDs (`customfield_12310140` for Epic Link, `customfield_12313140` for Parent Link) are documented above for reference and UI identification, but they are **not settable via the REST API** — the Jira edit/create screens do not expose them. Attempts to set them will return:
-
-```
-Field 'customfield_12310140' cannot be set. It is not on the appropriate screen, or unknown.
-```
-
-**What works — the `parent` field:**
-
-The Jira REST API `parent` field handles all parent-child relationships regardless of hierarchy level:
+**Use the standard `parent` field.** It handles all parent-child relationships regardless of hierarchy level and can be set at creation time:
 
 ```json
-// Link a Story to an Epic (Level 2 → Level 3)
-// Link an Epic to a Feature (Level 3 → Level 4)
-// Same field, same syntax for both cases
 {
-  "fields": {
-    "parent": { "key": "GCP-627" }
-  }
+  "parent": { "key": "GCP-627" }
 }
 ```
 
-**Setting parent at creation time vs. edit:**
+This works for both Story → Epic and Epic → Feature/Initiative links. The `parent` field auto-populates the Epic Link custom field (`customfield_10014`) — no need to set that field directly.
 
-| Approach | Reliability | Notes |
-|----------|-------------|-------|
-| Set `parent` at creation time | May fail | Some issue type / screen configurations reject `parent` during creation |
-| Set `parent` via edit after creation | **Reliable** | Create the issue first, then immediately update with `parent` field |
+**Recommended pattern (single API call):**
 
-**Recommended pattern (two API calls):**
-
-```
-1. POST  /rest/api/3/issue          → create issue (without parent)
-2. PUT   /rest/api/3/issue/{key}    → set {"parent": {"key": "EPIC-KEY"}}
+```text
+POST /rest/api/3/issue → create issue with "parent": {"key": "EPIC-KEY"} in the payload
 ```
 
-This two-step approach is the most reliable across all issue types in our Jira instance.
+The `parent` field is also settable via `PUT /rest/api/3/issue/{key}` if you need to change or add a parent after creation.
 
-#### Other custom fields that ARE settable via API
+#### Custom fields settable via API
 
-Not all custom fields have the screen restriction. These fields can be set at creation time via `additional_fields` or updated via edit:
+These fields can be set at creation time via `additional_fields` or updated via edit:
 
-| Field | Field ID | Set at Create | Set at Edit | Value Format |
-|-------|----------|:---:|:---:|---|
-| Story Points | `customfield_10016` | Yes | Yes | Number (e.g., `3`) |
-| Epic Name | `customfield_10011` | Yes | Yes | String |
-| Risk Probability | `customfield_10642` | Yes | Yes | `{"value": "Very Likely"}` |
-| Risk Impact | `customfield_10842` | Yes | Yes | `{"value": "Major"}` |
-| Risk Score | `customfield_10976` | Yes | Yes | Number |
+| Field | Field ID | Value Format |
+|-------|----------|---|
+| Story Points | `customfield_10028` | Number (e.g., `3`) |
+| Epic Link (read) | `customfield_10014` | String — auto-populated by `parent`, do not set directly |
+| Epic Name | `customfield_10011` | String |
+| Risk Probability | `customfield_10642` | `{"value": "Very Likely"}` |
+| Risk Impact | `customfield_10842` | `{"value": "Major"}` |
+| Risk Score | `customfield_10976` | Number |
 
 #### Creating issue links (Related, Blocks, etc.)
 
 Issue links (non-hierarchical relationships like "Related" or "Blocks") use the issue link API, not fields:
 
-```
-POST /rest/api/3/issueLink
+```json
 {
   "type": { "name": "Related" },
   "inwardIssue": { "key": "GCP-869" },
@@ -225,13 +204,12 @@ For directional links (e.g., Blocks): `inwardIssue` is the blocker, `outwardIssu
 
 #### Common pitfalls (avoid these)
 
-| Pitfall | Tokens Wasted | Fix |
-|---------|:---:|-----|
-| Setting `customfield_12310140` (Epic Link) via API | 2-3 calls | Use `parent` field instead |
-| Setting `customfield_12313140` (Parent Link) via API | 2-3 calls | Use `parent` field instead |
-| Setting `parent` at issue creation time | 1-2 calls | Create first, then edit to set parent |
-| Guessing link type names for `createIssueLink` | 1-2 calls | Call `getIssueLinkTypes` first if unsure |
-| Linking to issues in projects without permission | 1 call | Reference the issue key in the description instead |
+| Pitfall | Fix |
+|---------|-----|
+| Using `customfield_10014` to set Epic Link | Use `parent` field instead — `customfield_10014` is auto-populated |
+| Using `customfield_10028` for the wrong thing | Verify it's "Story Points" (type: float), not another field |
+| Guessing link type names for `createIssueLink` | Call `getIssueLinkTypes` first if unsure |
+| Linking to issues in projects without permission | Reference the issue key in the description instead |
 
 ### For Manual Jira Usage
 
