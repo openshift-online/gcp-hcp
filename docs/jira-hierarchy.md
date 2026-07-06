@@ -187,5 +187,6 @@ Understanding where issue types live across projects:
 - [Jira Story Template](./jira-story-template.md) - Story structure and sizing
 - [Jira Epic Template](./jira-epic-template.md) - Epic structure and breakdown
 - [Jira Feature Template](./jira-feature-template.md) - Feature structure
+- [Jira Initiative Template](./jira-initiative-template.md) - Initiative structure
 - [Jira Task Template](./jira-task-template.md) - Task structure
 - [AGENTS.md](../AGENTS.md) - AI agent guidance including Jira plugin details
