@@ -148,8 +148,90 @@ When creating or updating Jira issues programmatically:
 2. **Use correct field for link type**:
    - Stories/Tasks/Bugs → Epic: Use **Epic Link field**
    - Epics → Feature or Initiative: Use **Parent Link field** (choose Feature OR Initiative, not both)
-3. **Create Epic first, then link to Feature** - Defensive two-step approach prevents creation failures
+3. **Two-step approach** - Create the issue first, then set the parent link in a separate edit/update call. Setting hierarchy fields at creation time is unreliable.
 4. **Don't force parent creation** - Only create parent issues when explicitly requested or contextually necessary for grouping/coordination
+
+### Jira API Technical Reference
+
+> **This section documents the exact API behavior for the GCP project on our Jira Cloud instance (redhat.atlassian.net). AI agents should follow these patterns to avoid trial-and-error API calls.**
+
+#### Setting parent links (Story → Epic, Epic → Feature/Initiative)
+
+**Use the standard `parent` field, not the legacy custom fields.** The legacy custom field IDs (`customfield_12310140` for Epic Link, `customfield_12313140` for Parent Link) are documented above for reference and UI identification, but they are **not settable via the REST API** — the Jira edit/create screens do not expose them. Attempts to set them will return:
+
+```
+Field 'customfield_12310140' cannot be set. It is not on the appropriate screen, or unknown.
+```
+
+**What works — the `parent` field:**
+
+The Jira REST API `parent` field handles all parent-child relationships regardless of hierarchy level:
+
+```json
+// Link a Story to an Epic (Level 2 → Level 3)
+// Link an Epic to a Feature (Level 3 → Level 4)
+// Same field, same syntax for both cases
+{
+  "fields": {
+    "parent": { "key": "GCP-627" }
+  }
+}
+```
+
+**Setting parent at creation time vs. edit:**
+
+| Approach | Reliability | Notes |
+|----------|-------------|-------|
+| Set `parent` at creation time | May fail | Some issue type / screen configurations reject `parent` during creation |
+| Set `parent` via edit after creation | **Reliable** | Create the issue first, then immediately update with `parent` field |
+
+**Recommended pattern (two API calls):**
+
+```
+1. POST  /rest/api/3/issue          → create issue (without parent)
+2. PUT   /rest/api/3/issue/{key}    → set {"parent": {"key": "EPIC-KEY"}}
+```
+
+This two-step approach is the most reliable across all issue types in our Jira instance.
+
+#### Other custom fields that ARE settable via API
+
+Not all custom fields have the screen restriction. These fields can be set at creation time via `additional_fields` or updated via edit:
+
+| Field | Field ID | Set at Create | Set at Edit | Value Format |
+|-------|----------|:---:|:---:|---|
+| Story Points | `customfield_10016` | Yes | Yes | Number (e.g., `3`) |
+| Epic Name | `customfield_10011` | Yes | Yes | String |
+| Risk Probability | `customfield_10642` | Yes | Yes | `{"value": "Very Likely"}` |
+| Risk Impact | `customfield_10842` | Yes | Yes | `{"value": "Major"}` |
+| Risk Score | `customfield_10976` | Yes | Yes | Number |
+
+#### Creating issue links (Related, Blocks, etc.)
+
+Issue links (non-hierarchical relationships like "Related" or "Blocks") use the issue link API, not fields:
+
+```
+POST /rest/api/3/issueLink
+{
+  "type": { "name": "Related" },
+  "inwardIssue": { "key": "GCP-869" },
+  "outwardIssue": { "key": "RFE-4099" }
+}
+```
+
+For directional links (e.g., Blocks): `inwardIssue` is the blocker, `outwardIssue` is the blocked issue. Example: "GCP-627 blocks SDCICD-1843" → `inwardIssue: GCP-627`, `outwardIssue: SDCICD-1843`.
+
+**Note:** Creating issue links requires "Link Issue" permission on both issues. Cross-project links may fail if the agent lacks permission on the target project.
+
+#### Common pitfalls (avoid these)
+
+| Pitfall | Tokens Wasted | Fix |
+|---------|:---:|-----|
+| Setting `customfield_12310140` (Epic Link) via API | 2-3 calls | Use `parent` field instead |
+| Setting `customfield_12313140` (Parent Link) via API | 2-3 calls | Use `parent` field instead |
+| Setting `parent` at issue creation time | 1-2 calls | Create first, then edit to set parent |
+| Guessing link type names for `createIssueLink` | 1-2 calls | Call `getIssueLinkTypes` first if unsure |
+| Linking to issues in projects without permission | 1 call | Reference the issue key in the description instead |
 
 ### For Manual Jira Usage
 
