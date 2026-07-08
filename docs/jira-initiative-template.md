@@ -33,7 +33,7 @@ This template provides a standardized structure for creating Jira Initiatives. I
 
 ---
 
-## Technical Approach
+## Technical Approach (Optional)
 
 [High-level architectural approach, key technologies/patterns to use, integration points, or note "TBD during Epic breakdown"]
 
