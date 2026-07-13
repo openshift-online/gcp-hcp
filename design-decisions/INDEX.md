@@ -64,6 +64,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [container-image-build-and-distribution-pipeline](automation/container-image-build-and-distribution-pipeline.md) | Konflux for builds, Artifact Registry for publishing, regional pull-through caches |
 | [ai-centric-sdlc](automation/ai-centric-sdlc.md) | AI-centric SDLC with multi-tool support and required human review |
 | [agent-autonomy-levels](automation/agent-autonomy-levels.md) | Three-stage approach for agent-driven remediation with increasing autonomy levels |
+| [gcp-agent-platform](automation/gcp-agent-platform.md) | Gemini Enterprise Agent Platform for production-hosted agent workloads |
 
 ## Governance
 
