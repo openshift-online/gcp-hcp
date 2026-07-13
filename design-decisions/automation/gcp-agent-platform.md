@@ -32,7 +32,7 @@ This decision applies to hosted/production agents only. Local developer agents (
 
 1. **Gemini Enterprise Agent Platform (chosen)**: Fully managed Agent Runtime with built-in compute isolation, auto-scaling, identity, observability, and scheduling. In the source-archive deployment mode (the required mode for this team), agent code is deployed into a managed container with no shell, no exec, and no writable filesystem. Agent Runtime also supports custom container deployments, which may have different capabilities — custom containers are not approved under this decision without separate review. Integrated with Cloud Trace, Cloud Logging, and Cloud Monitoring.
 
-2. **Cloud Run**: Google's scalable managed container platform. Not purpose-built for agents — lacks native agent observability (no execution traces, session management, or memory bank), no built-in multi-agent orchestration, and no framework-aware deployment. Would require building agent lifecycle management, session state, scheduling triggers, and telemetry instrumentation from scratch. A general-purpose compute platform adapted for agents rather than an agent-first platform.
+2. **Cloud Run**: Google's scalable managed container platform. Not purpose-built for agents — lacks native agent observability, multi-agent orchestration, and framework-aware deployment. Cloud Run agents can integrate with Agent Platform Sessions and Memory Bank as composable services, but these are not built in and require explicit setup. Would require building agent lifecycle management, scheduling triggers, and telemetry instrumentation from scratch. A general-purpose compute platform adapted for agents rather than an agent-first platform.
 
 3. **OpenShell on GKE**: An agent sandbox providing full Linux environments with kernel-level security controls — Landlock LSM restricts filesystem paths, seccomp BPF filters system calls, and a credential proxy replaces real keys with opaque placeholders so the agent process never sees them. Powerful isolation, but requires operating a standard GKE cluster, managing sidecars, maintaining proxy infrastructure, and running the OpenShell control plane. Significant operational overhead for a small team that currently runs no standard GKE clusters — all existing infrastructure uses GKE Autopilot or managed services.
 
@@ -46,10 +46,10 @@ This decision applies to hosted/production agents only. Local developer agents (
   - Secret Manager with per-secret IAM bindings isolates tool credentials (GitHub, Jira tokens)
   - Private Service Connect + Secure Web Proxy enforces deny-all egress with an explicit domain allowlist
   - AGT allow/deny lists and content filters provide in-process tool governance
-  - Cloud Trace captures full execution traces across multi-agent orchestration
+  - Cloud Trace captures execution traces across multi-agent orchestration (ADK agents are instrumented via environment variables; non-ADK agents require explicit OpenTelemetry setup)
 
 * **Comparison**:
-  - **Cloud Run** (alternative 2): Viable as general-purpose compute, but every agent-specific capability (session management, multi-agent orchestration, execution traces, memory) would need to be built and maintained by the team. For a small team, the build-vs-buy calculus strongly favors the managed platform. Cloud Run also lacks the inherent sandbox properties — a container image on Cloud Run can include a shell and writable filesystem unless explicitly hardened.
+  - **Cloud Run** (alternative 2): Viable as general-purpose compute. Some Agent Platform services (Sessions, Memory Bank) can be used from Cloud Run through integration, but orchestration, framework-aware deployment, and observability would need to be built and maintained by the team. For a small team, the build-vs-buy calculus strongly favors the managed platform. Cloud Run also lacks the inherent sandbox properties — a container image on Cloud Run can include a shell and writable filesystem unless explicitly hardened.
   - **OpenShell on GKE** (alternative 3): Provides the strongest isolation model (kernel-level enforcement, credential proxy injection), but requires operating a standard GKE cluster. The team runs GKE Autopilot exclusively and has no standard GKE clusters. Standing up and maintaining the OpenShell infrastructure (cluster, sidecars, proxy) would be a significant operational burden for a platform that Google already manages. Agent Platform achieves equivalent security outcomes through different mechanisms at each layer.
 
 ## Consequences
@@ -59,7 +59,7 @@ This decision applies to hosted/production agents only. Local developer agents (
 * Zero operational overhead for agent infrastructure — Google manages compute, scaling, container lifecycle, and platform updates
 * Built-in sandbox properties in source-archive mode: no shell, no exec, no writable filesystem, read-only deployment
 * Workload Identity eliminates model API keys from the environment; tool credentials in Secret Manager with per-secret IAM
-* Native observability: Cloud Trace (OpenTelemetry), Cloud Logging, Cloud Monitoring — no instrumentation required
+* Native observability: Cloud Trace (OpenTelemetry), Cloud Logging, Cloud Monitoring. ADK agents get tracing via environment variable configuration; non-ADK agents require explicit OpenTelemetry instrumentation. Prompt/response capture is opt-in and requires data-handling review
 * ADK is open-source and model-agnostic (Gemini, Anthropic, OpenAI) — agent code is portable if we ever need to change platforms
 * Cloud Scheduler integration enables scheduled agent execution with no additional infrastructure
 * Agent Platform Sessions and Memory Bank provide managed state and long-term context across agent invocations
@@ -124,8 +124,8 @@ The platform maps to the 5-layer agent security model as follows:
 | Layer | Mechanism |
 |-------|-----------|
 | **Infrastructure** | Agent Runtime manages compute, scaling, execution. Dedicated GCP service account per agent with least-privilege IAM. Workload Identity for model access. |
-| **Sandbox** | No shell, no exec, no writable filesystem in source-archive mode (platform-enforced). AGT allow/deny lists for tool governance. Content filters for exfiltration prevention. |
-| **Harness** | Multi-agent orchestration via ADK. Least-privilege tool assignment per sub-agent (e.g., researcher can search the web but cannot approve PRs). |
+| **Sandbox** | No shell, no exec, no writable filesystem in source-archive mode (platform-enforced). Read-only source deployment. Network egress restricted via SWP domain allowlist. |
+| **Harness** | Multi-agent orchestration via ADK. Least-privilege tool assignment per sub-agent. AGT allow/deny lists for in-process tool governance. Content filters for exfiltration prevention. |
 | **Runtime** | ADK agent loop and tool dispatch. Session management. No custom agent loop implementation needed. |
 | **Model** | Model-agnostic via ADK. Gemini models accessed via Workload Identity (no API keys). Vertex AI handles model serving. |
 
@@ -133,7 +133,7 @@ Network egress is enforced at the VPC boundary via Private Service Connect and S
 
 ### Observability:
 
-* Cloud Trace with OpenTelemetry captures full execution traces across multi-agent orchestration
+* Cloud Trace with OpenTelemetry captures execution traces across multi-agent orchestration. ADK agents are instrumented via telemetry environment variables (`OTEL_SEMCONV_STABILITY_OPT_IN`, `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`); non-ADK agents require explicit OpenTelemetry SDK setup. Prompt/response capture is opt-in and has data-handling implications (may capture PII)
 * Cloud Logging receives agent output and framework logs. AGT content filters apply to tool calls; agents must also avoid logging raw credentials, API tokens, or PII. Log access is controlled via IAM roles on the logging project
 * Cloud Monitoring provides runtime metrics (invocation count, latency, errors)
 * Agent Gateway (evaluating, in preview) may consolidate enforcement and observability into a single layer when it GAs
