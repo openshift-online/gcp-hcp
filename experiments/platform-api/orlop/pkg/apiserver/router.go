@@ -72,7 +72,7 @@ func setupRouter(registry *ResourceRegistry, corsOrigins []string, customMiddlew
 
 			// Namespaced resources: LIST across all namespaces + CRUD under /namespaces/{namespace}
 			var namespacedHandlers []struct {
-				plural  string
+				res     ResourceInfo
 				handler *handlers.ResourceHandler
 			}
 			for _, res := range resources {
@@ -85,20 +85,36 @@ func setupRouter(registry *ResourceRegistry, corsOrigins []string, customMiddlew
 				}
 				r.Get("/"+res.Plural, handler.List)
 				namespacedHandlers = append(namespacedHandlers, struct {
-					plural  string
+					res     ResourceInfo
 					handler *handlers.ResourceHandler
-				}{res.Plural, handler})
+				}{res, handler})
 			}
 			if len(namespacedHandlers) > 0 {
 				r.Route("/namespaces/{namespace}", func(r chi.Router) {
 					for _, nh := range namespacedHandlers {
-						r.Post("/"+nh.plural, nh.handler.Create)
-						r.Get("/"+nh.plural, nh.handler.List)
-						r.Get("/"+nh.plural+"/{name}", nh.handler.Get)
-						r.Put("/"+nh.plural+"/{name}", nh.handler.Update)
-						r.Patch("/"+nh.plural+"/{name}", nh.handler.Patch)
-						r.Delete("/"+nh.plural+"/{name}", nh.handler.Delete)
-						r.Put("/"+nh.plural+"/{name}/status", nh.handler.UpdateStatus)
+						plural := nh.res.Plural
+						r.Post("/"+plural, nh.handler.Create)
+						r.Get("/"+plural, nh.handler.List)
+						r.Get("/"+plural+"/{name}", nh.handler.Get)
+						r.Put("/"+plural+"/{name}", nh.handler.Update)
+						r.Patch("/"+plural+"/{name}", nh.handler.Patch)
+						r.Delete("/"+plural+"/{name}", nh.handler.Delete)
+						r.Put("/"+plural+"/{name}/status", nh.handler.UpdateStatus)
+
+						// Nested routes under parent resource (e.g. /clusters/{clusterID}/nodepools)
+						if p := nh.res.ParentResource; p != nil {
+							idField := p.IDField
+							r.Route("/"+p.Plural+"/{parentID}/"+plural, func(r chi.Router) {
+								r.Use(parentFilterMiddleware(idField, "parentID"))
+								r.Post("/", nh.handler.Create)
+								r.Get("/", nh.handler.List)
+								r.Get("/{name}", nh.handler.Get)
+								r.Put("/{name}", nh.handler.Update)
+								r.Patch("/{name}", nh.handler.Patch)
+								r.Delete("/{name}", nh.handler.Delete)
+								r.Put("/{name}/status", nh.handler.UpdateStatus)
+							})
+						}
 					}
 				})
 			}
@@ -116,6 +132,23 @@ func setupRouter(registry *ResourceRegistry, corsOrigins []string, customMiddlew
 	}
 
 	return r, nil
+}
+
+// parentFilterMiddleware returns a chi middleware that injects a ParentFilter into the
+// request context. idField is the dot-separated JSON path in the child resource that
+// holds the parent ID (e.g. "spec.clusterID"). urlParam is the chi URL parameter name
+// containing the actual parent ID value from the request path.
+func parentFilterMiddleware(idField, urlParam string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			parentID := chi.URLParam(r, urlParam)
+			ctx := handlers.WithParentFilter(r.Context(), handlers.ParentFilter{
+				IDField: idField,
+				ID:      parentID,
+			})
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 // setupConvertingRouter configures the HTTP router with converting handlers for public API.
@@ -182,7 +215,7 @@ func setupConvertingRouter(publicRegistry *ResourceRegistry, privateRegistry *Re
 
 			// Namespaced resources: LIST across all namespaces + CRUD under /namespaces/{namespace}
 			var namespacedHandlers []struct {
-				plural  string
+				res     ResourceInfo
 				handler *handlers.ConvertingResourceHandler
 			}
 			for _, res := range resources {
@@ -196,20 +229,36 @@ func setupConvertingRouter(publicRegistry *ResourceRegistry, privateRegistry *Re
 				handler := handlerInterface.(*handlers.ConvertingResourceHandler)
 				r.Get("/"+res.Plural, handler.List)
 				namespacedHandlers = append(namespacedHandlers, struct {
-					plural  string
+					res     ResourceInfo
 					handler *handlers.ConvertingResourceHandler
-				}{res.Plural, handler})
+				}{res, handler})
 			}
 			if len(namespacedHandlers) > 0 {
 				r.Route("/namespaces/{namespace}", func(r chi.Router) {
 					for _, nh := range namespacedHandlers {
-						r.Post("/"+nh.plural, nh.handler.Create)
-						r.Get("/"+nh.plural, nh.handler.List)
-						r.Get("/"+nh.plural+"/{name}", nh.handler.Get)
-						r.Put("/"+nh.plural+"/{name}", nh.handler.Update)
-						r.Patch("/"+nh.plural+"/{name}", nh.handler.Patch)
-						r.Delete("/"+nh.plural+"/{name}", nh.handler.Delete)
-						r.Put("/"+nh.plural+"/{name}/status", nh.handler.UpdateStatus)
+						plural := nh.res.Plural
+						r.Post("/"+plural, nh.handler.Create)
+						r.Get("/"+plural, nh.handler.List)
+						r.Get("/"+plural+"/{name}", nh.handler.Get)
+						r.Put("/"+plural+"/{name}", nh.handler.Update)
+						r.Patch("/"+plural+"/{name}", nh.handler.Patch)
+						r.Delete("/"+plural+"/{name}", nh.handler.Delete)
+						r.Put("/"+plural+"/{name}/status", nh.handler.UpdateStatus)
+
+						// Nested routes under parent resource (e.g. /clusters/{clusterID}/nodepools)
+						if p := nh.res.ParentResource; p != nil {
+							idField := p.IDField
+							r.Route("/"+p.Plural+"/{parentID}/"+plural, func(r chi.Router) {
+								r.Use(parentFilterMiddleware(idField, "parentID"))
+								r.Post("/", nh.handler.Create)
+								r.Get("/", nh.handler.List)
+								r.Get("/{name}", nh.handler.Get)
+								r.Put("/{name}", nh.handler.Update)
+								r.Patch("/{name}", nh.handler.Patch)
+								r.Delete("/{name}", nh.handler.Delete)
+								r.Put("/{name}/status", nh.handler.UpdateStatus)
+							})
+						}
 					}
 				})
 			}
