@@ -16,7 +16,7 @@ Node Pool upgrades are entirely customer-triggered — manual or scheduled — a
 
 - **Constraints**:
   - Must be compatible with HyperShift's upgrade mechanics (CVO, Cincinnati upgrade graph, sequential minor version steps)
-  - Must enforce version skew constraints between control plane and Node Pools (N-3 minor versions)
+  - Must communicate version skew status between control plane and Node Pools (N-3 minor versions) and enforce out-of-support policy when the limit is exceeded
   - Must support EUS-to-EUS upgrade paths (workers skipping odd minor versions)
   - Must provide customer controls that map to familiar GKE concepts where possible
   - Cincinnati is the canonical source for OCP release versions and upgrade paths (see [Adopt Cincinnati for Version Resolution](../governance/adopt-cincinnati-for-version-resolution.md))
@@ -56,14 +56,18 @@ Node Pool upgrades are entirely customer-triggered — manual or scheduled — a
 
 ### Version Skew Policy
 
-The platform enforces version skew constraints between the control plane and Node Pools. These constraints are what make EUS-to-EUS updates possible (N-3 allows workers to remain on the even version while the control plane transits through the odd version).
+The platform tracks version skew between the control plane and Node Pools. The N-3 limit is what makes EUS-to-EUS updates possible (workers can remain on the even version while the control plane transits through the odd version).
+
+The platform does **not** block its own control plane upgrades due to worker skew, and does **not** auto-upgrade workers. Control plane upgrades are the platform's responsibility; Node Pool upgrades are the customer's. If a customer does not upgrade their Node Pools and the skew exceeds N-3, the Node Pool enters out-of-support status.
 
 | Constraint | Rule | Enforcement |
 |---|---|---|
-| **Worker-to-control-plane skew** | Workers must not be more than **N-3 minor versions** behind the control plane | Platform blocks control plane upgrades that would exceed this skew; auto-upgrades workers approaching the limit |
+| **Worker-to-control-plane skew** | Workers should not be more than **N-3 minor versions** behind the control plane | Platform notifies the customer as skew approaches the limit. If N-3 is exceeded, the Node Pool enters out-of-support status (no alerting, no Red Hat support until the Node Pool is upgraded) |
 | **Worker version ceiling** | Workers cannot run a version **newer** than the control plane | Platform blocks worker upgrades beyond the control plane version |
-| **Upgrade order** | Control plane upgrades **before** workers | Platform enforces this ordering — worker upgrades are scheduled only after control plane upgrade completes successfully |
+| **Upgrade order** | Control plane upgrades **before** workers | Platform enforces this ordering — worker upgrades can only target the current control plane version |
 | **Minor version steps** | Minor version upgrades are sequential (e.g., 4.22 → 4.23 → 4.24, not 4.22 → 4.24) | Platform enforces single-step minor upgrades via Cincinnati upgrade graph |
+
+**Out-of-support policy for Node Pools exceeding version skew:** When a Node Pool exceeds the N-3 skew limit, the platform stops providing alerting and monitoring support for that Node Pool. Red Hat support cannot assist with issues on the out-of-skew Node Pool until the customer upgrades it to a version within the supported skew range. The specific out-of-support policy will be documented separately.
 
 ### Control Plane Upgrades
 
@@ -144,7 +148,7 @@ Customer-defined blackout periods during which no automatic y-stream upgrades ar
 **Override conditions** — maintenance windows and exclusions are respected *except for*:
 - Z-stream upgrades (always automatic)
 - Version is approaching **EOL**
-- Workers are approaching the **version skew limit** (N-3)
+- Workers are approaching the **version skew limit** (N-3) — the platform notifies the customer but does not block the control plane upgrade
 - The cluster version is **incompatible with a required platform component** update
 
 ### Manual Upgrades
@@ -209,7 +213,7 @@ This is an internal platform concern — control plane upgrades are the platform
 * Customer timing controls (maintenance windows, exclusions, channels) provide operational flexibility for y-stream upgrades
 * Z-stream auto-upgrades ensure security patches are applied promptly without customer action
 * Node Pool upgrades remain fully customer-controlled, avoiding unexpected workload disruption
-* Override mechanism ensures critical situations (EOL, version skew, platform compatibility) are not blocked by customer-configured delays
+* Override mechanism ensures critical situations (EOL, platform compatibility) are not blocked by customer-configured delays
 * EUS channel support enables customers who need extended stability between minor versions
 * Progressive fleet rollout minimizes blast radius of problematic releases
 * EOL-with-no-edge handling is transparent to customers — the platform owns the resolution
@@ -219,7 +223,7 @@ This is an internal platform concern — control plane upgrades are the platform
 * Customers lose the ability to defer y-stream upgrades indefinitely — may be perceived as less flexible than ROSA
 * Z-stream upgrades bypassing all delay controls removes customer control over patch timing, even for patches that could cause behavioral changes
 * Override conditions can force upgrades outside customer-preferred windows — requires clear advance communication
-* Node Pool version divergence from the control plane is possible if customers delay upgrades — approaching skew limits triggers platform intervention
+* Node Pool version divergence from the control plane is possible if customers do not upgrade — exceeding N-3 skew puts the Node Pool out of support, which may be a harsh consequence for inattentive customers
 * Dependency on Red Hat for edge resolution in EOL-with-no-edge scenarios — resolution timeline is outside platform control
 
 ## Cross-Cutting Concerns
@@ -234,7 +238,8 @@ This is an internal platform concern — control plane upgrades are the platform
 * Z-stream auto-upgrades ensure critical security patches are applied without waiting for customer action or maintenance windows
 * Override mechanism ensures critical security situations are resolved regardless of customer-configured delays
 * Mandatory control plane upgrades prevent clusters from accumulating security debt on unsupported versions
-* Version skew enforcement prevents configurations where workers run incompatible versions
+* Customer notifications before and after skew limit is crossed provide clear signal to act
+* Out-of-support policy for out-of-skew Node Pools creates a strong incentive for customers to keep workers current
 
 ### Performance:
 
