@@ -96,7 +96,7 @@ Workspace variables are defined in `hcp-terraform/test-gcp-hcp-terraform/main.tf
 
 ### Authentication Flow
 
-```
+```text
 HCP Terraform Run
     │
     ├─ 1. TFC generates OIDC token with:
