@@ -10,7 +10,7 @@ Fields marked with this marker are moved to `api/public` when running `go run ./
 To run the demo apiserver:
 ```sh
 # Run the API server using a in-memory database
-$ go run ./cmd/orlop-server --private-port 8080 --public-port 8081
+$ go run ./cmd/platform-api-server --private-port 8080 --public-port 8081
 
 # you can interact with the API using kubectl:
 $ export KUBECONFIG="$PWD/kubeconfig-public.yaml"
