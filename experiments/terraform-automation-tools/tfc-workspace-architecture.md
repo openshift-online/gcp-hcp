@@ -5,7 +5,7 @@
 
 ## TFC Hierarchy
 
-```
+```text
 ORG: hp-platform-engineering
 │
 ├── Project: gcp-hcp-{env}                          (one per environment: integration, stage, production)
@@ -40,7 +40,7 @@ Stage workspaces follow the same pattern (already have configs under `terraform/
 
 Each TFC project authenticates to its corresponding GCP environment via WIF. The commons WIF pool (`tfc-pool`) is shared, but each environment gets its own service account for blast-radius isolation.
 
-```
+```text
 gcp-hcp-commons (WIF Pool: tfc-pool, Provider: tfc-oidc)
 │
 ├── SA: tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com
@@ -108,7 +108,7 @@ This means individual workspaces don't set WIF variables at all — they inherit
 
 ### Code layout
 
-```
+```text
 hcp-terraform/
 ├── meta/                        # Meta workspace (manages all other workspaces)
 │   └── main.tf                  # tfe provider config, manages projects
