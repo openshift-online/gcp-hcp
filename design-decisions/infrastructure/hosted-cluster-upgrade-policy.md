@@ -77,6 +77,18 @@ Control plane upgrades are **mandatory and platform-managed**. The platform keep
 - Y-stream (minor) upgrades respect maintenance windows and maintenance exclusions
 - Z-stream (patch) upgrades are fully automatic and do not respect delay controls
 
+#### Version Promotion to Channel Default
+
+Before a version becomes the default on a channel and triggers fleet-wide upgrades, it must pass the platform's internal validation pipeline. This includes end-to-end tests, upgrade tests, and any additional validation gates the platform defines. The specifics of which validations run are intentionally not prescribed here — the goal is to automate as much as possible, and the validation suite will evolve over time.
+
+The promotion flow:
+
+1. Red Hat publishes a new GA version to Cincinnati
+2. The version becomes available in the corresponding channel (fast, stable, or EUS) per Red Hat's channel policies
+3. The platform runs internal validation against the new version (e2e tests, upgrade tests)
+4. Once validation passes, the platform promotes the version to the channel's **default** — this is an internal platform operation, not a Cincinnati concept. Cincinnati provides the upgrade graph; the platform decides which version is the current target for automatic upgrades
+5. The new default triggers fleet-wide upgrades following a progressive delivery policy, ensuring clusters are upgraded gradually rather than simultaneously. The progressive delivery policy will be documented in a separate design decision
+
 **How it works:**
 1. HyperShift's CVO queries Cincinnati via the HostedCluster's `spec.channel` and populates `status.version.availableUpdates` on the HostedCluster CR
 2. The platform reads available updates from the HostedCluster CR status and evaluates upgrade eligibility (channel target version, maintenance window, exclusion window)
