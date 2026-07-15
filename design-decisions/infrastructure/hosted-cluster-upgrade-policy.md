@@ -52,7 +52,7 @@ Node Pool upgrades are entirely customer-triggered — manual or scheduled — a
 
 - **Fast**: GA releases appear immediately after Red Hat declares them GA. Fully supported. If a regression is found in a fast release, it gets the same fix priority as stable. The only difference is timing, not support level.
 - **Stable**: Same GA releases as fast, but after a soak period on the fast channel. This delay gives Red Hat more time to discover regressions before the release reaches stable customers. Same support level as fast — just delayed for extra confidence. Default channel.
-- **EUS**: Available on even-numbered minor versions only (4.14, 4.16, 4.18, etc.). Extends Full and Maintenance support phases to 18 months. Enables EUS-to-EUS updates where workers skip the intermediate odd version.
+- **EUS**: Available on even-numbered minor versions only (4.14, 4.16, 4.18, etc.). Extends Full and Maintenance support phases to 18 months. Enables EUS-to-EUS updates where workers skip the intermediate odd version. Selecting the EUS channel is only valid when the cluster is running an even-numbered minor version; the platform rejects it for odd minor versions.
 
 ### Version Skew Policy
 
@@ -71,7 +71,7 @@ The platform does **not** block its own control plane upgrades due to worker ske
 
 ### Control Plane Upgrades
 
-Control plane upgrades are **mandatory and platform-managed**. The platform keeps hosted control planes on supported, secure versions. Customers cannot disable automatic upgrades but can manually upgrade ahead of the automatic schedule.
+Control plane upgrades are **mandatory and platform-managed**. The platform keeps hosted control planes on supported, secure versions. Customers cannot disable automatic upgrades but can manually upgrade ahead of the automatic schedule. Version downgrades are not supported — the platform does not provide a mechanism to revert a control plane to a previous version. This is a fundamental constraint of the Kubernetes and OCP upgrade model; Cincinnati only publishes forward upgrade edges.
 
 **Upgrade triggers:**
 - Automated (mandatory): new default version set on the channel
@@ -143,11 +143,11 @@ Customer-defined blackout periods during which no automatic y-stream upgrades ar
 
 - Up to 3 maintenance exclusions (aligned with GKE)
 - Maximum duration 30 days
-- Must leave at least 48 hours of maintenance availability in any rolling 32-day window (aligned with GKE)
+- Must leave at least 48 hours of maintenance availability in any rolling 32-day window (aligned with GKE). The platform rejects maintenance exclusion configurations that would violate this constraint at the API level
 
 **Override conditions** — maintenance windows and exclusions are respected *except for*:
 - Z-stream upgrades (always automatic)
-- Version is approaching **EOL**
+- Version is within **30 days of EOL** (aligned with GKE)
 - Workers are approaching the **version skew limit** (N-3) — the platform notifies the customer but does not block the control plane upgrade
 - The cluster version is **incompatible with a required platform component** update
 
@@ -169,7 +169,10 @@ Customers can initiate a control plane upgrade to a specific target version with
 | Upgrade started | Control Plane status update |
 | Upgrade completed | Control Plane status update |
 | Upgrade failed | Control Plane status update with error details |
-| Delay override pending | Advance notification with reason and override timeline |
+| Upgrade remediation in progress | Control Plane status update indicating remediation is in progress |
+| Channel change triggering upgrade | Control Plane event with target version and reason |
+| Node Pool version skew approaching N-3 | Control Plane event with Node Pool identifier and recommended action |
+| Delay override pending | Advance notification at least **7 days** before override, with reason and override timeline |
 
 ## Customer Controls for Node Pool Upgrades
 
@@ -230,8 +233,8 @@ This is an internal platform concern — control plane upgrades are the platform
 
 ### Reliability:
 
-* **Resiliency**: Control plane upgrades use HyperShift's rolling update mechanism — multi-replica control planes minimize API availability impact (brief, seconds-level disruptions during pod replacement). Failed control plane upgrades trigger automatic rollback to the previous version. Failed worker node replacements leave the old node in place — no workload disruption from a failed worker upgrade.
-* **Observability**: Customer notifications for upgrade lifecycle events (scheduled, started, completed, failed, delay override pending). Platform-side metrics for upgrade success rates, duration, and rollback frequency across the fleet.
+* **Resiliency**: Control plane upgrades use HyperShift's rolling update mechanism — multi-replica control planes minimize API availability impact (brief, seconds-level disruptions during pod replacement). Failed control plane upgrades trigger an SRE alert — the operations team investigates and remediates. There is no automatic rollback mechanism; the cluster remains on the partially-upgraded version until SRE resolves the issue. Failed worker node replacements leave the old node in place — no workload disruption from a failed worker upgrade.
+* **Observability**: Customer notifications for upgrade lifecycle events (scheduled, started, completed, failed, remediation in progress, delay override pending). Platform-side metrics for upgrade success rates, duration, and remediation time across the fleet.
 
 ### Security:
 
