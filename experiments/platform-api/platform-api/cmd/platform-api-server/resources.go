@@ -11,7 +11,17 @@ import (
 // getPrivateResources returns the resource definitions for the private API.
 // Uses generated ResourceInfo from the private API package.
 func getPrivateResources() []types.ResourceInfo {
-	return append(privatev1alpha1.GetResourceInfos(), privatev1beta1hs.GetResourceInfos()...)
+	resources := append(privatev1alpha1.GetResourceInfos(), privatev1beta1hs.GetResourceInfos()...)
+	// Wire up NodePool as a child of Cluster for nested route support.
+	for i, res := range resources {
+		if res.GVK.Kind == "NodePool" && res.GVK.Group == privatev1alpha1.GroupVersion.Group {
+			resources[i].ParentResource = &types.ParentResourceInfo{
+				Plural:  "clusters",
+				IDField: "spec.clusterID",
+			}
+		}
+	}
+	return resources
 }
 
 // getPublicResources returns the resource definitions for the public API.
