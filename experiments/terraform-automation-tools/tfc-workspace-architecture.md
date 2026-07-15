@@ -19,7 +19,9 @@ ORG: hp-platform-engineering
 │
 └── Project: gcp-hcp-ci
     ├── Workspace: gcp-hcp-hypershift-ci             → terraform/config/hypershift-ci
-    └── Workspace (ephemeral): gcp-hcp-e2e-{sha}    → terraform/config/ci/{ephemeral_folder}
+    ├── Workspace: gcp-hcp-platform-ci               → terraform/config/platform-ci
+    └── Workspace (ephemeral): gcp-hcp-platform-{sha}
+                                                      → terraform/config/platform-ci/{ephemeral_folder}
 ```
 
 ## Atlantis → TFC Workspace Mapping
@@ -33,37 +35,34 @@ Current Atlantis projects (from `atlantis-integration.yaml`) map 1:1 to TFC work
 | `mc-int-main-us-central1-yjiv` | `gcp-hcp-mc-integration-main-us-central1-yjiv` | `gcp-hcp-integration` | `terraform/config/management-cluster/integration/main/us-central1-yjiv` |
 | `pagerduty` | `gcp-hcp-pagerduty` | `gcp-hcp-tooling` | `terraform/config/pagerduty` |
 | `hypershift-ci` | `gcp-hcp-hypershift-ci` | `gcp-hcp-ci` | `terraform/config/hypershift-ci` |
+| *(new)* | `gcp-hcp-platform-ci` | `gcp-hcp-ci` | `terraform/config/platform-ci` |
 
 Stage workspaces follow the same pattern (already have configs under `terraform/config/*/stage/`).
 
 ## WIF Authentication — Per-Environment Service Accounts
 
-Each TFC project authenticates to its corresponding GCP environment via WIF. The commons WIF pool (`tfc-pool`) is shared, but each environment gets its own service account for blast-radius isolation.
+Each TFC project authenticates to GCP via WIF using the shared commons pool (`tfc-pool`). Environment service accounts live in each environment's own global project for blast-radius isolation, with cross-project `workloadIdentityUser` bindings on the commons pool. Tooling and CI use the commons SA directly.
 
 ```text
 gcp-hcp-commons (WIF Pool: tfc-pool, Provider: tfc-oidc)
 │
-├── SA: tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com
-│   └── Used by: gcp-hcp-tooling project (pagerduty, etc.)
+│   Cross-project workloadIdentityUser bindings:
 │
-├── SA: tfc-int@gcp-hcp-commons.iam.gserviceaccount.com
-│   └── Used by: gcp-hcp-integration project workspaces
-│       └── IAM roles granted on: gcp-hcp-int-global, int-reg-*, int-mgt-* projects
+├── SA: tfc-automation@gcp-hcp-{env}-global.iam.gserviceaccount.com
+│   └── Used by: gcp-hcp-{env} project workspaces (integration, stage, production)
+│       └── IAM roles granted on: gcp-hcp-{env}-global, {env}-reg-*, {env}-mgt-* projects
+│       └── SA created manually and imported, or created by Atlantis if that's an option
 │
-├── SA: tfc-stg@gcp-hcp-commons.iam.gserviceaccount.com
-│   └── Used by: gcp-hcp-stage project workspaces
-│       └── IAM roles granted on: gcp-hcp-stg-global, stg-reg-*, stg-mgt-* projects
-│
-├── SA: tfc-prd@gcp-hcp-commons.iam.gserviceaccount.com
-│   └── Used by: gcp-hcp-production project workspaces
-│       └── IAM roles granted on: gcp-hcp-prd-global, prd-reg-*, prd-mgt-* projects
-│
-└── SA: tfc-ci@gcp-hcp-commons.iam.gserviceaccount.com
-    └── Used by: gcp-hcp-ci project workspaces
-        └── IAM roles granted on: CI-specific projects
+└── SA: tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com
+    ├── Used by: gcp-hcp-tooling project (pagerduty, etc.) — direct use
+    └── Used by: gcp-hcp-ci project workspaces — impersonates per-CI-project SAs:
+        ├── tfc-hypershift-ci@gcp-hcp-hypershift-ci.iam.gserviceaccount.com
+        └── tfc-platform-ci@gcp-hcp-platform-ci.iam.gserviceaccount.com
 ```
 
-**Open question:** Do we use one SA per environment or one shared SA with attribute conditions restricting which TFC project can impersonate it? Per-environment SAs are simpler to reason about and audit but require more IAM bindings to maintain.
+**Decision:** Per-environment SAs in the environment's own global project. This isolates blast radius per environment — a compromised SA only has access to its own environment's projects. The WIF pool and OIDC provider remain centralized in commons since the OIDC configuration is identical across environments.
+
+**CI two-hop impersonation:** CI workspaces authenticate via WIF as `tfc-automation@gcp-hcp-commons`, which then impersonates environment-specific CI SAs. This allows fine-grained permission scoping per CI project (hypershift-ci vs platform-ci) while sharing a single WIF entry point.
 
 ### WIF Variable Sets
 
@@ -71,13 +70,13 @@ TFC variable sets avoid duplicating WIF variables across every workspace in a pr
 
 | Variable Set | Scope | Variables |
 |---|---|---|
-| `wif-integration` | All workspaces in `gcp-hcp-integration` project | `TFC_GCP_PROVIDER_AUTH`, `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` (tfc-int@...), `TFC_GCP_WORKLOAD_PROVIDER_NAME`, `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` |
-| `wif-stage` | All workspaces in `gcp-hcp-stage` project | Same keys, stage SA |
-| `wif-production` | All workspaces in `gcp-hcp-production` project | Same keys, production SA |
-| `wif-tooling` | All workspaces in `gcp-hcp-tooling` project | Same keys, tfc-automation SA |
-| `wif-ci` | All workspaces in `gcp-hcp-ci` project | Same keys, tfc-ci SA |
+| `wif-integration` | All workspaces in `gcp-hcp-integration` project | `TFC_GCP_PROVIDER_AUTH`, `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` (tfc-automation@gcp-hcp-integration-global), `TFC_GCP_WORKLOAD_PROVIDER_NAME`, `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` |
+| `wif-stage` | All workspaces in `gcp-hcp-stage` project | Same keys, tfc-automation@gcp-hcp-stage-global SA |
+| `wif-production` | All workspaces in `gcp-hcp-production` project | Same keys, tfc-automation@gcp-hcp-production-global SA |
+| `wif-tooling` | All workspaces in `gcp-hcp-tooling` project | Same keys, tfc-automation@gcp-hcp-commons SA |
+| `wif-ci` | All workspaces in `gcp-hcp-ci` project | Same keys, tfc-automation@gcp-hcp-commons SA (base SA for impersonation) |
 
-This means individual workspaces don't set WIF variables at all — they inherit from the project-level variable set.
+Individual workspaces don't set WIF variables — they inherit from the project-level variable set. CI workspaces additionally configure impersonation to their per-project SA via the Google provider's `impersonate_service_account` argument.
 
 ## Scaling: New Regions and Environments
 
@@ -99,9 +98,9 @@ This means individual workspaces don't set WIF variables at all — they inherit
 ### Adding a new environment (e.g., production)
 
 1. Create TFC project `gcp-hcp-production` via the `tfe` module
-2. Create SA `tfc-prd@gcp-hcp-commons.iam.gserviceaccount.com` in the commons module
-3. Grant `roles/iam.workloadIdentityUser` on the WIF pool to the new SA
-4. Create variable set `wif-production` scoped to the new project
+2. Create SA `tfc-automation@gcp-hcp-production-global.iam.gserviceaccount.com` in the environment's global project (manually or via Atlantis)
+3. Grant cross-project `roles/iam.workloadIdentityUser` on the commons WIF pool (`tfc-pool`) to the new SA
+4. Create variable set `wif-production` scoped to the new project, referencing the env SA
 5. Add workspace entries for global, region, and MC configs
 
 ## Programmatic Workspace Management
@@ -146,14 +145,14 @@ module "gcp-hcp-integration" {
 }
 ```
 
-### E2E ephemeral workspaces (gcp-hcp-ci)
+### Ephemeral platform-ci workspaces (gcp-hcp-ci)
 
-E2E workspaces are created and destroyed per pipeline run. Options:
+Ephemeral workspaces (`gcp-hcp-platform-{sha}`) are created and destroyed per pipeline run, targeting `terraform/config/platform-ci/{ephemeral_folder}`. Options:
 
 - **TFC API**: Tekton pipeline creates workspace via TFC API, runs plan/apply, destroys workspace on completion
 - **tfe provider with dynamic workspaces**: A dedicated Terraform config creates/destroys workspaces based on input variables
 
-This is the most different from current Atlantis flow and needs further investigation.
+These workspaces authenticate via the CI two-hop model: WIF as `tfc-automation@gcp-hcp-commons`, then impersonation to `tfc-platform-ci@gcp-hcp-platform-ci`. This is the most different from current Atlantis flow and needs further investigation.
 
 ## State Management
 
