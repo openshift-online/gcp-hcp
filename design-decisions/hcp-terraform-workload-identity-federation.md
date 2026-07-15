@@ -15,7 +15,7 @@ HCP Terraform (Terraform Cloud) workspaces that manage GCP infrastructure must a
   - No static GCP service account JSON keys (consistent with platform-wide WIF-first policy)
   - The GCP WIF pool and provider live in the commons project (`gcp-hcp-commons`), managed by the commons Terraform module (applied manually by SRE, not by Atlantis)
   - HCP Terraform workspace configuration is managed via the `hp-platform-engineering/workspaces/tfe` module in `hcp-terraform/test-gcp-hcp-terraform/main.tf`
-  - The HCP Terraform organization uses Dynamic Provider Credentials (credential sets configured per workspace), not the legacy `TFC_GCP_PROVIDER_AUTH` environment variable flow
+  - The HCP Terraform organization uses Dynamic Provider Credentials (credential sets configured per workspace). `TFC_GCP_PROVIDER_AUTH=true` enables this feature. The legacy flow used `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` to set the token audience; Dynamic Provider Credentials use `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` instead
 - **Assumptions**:
   - All future HCP Terraform workspaces managing GCP resources will use the same commons WIF pool (`tfc-pool`) and OIDC provider (`tfc-oidc`)
   - The audience value `https://app.terraform.io` is stable and will remain the default HCP Terraform issuer URI
@@ -24,7 +24,7 @@ HCP Terraform (Terraform Cloud) workspaces that manage GCP infrastructure must a
 
 1. **Dynamic Provider Credentials with explicit audience**: Configure the GCP WIF provider with `allowed_audiences = ["https://app.terraform.io"]` and set `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE = "https://app.terraform.io"` on each workspace. The OIDC token audience matches the allowed audience on the GCP side.
 2. **Dynamic Provider Credentials with default audience**: Remove `allowed_audiences` from the GCP WIF provider so GCP accepts the WIF provider resource name as the audience. Do not set any audience variable on workspaces — HCP Terraform defaults to the provider resource name.
-3. **Legacy environment variable authentication**: Set `TFC_GCP_PROVIDER_AUTH`, `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL`, `TFC_GCP_WORKLOAD_PROVIDER_NAME`, and `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` as workspace environment variables without using Dynamic Provider Credential sets.
+3. **Legacy environment variable authentication**: Set `TFC_GCP_PROVIDER_AUTH`, `TFC_GCP_WORKLOAD_PROVIDER_NAME`, and the legacy audience variable `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` as workspace environment variables without using Dynamic Provider Credential sets. In this flow, `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` is also set as a plain env var rather than being linked to a credential set.
 4. **Static service account keys**: Export a JSON key for the `tfc-automation` service account and store it as a sensitive workspace variable.
 
 ## Decision Rationale
