@@ -19,7 +19,7 @@ Node Pool upgrades are entirely customer-triggered — manual or scheduled — a
   - Must communicate version skew status between control plane and Node Pools (N-3 minor versions) and enforce out-of-support policy when the limit is exceeded
   - Must support EUS-to-EUS upgrade paths (workers skipping odd minor versions)
   - Must provide customer controls that map to familiar GKE concepts where possible
-  - Cincinnati is the canonical source for OCP release versions and upgrade paths (see [Adopt Cincinnati for Version Resolution](../governance/adopt-cincinnati-for-version-resolution.md))
+  - Cincinnati is the canonical source for OCP release versions and upgrade paths, evaluated per cluster via the HostedCluster CR (see [Adopt Cincinnati for Version Resolution](../governance/adopt-cincinnati-for-version-resolution.md))
   - Control plane upgrades are the platform's responsibility as a managed service — customers should not be exposed to internal upgrade plumbing
 
 - **Assumptions**:
