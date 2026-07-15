@@ -12,7 +12,7 @@ Node Pool upgrades are entirely customer-triggered — manual or scheduled — a
 
 ## Context
 
-- **Problem Statement**: GCP HCP needs a defined upgrade lifecycle policy for hosted OCP clusters. The policy must balance platform safety (keeping control planes on supported, secure versions) with customer operational needs (avoiding surprise disruptions during business-critical periods). Without a clear model, clusters risk running unsupported versions, accumulating security debt, or surprising customers with poorly timed upgrades.
+- **Problem Statement**: GCP HCP needs a defined upgrade lifecycle policy that balances platform safety (supported, secure versions) with customer operational needs (predictable upgrade timing).
 
 - **Constraints**:
   - Must be compatible with HyperShift's upgrade mechanics (CVO, Cincinnati upgrade graph, sequential minor version steps)
@@ -30,7 +30,7 @@ Node Pool upgrades are entirely customer-triggered — manual or scheduled — a
 
 ## Alternatives Considered
 
-1. **GKE model — mandatory platform-managed control plane upgrades with customer timing controls (chosen)**: Control plane upgrades are automatic and cannot be disabled. Customers control *when* y-stream upgrades happen via maintenance windows and exclusions, and *which channel* they track. Z-stream upgrades are fully automatic. Node Pool upgrades are customer-triggered.
+1. **GKE model (chosen)**: As described in the Decision section above.
 
 2. **ROSA model — customer-triggered upgrades with EOL enforcement**: Upgrades are not enforced until end-of-life. Customers schedule and trigger all upgrades manually. If a cluster reaches EOL, the platform force-upgrades it.
 
@@ -38,27 +38,25 @@ Node Pool upgrades are entirely customer-triggered — manual or scheduled — a
 
 ## Decision Rationale
 
-* **Justification**: The GKE model (Alternative 1) provides the best balance between platform safety and customer control. Mandatory control plane upgrades ensure clusters stay on supported, secure versions — eliminating the class of support issues where customers run EOL versions for months. Customer timing controls (maintenance windows, exclusions, channel selection) give customers operational flexibility for y-stream upgrades without allowing indefinite deferral. Z-stream patches are low-risk and security-critical, justifying fully automatic application. Keeping Node Pool upgrades customer-triggered gives customers full control over workload-impacting changes.
+* **Justification**: Mandatory control plane upgrades eliminate the class of support issues where customers run EOL versions for months. Customer timing controls provide operational flexibility without allowing indefinite deferral.
 
 * **Evidence**: GKE's upgrade model is proven at scale and well-understood by the target customer base (GCP-native users). ROSA's experience shows that optional upgrades lead to long-tail version sprawl — some customers stay on unsupported versions for extended periods, creating security exposure and support complexity.
 
 * **Comparison**:
-  - Alternative 2 (ROSA model) was rejected because it allows customers to defer upgrades indefinitely until EOL, creating security exposure and version sprawl. The EOL force-upgrade mechanism is a blunt instrument — customers on EOL already have degraded support, and force upgrades at that point are disruptive.
-  - Alternative 3 (fully customer-managed) was rejected because it transfers all upgrade responsibility to customers, creates a long tail of unsupported versions, and increases support burden. No major managed Kubernetes platform uses this model.
+  - Alternative 2 (ROSA): allows indefinite deferral until EOL, creating version sprawl. EOL force-upgrades are disruptive and come too late.
+  - Alternative 3 (fully customer-managed): transfers all upgrade responsibility to customers. No major managed Kubernetes platform uses this model.
 
 ## Upgrade Model
 
 ### Available Channels
 
-- **Fast**: GA releases appear immediately after Red Hat declares them GA. Fully supported. If a regression is found in a fast release, it gets the same fix priority as stable. The only difference is timing, not support level.
-- **Stable**: Same GA releases as fast, but after a soak period on the fast channel. This delay gives Red Hat more time to discover regressions before the release reaches stable customers. Same support level as fast — just delayed for extra confidence. Default channel.
-- **EUS**: Available on even-numbered minor versions only (4.14, 4.16, 4.18, etc.). Extends Full and Maintenance support phases to 18 months. Enables EUS-to-EUS updates where workers skip the intermediate odd version. Selecting the EUS channel is only valid when the cluster is running an even-numbered minor version; the platform rejects it for odd minor versions.
+- **Fast**: GA releases appear immediately. Fully supported.
+- **Stable**: Same releases after a soak period on fast. Default channel.
+- **EUS**: Even-numbered minor versions only (4.14, 4.16, …). 18-month support. Enables EUS-to-EUS updates. The platform rejects EUS selection for clusters on odd minor versions.
 
 ### Version Skew Policy
 
-The platform tracks version skew between the control plane and Node Pools. The N-3 limit is what makes EUS-to-EUS updates possible (workers can remain on the even version while the control plane transits through the odd version).
-
-The platform does **not** block its own control plane upgrades due to worker skew, and does **not** auto-upgrade workers. Control plane upgrades are the platform's responsibility; Node Pool upgrades are the customer's. If a customer does not upgrade their Node Pools and the skew exceeds N-3, the Node Pool enters out-of-support status.
+The platform tracks version skew between control plane and Node Pools:
 
 | Constraint | Rule | Enforcement |
 |---|---|---|
@@ -67,11 +65,11 @@ The platform does **not** block its own control plane upgrades due to worker ske
 | **Upgrade order** | Control plane upgrades **before** workers | Platform enforces this ordering — worker upgrades can only target the current control plane version |
 | **Minor version steps** | Minor version upgrades are sequential (e.g., 4.22 → 4.23 → 4.24, not 4.22 → 4.24) | Platform enforces single-step minor upgrades via Cincinnati upgrade graph |
 
-**Out-of-support policy for Node Pools exceeding version skew:** When a Node Pool exceeds the N-3 skew limit, the platform stops providing alerting and monitoring support for that Node Pool. Red Hat support cannot assist with issues on the out-of-skew Node Pool until the customer upgrades it to a version within the supported skew range. The specific out-of-support policy will be documented separately.
+The specific out-of-support policy for Node Pools exceeding version skew will be documented separately.
 
 ### Control Plane Upgrades
 
-Control plane upgrades are **mandatory and platform-managed**. The platform keeps hosted control planes on supported, secure versions. Customers cannot disable automatic upgrades but can manually upgrade ahead of the automatic schedule. Version downgrades are not supported — the platform does not provide a mechanism to revert a control plane to a previous version. This is a fundamental constraint of the Kubernetes and OCP upgrade model; Cincinnati only publishes forward upgrade edges.
+Control plane upgrades are **mandatory and platform-managed**. Version downgrades are not supported — Cincinnati only publishes forward upgrade edges.
 
 **Upgrade triggers:**
 - Automated (mandatory): new default version set on the channel
@@ -83,26 +81,24 @@ Control plane upgrades are **mandatory and platform-managed**. The platform keep
 
 #### Version Promotion to Channel Default
 
-Before a version becomes the default on a channel and triggers fleet-wide upgrades, it must pass the platform's internal validation pipeline. This includes end-to-end tests, upgrade tests, and any additional validation gates the platform defines. The specifics of which validations run are intentionally not prescribed here — the goal is to automate as much as possible, and the validation suite will evolve over time.
-
 The promotion flow:
 
 1. Red Hat publishes a new GA version to Cincinnati
 2. The version becomes available in the corresponding channel (fast, stable, or EUS) per Red Hat's channel policies
 3. The platform runs internal validation against the new version (e2e tests, upgrade tests)
-4. Once validation passes, the platform promotes the version to the channel's **default** — this is an internal platform operation, not a Cincinnati concept. Cincinnati provides the upgrade graph; the platform decides which version is the current target for automatic upgrades
-5. The new default triggers fleet-wide upgrades following a progressive delivery policy, ensuring clusters are upgraded gradually rather than simultaneously. The progressive delivery policy will be documented in a separate design decision
+4. Once validation passes, the platform promotes the version to the channel's **default** — an internal platform operation, not a Cincinnati concept
+5. The new default triggers progressive fleet-wide upgrades (progressive delivery policy documented separately)
 
 **How it works:**
-1. HyperShift's CVO queries Cincinnati via the HostedCluster's `spec.channel` and populates `status.version.availableUpdates` on the HostedCluster CR
-2. The platform reads available updates from the HostedCluster CR status and evaluates upgrade eligibility (channel target version, maintenance window, exclusion window)
-3. When an upgrade is elected, the platform updates `spec.release.version` on the cluster spec, triggering the version-resolution adapter to resolve the new release image via Cincinnati
-4. HyperShift orchestrates the actual control plane component rollout (etcd, kube-apiserver, kube-controller-manager, openshift-apiserver, CVO)
-5. New target versions are rolled out progressively across the fleet — not all clusters upgrade simultaneously
+1. CVO queries Cincinnati via `spec.channel` and populates `status.version.availableUpdates`
+2. Platform evaluates upgrade eligibility (channel target, maintenance window, exclusions)
+3. Platform updates `spec.release.version`, triggering version-resolution via Cincinnati
+4. HyperShift orchestrates the control plane rollout
+5. Rollout proceeds progressively across the fleet
 
 ### Node Pool Upgrades
 
-Node Pool upgrades are **entirely customer-triggered**. The platform does not automatically upgrade Node Pools. Customers initiate upgrades manually or schedule them, and the target version is always the current control plane version — there is no version selection for Node Pools.
+Node Pool upgrades are **entirely customer-triggered**. The target version is always the current control plane version.
 
 **Upgrade triggers:**
 - Manual: customer initiates upgrade to match the current control plane version
@@ -116,7 +112,7 @@ HyperShift Operator knobs:
 - **nodeDrainTimeout**: force-removes stuck nodes after a timeout
 - **nodeVolumeDetachTimeout**: force-detaches volumes after a timeout
 
-**Future direction — Karpenter:** With Karpenter, the upgrade execution model shifts from explicit CAPI MachineDeployment rollouts to drift-based node replacement. When the customer updates the NodePool version, Karpenter detects drift and replaces nodes through its own disruption controls (consolidation policies, disruption budgets). The upgrade policy (customer-triggered, always targets control plane version) remains the same — only the execution mechanism changes. Karpenter's natural node rotation also provides a more graceful upgrade experience, as nodes are replaced based on workload demand rather than a rigid rollout sequence.
+**Future direction — Karpenter:** With Karpenter, upgrades shift to drift-based node replacement through Karpenter's disruption controls. The upgrade policy remains the same — only the execution mechanism changes.
 
 ## Customer Controls for Control Plane Upgrades
 
@@ -128,8 +124,6 @@ Customers select a release channel that determines which versions are offered fo
 - Changing channel might trigger an upgrade if the **default** version in the new channel is newer than the current version
 
 ### Maintenance Windows
-
-Customers define recurring time windows when automatic y-stream upgrades are allowed to proceed. This controls *when* upgrades happen, not *which* upgrades happen.
 
 **Properties:**
 - **Recurrence**: [RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545) recurrence rules so that a single window can express complex schedules like "weekdays 2-6 AM UTC" or "Saturdays and Sundays only"
@@ -153,8 +147,6 @@ Customer-defined blackout periods during which no automatic y-stream upgrades ar
 
 ### Manual Upgrades
 
-Customers can initiate a control plane upgrade to a specific target version without waiting for the automatic schedule.
-
 **Capabilities:**
 - **List available upgrades**: Query the platform for versions the cluster can upgrade to (based on channel and Cincinnati upgrade graph, evaluated in-cluster)
 - **Initiate upgrade**: Start an upgrade to a chosen version from the available list
@@ -176,17 +168,9 @@ Customers can initiate a control plane upgrade to a specific target version with
 
 ## Customer Controls for Node Pool Upgrades
 
-### Manual Upgrades
-
-Customers can initiate a Node Pool upgrade to match the current control plane version.
-
-**Capabilities:**
-- **Initiate upgrade**: Start an upgrade to match the current control plane version
-- **View upgrade status**: Monitor progress of an in-progress upgrade
-
-### Scheduled Upgrades
-
-Customers can schedule a one-off Node Pool upgrade to match the control plane version at a specified time.
+- **Manual upgrade**: initiate upgrade to match current control plane version
+- **Scheduled upgrade**: one-off scheduled upgrade to match control plane version
+- **View upgrade status**: monitor progress of an in-progress upgrade
 
 ### Customer Notifications
 
@@ -205,50 +189,44 @@ If a cluster approaches EOL but no valid Cincinnati upgrade edge exists from its
 2. **Escalation**: The operations team engages Red Hat to restore or add the missing upgrade edge, or to provide an alternative resolution path
 3. **Resolution**: The platform applies the upgrade once a valid edge is available
 
-This is an internal platform concern — control plane upgrades are the platform's responsibility as a managed service. The customer is not exposed to the mechanics of edge resolution.
-
 ## Consequences
 
 ### Positive
 
-* Control planes stay on supported, secure versions — eliminates long-tail version sprawl seen in customer-triggered models
-* Familiar model for GCP-native customers who already use GKE's upgrade lifecycle
-* Customer timing controls (maintenance windows, exclusions, channels) provide operational flexibility for y-stream upgrades
-* Z-stream auto-upgrades ensure security patches are applied promptly without customer action
-* Node Pool upgrades remain fully customer-controlled, avoiding unexpected workload disruption
-* Override mechanism ensures critical situations (EOL, platform compatibility) are not blocked by customer-configured delays
-* EUS channel support enables customers who need extended stability between minor versions
+* Eliminates long-tail version sprawl seen in customer-triggered models
+* Customer timing controls provide operational flexibility for y-stream upgrades
+* Z-stream auto-upgrades ensure security patches are applied promptly
+* Node Pool upgrades remain fully customer-controlled
+* Override mechanism ensures critical situations are not blocked by customer-configured delays
+* EUS channel support enables extended stability between minor versions
 * Progressive fleet rollout minimizes blast radius of problematic releases
-* EOL-with-no-edge handling is transparent to customers — the platform owns the resolution
 
 ### Negative
 
-* Customers lose the ability to defer y-stream upgrades indefinitely — may be perceived as less flexible than ROSA
-* Z-stream upgrades bypassing all delay controls removes customer control over patch timing, even for patches that could cause behavioral changes
-* Override conditions can force upgrades outside customer-preferred windows — requires clear advance communication
-* Node Pool version divergence from the control plane is possible if customers do not upgrade — exceeding N-3 skew puts the Node Pool out of support, which may be a harsh consequence for inattentive customers
-* Dependency on Red Hat for edge resolution in EOL-with-no-edge scenarios — resolution timeline is outside platform control
+* Customers cannot defer y-stream upgrades indefinitely — less flexible than ROSA
+* Z-stream upgrades bypass all delay controls, even for patches with behavioral changes
+* Override conditions can force upgrades outside customer-preferred windows
+* Node Pool version divergence is possible — exceeding N-3 skew puts the Node Pool out of support
+* Dependency on Red Hat for edge resolution in EOL-with-no-edge scenarios
 
 ## Cross-Cutting Concerns
 
 ### Reliability:
 
-* **Resiliency**: Control plane upgrades use HyperShift's rolling update mechanism — multi-replica control planes minimize API availability impact (brief, seconds-level disruptions during pod replacement). Failed control plane upgrades trigger an SRE alert — the operations team investigates and remediates. There is no automatic rollback mechanism; the cluster remains on the partially-upgraded version until SRE resolves the issue. Failed worker node replacements leave the old node in place — no workload disruption from a failed worker upgrade.
-* **Observability**: Customer notifications for upgrade lifecycle events (scheduled, started, completed, failed, remediation in progress, delay override pending). Platform-side metrics for upgrade success rates, duration, and remediation time across the fleet.
+* **Resiliency**: Multi-replica control planes minimize API availability impact during upgrades. Failed control plane upgrades trigger an SRE alert — no automatic rollback. Failed worker node replacements leave the old node in place.
+* **Observability**: Customer notifications for upgrade lifecycle events. Platform-side metrics for upgrade success rates, duration, and remediation time.
 
 ### Security:
 
-* Z-stream auto-upgrades ensure critical security patches are applied without waiting for customer action or maintenance windows
+* Z-stream auto-upgrades ensure critical security patches are applied without delay
 * Override mechanism ensures critical security situations are resolved regardless of customer-configured delays
-* Mandatory control plane upgrades prevent clusters from accumulating security debt on unsupported versions
-* Customer notifications before and after skew limit is crossed provide clear signal to act
-* Out-of-support policy for out-of-skew Node Pools creates a strong incentive for customers to keep workers current
+* Customer notifications at skew limit provide clear signal to act
 
 ### Performance:
 
-* Control plane upgrades complete in minutes with brief API unavailability (seconds)
-* Worker node upgrades depend on node count and strategy — Replace strategy uses maxSurge/maxUnavailable knobs to balance speed vs. resource consumption
-* PDB-aware draining ensures workload disruption is minimized during worker upgrades
+* Control plane upgrades complete in minutes with seconds-level API unavailability
+* Worker node upgrades use maxSurge/maxUnavailable to balance speed vs. resource consumption
+* PDB-aware draining minimizes workload disruption during worker upgrades
 
 ### Cost:
 
