@@ -9,28 +9,11 @@ import (
 )
 
 var (
-	// ClusterSchemaYAML contains the OpenAPI v3 schema for Cluster.
-	//go:embed .schemas/cluster_schema.yaml
-	ClusterSchemaYAML string
-
 	// ManagedHostedClusterSchemaYAML contains the OpenAPI v3 schema for ManagedHostedCluster.
 	//go:embed .schemas/managedhostedcluster_schema.yaml
 	ManagedHostedClusterSchemaYAML string
 
-	// NodePoolSchemaYAML contains the OpenAPI v3 schema for NodePool.
-	//go:embed .schemas/nodepool_schema.yaml
-	NodePoolSchemaYAML string
-
 )
-
-// ClusterResourceInfo describes the Cluster resource type.
-var ClusterResourceInfo = types.ResourceInfo{
-	GVK:        GroupVersion.WithKind("Cluster"),
-	Plural:     "clusters",
-	Singular:   "cluster",
-	Namespaced: true,
-	SchemaYAML: ClusterSchemaYAML,
-}
 
 // ManagedHostedClusterResourceInfo describes the ManagedHostedCluster resource type.
 var ManagedHostedClusterResourceInfo = types.ResourceInfo{
@@ -41,21 +24,10 @@ var ManagedHostedClusterResourceInfo = types.ResourceInfo{
 	SchemaYAML: ManagedHostedClusterSchemaYAML,
 }
 
-// NodePoolResourceInfo describes the NodePool resource type.
-var NodePoolResourceInfo = types.ResourceInfo{
-	GVK:        GroupVersion.WithKind("NodePool"),
-	Plural:     "nodepools",
-	Singular:   "nodepool",
-	Namespaced: true,
-	SchemaYAML: NodePoolSchemaYAML,
-}
-
 // GetResourceInfos returns ResourceInfo definitions for all types in this package.
 // This can be used to configure an API server with these resources.
 func GetResourceInfos() []types.ResourceInfo {
 	return []types.ResourceInfo{
-		ClusterResourceInfo,
 		ManagedHostedClusterResourceInfo,
-		NodePoolResourceInfo,
 	}
 }
