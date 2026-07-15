@@ -35,7 +35,7 @@ gcloud projects add-iam-policy-binding rflores-dev \
   --role="roles/resourcemanager.projectIamAdmin"
 ```
 
-These roles are needed because the playground Terraform config creates a GCS bucket (`roles/storage.admin`) and an IAM binding (`roles/resourcemanager.projectIamAdmin`).
+`roles/storage.admin` is needed by the GCS bucket and IAM binding resources. `roles/resourcemanager.projectIamAdmin` is a prerequisite permission that allows the service account to create `google_project_iam_member` bindings; the Terraform config grants `roles/storage.admin`, not `projectIamAdmin`.
 
 ### 2. Configure the HCP Terraform workspace
 
@@ -135,7 +135,7 @@ Push a commit to the `gcp-hcp-dev-playground` branch. HCP Terraform automaticall
 The most significant issue encountered was an OIDC token audience mismatch. HCP Terraform's Dynamic Provider Credentials use `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` to set the OIDC token audience — **not** `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` (which is the legacy env var flow). Using the wrong variable name causes the token to be sent with the WIF provider resource name as the audience, which does not match `allowed_audiences` on the GCP side.
 
 **Error observed:**
-```
+```text
 oauth2/google: status code 400: {"error":"invalid_grant",
   "error_description":"The audience in ID Token
   [//iam.googleapis.com/projects/573522191771/locations/global/workloadIdentityPools/tfc-pool/providers/tfc-oidc]
@@ -160,7 +160,7 @@ The `required_version` in the Terraform config must exactly match the version co
 
 ## Authentication Flow
 
-```
+```text
 HCP Terraform Workspace (gcp-hcp-dev-playground)
     │
     ├─ 1. Run triggered by push to gcp-hcp-dev-playground branch
@@ -178,8 +178,8 @@ HCP Terraform Workspace (gcp-hcp-dev-playground)
     ├─ 4. STS returns federated token → exchanged for tfc-automation SA access token
     │
     └─ 5. Terraform uses SA token to manage resources in rflores-dev project
-           ✓ google_storage_bucket (roles/storage.admin)
-           ✓ google_project_iam_member (roles/resourcemanager.projectIamAdmin)
+           ✓ google_storage_bucket (requires roles/storage.admin)
+           ✓ google_project_iam_member (requires roles/resourcemanager.projectIamAdmin to manage IAM)
 ```
 
 ## Related PRs
