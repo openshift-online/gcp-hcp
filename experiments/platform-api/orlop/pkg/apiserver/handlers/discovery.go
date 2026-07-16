@@ -400,6 +400,81 @@ func (h *DiscoveryHandler) OpenAPIV3GroupVersion(w http.ResponseWriter, r *http.
 				},
 			},
 		}
+
+		// Nested routes under parent resource (e.g. /clusters/{parentID}/nodepools)
+		if p := res.ParentResource; p != nil {
+			parentIDParam := map[string]interface{}{
+				"name":        "parentID",
+				"in":          "path",
+				"required":    true,
+				"schema":      map[string]interface{}{"type": "string"},
+				"description": "name of the parent " + p.Plural,
+			}
+			nestedBase := "/apis/" + group + "/" + version + "/namespaces/{namespace}/" + p.Plural + "/{parentID}/" + res.Plural
+			paths[nestedBase] = map[string]interface{}{
+				"parameters": []interface{}{namespaceParam, parentIDParam},
+				"get": map[string]interface{}{
+					"description": "list " + res.Plural + " for the given parent",
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{
+							"description": "OK",
+							"content": map[string]interface{}{
+								constants.ContentTypeJSON: map[string]interface{}{
+									"schema": map[string]interface{}{"$ref": schemaRef},
+								},
+							},
+						},
+					},
+				},
+				"post": map[string]interface{}{
+					"description": "create a " + res.GVK.Kind + " under the given parent",
+					"responses": map[string]interface{}{
+						"201": map[string]interface{}{
+							"description": "Created",
+							"content": map[string]interface{}{
+								constants.ContentTypeJSON: map[string]interface{}{
+									"schema": map[string]interface{}{"$ref": schemaRef},
+								},
+							},
+						},
+					},
+				},
+			}
+			nestedItem := nestedBase + "/{name}"
+			paths[nestedItem] = map[string]interface{}{
+				"parameters": []interface{}{namespaceParam, parentIDParam, nameParam},
+				"get": map[string]interface{}{
+					"description": "read the specified " + res.GVK.Kind,
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{
+							"description": "OK",
+							"content": map[string]interface{}{
+								constants.ContentTypeJSON: map[string]interface{}{
+									"schema": map[string]interface{}{"$ref": schemaRef},
+								},
+							},
+						},
+					},
+				},
+				"put": map[string]interface{}{
+					"description": "replace the specified " + res.GVK.Kind,
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{
+							"description": "OK",
+							"content": map[string]interface{}{
+								constants.ContentTypeJSON: map[string]interface{}{
+									"schema": map[string]interface{}{"$ref": schemaRef},
+								},
+							},
+						},
+					},
+				},
+				"delete": map[string]interface{}{
+					"description": "delete a " + res.GVK.Kind,
+					"responses":   map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+				},
+			}
+		}
 	}
 
 	if len(schemas) == 0 {
@@ -697,6 +772,93 @@ func (h *DiscoveryHandler) buildOpenAPIV2Spec() *openapispec.Swagger {
 						},
 					},
 				},
+			}
+
+			// Nested routes under parent resource (e.g. /clusters/{parentID}/nodepools)
+			if p := res.ParentResource; p != nil {
+				nestedBase := fmt.Sprintf("/apis/%s/namespaces/{namespace}/%s/{parentID}/%s", gv, p.Plural, res.Plural)
+				paths[nestedBase] = map[string]interface{}{
+					"get": map[string]interface{}{
+						"description": fmt.Sprintf("list %s for the given parent", res.Plural),
+						"operationId": fmt.Sprintf("listNested%s%s", res.GVK.Version, res.GVK.Kind),
+						"produces":    []string{constants.ContentTypeJSON},
+						"parameters": []interface{}{
+							map[string]interface{}{"name": "namespace", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "parentID", "in": "path", "required": true, "type": "string", "description": "name of the parent " + p.Plural},
+						},
+						"responses": map[string]interface{}{
+							"200": map[string]interface{}{
+								"description": "OK",
+								"schema":      map[string]interface{}{"$ref": fmt.Sprintf("#/definitions/%s", defName)},
+							},
+						},
+					},
+					"post": map[string]interface{}{
+						"description": fmt.Sprintf("create a %s under the given parent", res.GVK.Kind),
+						"operationId": fmt.Sprintf("createNested%s%s", res.GVK.Version, res.GVK.Kind),
+						"produces":    []string{constants.ContentTypeJSON},
+						"consumes":    []string{constants.ContentTypeJSON},
+						"parameters": []interface{}{
+							map[string]interface{}{"name": "namespace", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "parentID", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "body", "in": "body", "required": true, "schema": map[string]interface{}{"$ref": fmt.Sprintf("#/definitions/%s", defName)}},
+						},
+						"responses": map[string]interface{}{
+							"201": map[string]interface{}{
+								"description": "Created",
+								"schema":      map[string]interface{}{"$ref": fmt.Sprintf("#/definitions/%s", defName)},
+							},
+						},
+					},
+				}
+				nestedItem := nestedBase + "/{name}"
+				paths[nestedItem] = map[string]interface{}{
+					"get": map[string]interface{}{
+						"description": fmt.Sprintf("read the specified %s", res.GVK.Kind),
+						"operationId": fmt.Sprintf("readNested%s%s", res.GVK.Version, res.GVK.Kind),
+						"produces":    []string{constants.ContentTypeJSON},
+						"parameters": []interface{}{
+							map[string]interface{}{"name": "namespace", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "parentID", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "name", "in": "path", "required": true, "type": "string"},
+						},
+						"responses": map[string]interface{}{
+							"200": map[string]interface{}{
+								"description": "OK",
+								"schema":      map[string]interface{}{"$ref": fmt.Sprintf("#/definitions/%s", defName)},
+							},
+						},
+					},
+					"put": map[string]interface{}{
+						"description": fmt.Sprintf("replace the specified %s", res.GVK.Kind),
+						"operationId": fmt.Sprintf("replaceNested%s%s", res.GVK.Version, res.GVK.Kind),
+						"produces":    []string{constants.ContentTypeJSON},
+						"consumes":    []string{constants.ContentTypeJSON},
+						"parameters": []interface{}{
+							map[string]interface{}{"name": "namespace", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "parentID", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "name", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "body", "in": "body", "required": true, "schema": map[string]interface{}{"$ref": fmt.Sprintf("#/definitions/%s", defName)}},
+						},
+						"responses": map[string]interface{}{
+							"200": map[string]interface{}{
+								"description": "OK",
+								"schema":      map[string]interface{}{"$ref": fmt.Sprintf("#/definitions/%s", defName)},
+							},
+						},
+					},
+					"delete": map[string]interface{}{
+						"description": fmt.Sprintf("delete a %s", res.GVK.Kind),
+						"operationId": fmt.Sprintf("deleteNested%s%s", res.GVK.Version, res.GVK.Kind),
+						"produces":    []string{constants.ContentTypeJSON},
+						"parameters": []interface{}{
+							map[string]interface{}{"name": "namespace", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "parentID", "in": "path", "required": true, "type": "string"},
+							map[string]interface{}{"name": "name", "in": "path", "required": true, "type": "string"},
+						},
+						"responses": map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+					},
+				}
 			}
 		}
 	}

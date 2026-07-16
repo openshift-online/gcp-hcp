@@ -86,7 +86,7 @@ const (
 	// URLParamNamespace is the namespace URL parameter name.
 	URLParamNamespace = "namespace"
 
-	// URLParamName is the name URL parameter name.
+	// URLParamName is the resource name URL parameter name.
 	URLParamName = "name"
 )
 
