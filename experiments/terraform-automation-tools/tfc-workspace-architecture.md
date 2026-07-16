@@ -202,6 +202,7 @@ module "gcp-hcp-integration" {
 
 Ephemeral workspaces (`gcp-hcp-platform-{sha}`) are created and destroyed per pipeline run, targeting `terraform/config/platform-ci/{ephemeral_folder}`. Options:
 
+- **TFC Ephemeral Workspaces (evaluate)**: HashiCorp has released [Ephemeral Workspaces](https://www.hashicorp.com/en/blog/terraform-ephemeral-workspaces-public-beta-now-available) in public beta — purpose-built for short-lived infrastructure that is automatically destroyed after a configurable TTL. This may be the best fit for CI workspaces and should be evaluated first.
 - **TFC API**: Tekton pipeline creates workspace via TFC API, runs plan/apply, destroys workspace on completion
 - **tfe provider with dynamic workspaces**: A dedicated Terraform config creates/destroys workspaces based on input variables
 
@@ -209,16 +210,16 @@ These workspaces authenticate via the CI two-hop model: WIF as `tfc-automation@g
 
 ## State Management
 
-**Recommendation: Keep GCS backend initially.**
+**Recommendation: Migrate state to TFC first, then cut over from Atlantis.**
 
-- Current state lives in GCS (`gcp-hcp-{env}-global-terraform-state`)
-- TFC can use GCS as a remote backend — no migration needed
-- Avoids the risk of state migration during the Atlantis → TFC transition
-- Can evaluate TFC-managed state later once the workflow is stable
+Atlantis supports using [TFC/TFE as a remote backend](https://www.runatlantis.io/docs/terraform-cloud), which enables a phased migration strategy:
 
-The `cloud {}` backend block (used in the playground) and `backend "gcs" {}` are mutually exclusive. During migration, workspaces can keep `backend "gcs"` and TFC runs the plan/apply remotely while state stays in GCS.
+1. **Step 1 — Migrate state to TFC**: Move state from GCS (`gcp-hcp-{env}-global-terraform-state`) to TFC-managed state. Atlantis continues to run plan/apply but reads and writes state via TFC. This requires injecting TFC tokens into Atlantis.
+2. **Step 2 — Cut over to TFC**: Disable Atlantis apply for a given path, enable TFC for that path. Atlantis and TFC never run concurrently on the same workspace since state is already in TFC.
 
-**Open question:** TFC-managed state gives features like state versioning, locking, and drift detection built-in. Worth evaluating post-migration.
+This approach is safer than migrating state and tooling simultaneously — state migration is validated under Atlantis before TFC takes over execution. It also unlocks TFC-managed state features (versioning, locking, drift detection) before the full Atlantis cutover.
+
+The `cloud {}` backend block and `backend "gcs" {}` are mutually exclusive. During Step 1, configs switch to `cloud {}` pointing at TFC workspaces while Atlantis still manages execution.
 
 ## What This Doesn't Cover Yet
 
@@ -227,4 +228,5 @@ The `cloud {}` backend block (used in the playground) and `backend "gcs" {}` are
 - **Pre-apply hooks**: Replacing `hack/check-pr-labels.sh` with TFC run tasks or policy checks
 - **Drift detection**: TFC native capability, needs evaluation
 - **Migration ordering**: Which workspaces to migrate first (likely tooling → integration → stage → production)
-- **Parallel Atlantis/TFC operation**: Can both systems target the same state during migration?
+- **Atlantis TFC token injection**: How to provision and inject TFC API tokens into Atlantis for the state migration phase
+- **Ephemeral workspace evaluation**: Assess TFC Ephemeral Workspaces (public beta) for CI use cases
