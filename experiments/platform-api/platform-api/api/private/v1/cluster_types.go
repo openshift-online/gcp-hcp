@@ -137,8 +137,12 @@ type ClusterStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// PlacementResult is written by the placement controller.
-	// Not exposed on the public API.
+	// +orlop:public
 	PlacementResult *PlacementResult `json:"placementResult,omitempty"`
+
+	// HostedClusterResult is written by the hc-adapter.
+	// +orlop:public
+	HostedClusterResult *HostedClusterResult `json:"hostedClusterResult,omitempty"`
 
 	// VersionResolution is written by the version-resolution controller.
 	// Not exposed on the public API.
@@ -156,6 +160,15 @@ type VersionResolutionResult struct {
 	ReleaseImage   string `json:"releaseImage,omitempty"`
 	ReleaseVersion string `json:"releaseVersion,omitempty"`
 	ReleaseChannel string `json:"releaseChannel,omitempty"`
+}
+
+// HostedClusterResult holds the hc-adapter's output from ManifestWork status feedback.
+// This field is read-only — populated by the hc-adapter only.
+type HostedClusterResult struct {
+	// +orlop:public
+	APIEndpoint string `json:"apiEndpoint,omitempty"`
+	// +orlop:public
+	Version string `json:"version,omitempty"`
 }
 
 func init() { register(&Cluster{}, &ClusterList{}) }

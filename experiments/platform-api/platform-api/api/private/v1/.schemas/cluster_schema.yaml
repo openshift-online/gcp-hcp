@@ -185,10 +185,16 @@ properties:
           - type
           type: object
         type: array
+      hostedClusterResult:
+        description: HostedClusterResult is written by the hc-adapter.
+        properties:
+          apiEndpoint:
+            type: string
+          version:
+            type: string
+        type: object
       placementResult:
-        description: |-
-          PlacementResult is written by the placement controller.
-          Not exposed on the public API.
+        description: PlacementResult is written by the placement controller.
         properties:
           baseDomain:
             type: string

@@ -123,6 +123,26 @@ type DNSSpec struct {
 // ClusterStatus is written by controllers only.
 type ClusterStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// PlacementResult is written by the placement controller.
+
+	PlacementResult *PlacementResult `json:"placementResult,omitempty"`
+
+	// HostedClusterResult is written by the hc-adapter.
+
+	HostedClusterResult *HostedClusterResult `json:"hostedClusterResult,omitempty"`
+}
+
+// PlacementResult holds the placement controller's output.
+type PlacementResult struct {
+}
+
+// HostedClusterResult holds the hc-adapter's output from ManifestWork status feedback.
+// This field is read-only — populated by the hc-adapter only.
+type HostedClusterResult struct {
+	APIEndpoint string `json:"apiEndpoint,omitempty"`
+
+	Version string `json:"version,omitempty"`
 }
 
 func init() { register(&Cluster{}, &ClusterList{}) }

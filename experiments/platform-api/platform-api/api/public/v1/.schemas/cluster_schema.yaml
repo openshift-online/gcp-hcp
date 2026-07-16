@@ -185,5 +185,18 @@ properties:
           - type
           type: object
         type: array
+      hostedClusterResult:
+        description: |-
+          HostedClusterResult holds the hc-adapter's output from ManifestWork status feedback.
+          This field is read-only — populated by the hc-adapter only.
+        properties:
+          apiEndpoint:
+            type: string
+          version:
+            type: string
+        type: object
+      placementResult:
+        description: PlacementResult holds the placement controller's output.
+        type: object
     type: object
 type: object
