@@ -1,9 +1,82 @@
-# HCP Terraform Workspace Architecture — Wireframe
+# HCP Terraform Must Use Per-Environment Workspace Hierarchy with Environment-Scoped Service Accounts
 
-**Status:** Draft / For Review (Variable sets validated)
-**Date:** July 2026
+***Scope***: GCP-HCP
 
-## TFC Hierarchy
+**Date**: 2026-07-15
+
+## Decision
+
+HCP Terraform workspaces must be organized into per-environment TFC projects (`gcp-hcp-{env}`) with environment-scoped service accounts (`tfc-automation@gcp-hcp-{env}-global`), a shared tooling project, and a CI project using two-hop impersonation. WIF variables must be delivered via project-level variable sets, not per-workspace locals.
+
+## Context
+
+- **Problem Statement**: Migrating from Atlantis to HCP Terraform requires mapping the existing infrastructure workspace model — per-environment Atlantis deployments, GCP project hierarchy, and service account structure — into TFC's organizational model (organizations, projects, workspaces). The mapping must preserve environment isolation, support programmatic workspace creation, and enable a phased migration path.
+- **Constraints**:
+  - The existing GCP project hierarchy (`gcp-hcp-{env}-global`, `{env}-reg-*`, `{env}-mgt-*`) and Atlantis project structure (`atlantis-integration.yaml`) define the 1:1 workspace mapping
+  - Service accounts in environment global projects are managed by Atlantis — TFC cannot create them (chicken-and-egg problem). They must be created manually and imported, or created by Atlantis before the cutover
+  - The WIF pool and OIDC provider are centralized in `gcp-hcp-commons` (see [HCP Terraform WIF design decision](hcp-terraform-workload-identity-federation.md))
+  - CI workspaces require both static (hypershift-ci, platform-ci) and ephemeral (per-pipeline-run) workspace types
+  - `scripts/infra.py` handles template-based config creation and must be extended for TFC workspace provisioning
+- **Assumptions**:
+  - All environments (integration, stage, production) follow the same workspace hierarchy pattern
+  - The `hp-platform-engineering/workspaces/tfe` module will be the standard for programmatic workspace creation
+  - PagerDuty is the lowest-risk workspace for initial migration, followed by global modules
+
+## Alternatives Considered
+
+1. **Per-environment TFC projects with environment-scoped SAs**: One TFC project per environment, each with its own SA in the environment's global project. Tooling and CI share a commons SA, with CI using impersonation for per-project SAs. WIF variables delivered via project-level variable sets.
+2. **Single TFC project with shared SA**: All workspaces in a single TFC project, using one SA in commons with WIF `attribute_condition` to restrict access per workspace. Simpler setup but no project-level isolation.
+3. **Per-environment TFC projects with commons SAs**: One TFC project per environment, but all SAs remain in `gcp-hcp-commons` (e.g., `tfc-int@gcp-hcp-commons`). Cross-environment isolation depends on IAM bindings rather than SA placement.
+4. **Per-workspace variables (locals)**: Each workspace defines its own WIF variables via `local.tfc_wif_variables`. No variable set inheritance.
+
+## Decision Rationale
+
+* **Justification**: Alternative 1 provides the strongest isolation model. Per-environment TFC projects mirror the existing GCP project hierarchy, and placing SAs in their respective global projects ensures a compromised SA only has access to its own environment. Project-level variable sets eliminate per-workspace variable duplication and prevent drift.
+* **Evidence**: The existing Atlantis model uses per-environment deployments on separate GKE clusters for credential isolation. This maps directly to per-environment TFC projects. The playground validation (see [TFC WIF playground experiment](../../experiments/terraform-automation-tools/tfc-wif-playground.md)) confirmed that variable sets work correctly for WIF variable inheritance.
+* **Comparison**:
+  - **Alternative 2 (single project)** provides no project-level RBAC boundary — all team members with access to the project can see all environments. TFC's permission model is project-scoped, making this a significant security gap.
+  - **Alternative 3 (commons SAs)** keeps all SAs in one project, increasing blast radius if commons is compromised. It also doesn't align with the existing pattern where integration SAs live in integration projects.
+  - **Alternative 4 (per-workspace locals)** causes variable duplication across every workspace and risks silent WIF misconfiguration if a variable is omitted or mistyped.
+
+## Consequences
+
+### Positive
+
+* TFC project hierarchy mirrors the GCP project hierarchy, making the mapping intuitive for operators
+* Environment-scoped SAs isolate blast radius per environment
+* Project-level variable sets eliminate WIF variable duplication and prevent per-workspace drift
+* CI two-hop impersonation allows fine-grained permission scoping per CI project while sharing a single WIF entry point
+* Atlantis-to-TFC workspace mapping is 1:1, simplifying migration planning
+
+### Negative
+
+* Service accounts in environment global projects require manual creation or import — they cannot be bootstrapped by TFC
+* Two-hop impersonation for CI adds operational complexity (two IAM bindings to maintain per CI project)
+* Ephemeral CI workspace lifecycle management differs significantly from current Atlantis flow and needs further investigation
+* Migration requires a phased approach (state migration first, then tooling cutover) to avoid concurrent Atlantis/TFC conflicts
+
+## Cross-Cutting Concerns
+
+### Security:
+
+* Per-environment SAs in per-env global projects limit blast radius — a compromised SA cannot access other environments
+* CI two-hop impersonation ensures the commons SA has no direct permissions on CI resources; only the impersonated per-project SA does
+* WIF variables are not duplicated per workspace, reducing the risk of misconfigured credentials
+
+### Operability:
+
+* **Adding a new region**: `scripts/infra.py` generates config and adds a workspace entry. WIF variables are inherited from the project variable set — no per-workspace config needed
+* **Adding a new environment**: Create TFC project, create SA in env global project, grant cross-project `workloadIdentityUser` on commons WIF pool, create variable set, add workspace entries
+* **Migration ordering**: PagerDuty (lowest risk) → global modules → integration → stage → production
+
+### Cost:
+
+* No additional GCP costs — WIF token exchanges are free
+* TFC workspace costs scale with the number of workspaces, governed by the organization's TFC plan
+
+## Implementation Reference
+
+### TFC Hierarchy
 
 ```text
 ORG: hp-platform-engineering
@@ -24,7 +97,7 @@ ORG: hp-platform-engineering
                                                       → terraform/config/platform-ci/{ephemeral_folder}
 ```
 
-## Atlantis → TFC Workspace Mapping
+### Atlantis → TFC Workspace Mapping
 
 Current Atlantis projects (from `atlantis-integration.yaml`) map 1:1 to TFC workspaces:
 
@@ -39,9 +112,7 @@ Current Atlantis projects (from `atlantis-integration.yaml`) map 1:1 to TFC work
 
 Stage workspaces follow the same pattern (already have configs under `terraform/config/*/stage/`).
 
-## WIF Authentication — Per-Environment Service Accounts
-
-Each TFC project authenticates to GCP via WIF using the shared commons pool (`tfc-pool`). Environment service accounts live in each environment's own global project for blast-radius isolation, with cross-project `workloadIdentityUser` bindings on the commons pool. Tooling and CI use the commons SA directly.
+### WIF Service Account Architecture
 
 ```text
 gcp-hcp-commons (WIF Pool: tfc-pool, Provider: tfc-oidc)
@@ -60,13 +131,7 @@ gcp-hcp-commons (WIF Pool: tfc-pool, Provider: tfc-oidc)
         └── tfc-platform-ci@gcp-hcp-platform-ci.iam.gserviceaccount.com
 ```
 
-**Decision:** Per-environment SAs in the environment's own global project. This isolates blast radius per environment — a compromised SA only has access to its own environment's projects. The WIF pool and OIDC provider remain centralized in commons since the OIDC configuration is identical across environments.
-
-**CI two-hop impersonation:** CI workspaces authenticate via WIF as `tfc-automation@gcp-hcp-commons`, which then impersonates environment-specific CI SAs. This allows fine-grained permission scoping per CI project (hypershift-ci vs platform-ci) while sharing a single WIF entry point.
-
 ### WIF Variable Sets
-
-TFC variable sets avoid duplicating WIF variables across every workspace in a project:
 
 | Variable Set | Scope | Variables |
 |---|---|---|
@@ -78,34 +143,7 @@ TFC variable sets avoid duplicating WIF variables across every workspace in a pr
 
 Individual workspaces don't set WIF variables — they inherit from the project-level variable set. CI workspaces additionally configure impersonation to their per-project SA via the Google provider's `impersonate_service_account` argument.
 
-## Scaling: New Regions and Environments
-
-### Adding a new region (e.g., `us-west1` to integration)
-
-`scripts/infra.py` already handles template-based config creation. The extension for TFC:
-
-1. `infra.py new region integration main us-west1` — generates config (unchanged)
-2. `infra.py` also adds a workspace entry to the `tfe` module config for `gcp-hcp-integration`:
-   ```hcl
-   gcp-hcp-region-integration-us-west1 = {
-     terraform_version = "1.14.3"
-     working_directory = "terraform/config/region/integration/main/us-west1"
-   }
-   ```
-3. WIF variables are inherited from the `wif-integration` variable set (no per-workspace config)
-4. Cross-project IAM for the TFC SA is handled by the region module's bootstrap flow (same as Atlantis today)
-
-### Adding a new environment (e.g., production)
-
-1. Create TFC project `gcp-hcp-production` via the `tfe` module
-2. Create SA `tfc-automation@gcp-hcp-production-global.iam.gserviceaccount.com` in the environment's global project (manually or via Atlantis)
-3. Grant cross-project `roles/iam.workloadIdentityUser` on the commons WIF pool (`tfc-pool`) to the new SA
-4. Create variable set `wif-production` scoped to the new project, referencing the env SA
-5. Add workspace entries for global, region, and MC configs
-
-## Programmatic Workspace Management
-
-### Code layout
+### Code Layout
 
 ```text
 hcp-terraform/
@@ -198,7 +236,7 @@ module "gcp-hcp-integration" {
 
 > **Note:** This is the current "Option A" implementation using raw `tfe_*` resources for variable sets. Once the `workspaces/tfe` module is updated with native `variable_sets` support (PR pending in `infra-platform`), the `tfe_variable_set`, `tfe_variable`, and `tfe_project_variable_set` resources will be replaced by a `variable_sets` input on the module.
 
-### Ephemeral platform-ci workspaces (gcp-hcp-ci)
+### Ephemeral Platform-CI Workspaces
 
 Ephemeral workspaces (`gcp-hcp-platform-{sha}`) are created and destroyed per pipeline run, targeting `terraform/config/platform-ci/{ephemeral_folder}`. Options:
 
@@ -208,7 +246,7 @@ Ephemeral workspaces (`gcp-hcp-platform-{sha}`) are created and destroyed per pi
 
 These workspaces authenticate via the CI two-hop model: WIF as `tfc-automation@gcp-hcp-commons`, then impersonation to `tfc-platform-ci@gcp-hcp-platform-ci`. This is the most different from current Atlantis flow and needs further investigation.
 
-## State Management
+### State Management
 
 **Recommendation: Migrate state to TFC first, then cut over from Atlantis.**
 
@@ -221,12 +259,11 @@ This approach is safer than migrating state and tooling simultaneously — state
 
 The `cloud {}` backend block and `backend "gcs" {}` are mutually exclusive. During Step 1, configs switch to `cloud {}` pointing at TFC workspaces while Atlantis still manages execution.
 
-## What This Doesn't Cover Yet
+## Open Items
 
 - **RBAC model**: Who can approve applies per project/workspace (section 2 outstanding item)
 - **OPA/Sentinel policies**: How to replicate or improve on the current `gcp-hcp-deletion-protection` policy
 - **Pre-apply hooks**: Replacing `hack/check-pr-labels.sh` with TFC run tasks or policy checks
 - **Drift detection**: TFC native capability, needs evaluation
-- **Migration ordering**: Which workspaces to migrate first (likely tooling → integration → stage → production)
 - **Atlantis TFC token injection**: How to provision and inject TFC API tokens into Atlantis for the state migration phase
 - **Ephemeral workspace evaluation**: Assess TFC Ephemeral Workspaces (public beta) for CI use cases
