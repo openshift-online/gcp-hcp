@@ -1,6 +1,6 @@
 # HCP Terraform Workspace Architecture — Wireframe
 
-**Status:** Draft / For Review
+**Status:** Draft / For Review (Variable sets validated)
 **Date:** July 2026
 
 ## TFC Hierarchy
@@ -121,29 +121,82 @@ hcp-terraform/
     └── main.tf                  # Workspaces for CI/e2e
 ```
 
-Each file uses the `hp-platform-engineering/workspaces/tfe` module. Example for integration:
+Each file uses the `hp-platform-engineering/workspaces/tfe` module alongside `tfe_variable_set` and `tfe_project_variable_set` resources to create project-level variable sets. Example for integration:
 
 ```hcl
+locals {
+  tfc_organization          = "hp-platform-engineering"
+  tfc_service_account_email = "tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com"
+  tfc_wif_provider_name     = "projects/573522191771/locations/global/workloadIdentityPools/tfc-pool/providers/tfc-oidc"
+  tfc_wif_audience          = "https://app.terraform.io"
+
+  tfc_wif_variables = [
+    { key = "TFC_GCP_PROVIDER_AUTH",              value = "true",                         category = "env" },
+    { key = "TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL",  value = local.tfc_service_account_email, category = "env" },
+    { key = "TFC_GCP_WORKLOAD_PROVIDER_NAME",     value = local.tfc_wif_provider_name,     category = "env" },
+    { key = "TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE", value = local.tfc_wif_audience,          category = "env" },
+  ]
+}
+
+data "tfe_project" "this" {
+  organization = local.tfc_organization
+  name         = "gcp-hcp-integration"
+}
+
+resource "tfe_variable_set" "wif" {
+  name              = "wif-integration"
+  description       = "GCP Workload Identity Federation credentials"
+  organization      = local.tfc_organization
+  parent_project_id = data.tfe_project.this.id
+}
+
+resource "tfe_project_variable_set" "wif" {
+  project_id      = data.tfe_project.this.id
+  variable_set_id = tfe_variable_set.wif.id
+}
+
+resource "tfe_variable" "wif" {
+  for_each        = { for v in local.tfc_wif_variables : v.key => v }
+  variable_set_id = tfe_variable_set.wif.id
+  key             = each.value.key
+  value           = each.value.value
+  category        = each.value.category
+}
+
 module "gcp-hcp-integration" {
   source            = "app.terraform.io/hp-platform-engineering/workspaces/tfe"
-  organization      = "hp-platform-engineering"
+  organization      = local.tfc_organization
   project_name      = "gcp-hcp-integration"
   meta_project_name = "meta-gcp-hcp"
   notification_url  = var.notification_url
 
   workspaces = {
     gcp-hcp-global-integration = {
+      terraform_version = "1.14.3"
+      variables         = []
       working_directory = "terraform/config/global/integration/main/us-central1"
+      github_repo_org   = "openshift-online"
+      github_repo_name  = "gcp-hcp-infra"
     }
     gcp-hcp-region-integration-us-central1 = {
+      terraform_version = "1.14.3"
+      variables         = []
       working_directory = "terraform/config/region/integration/main/us-central1"
+      github_repo_org   = "openshift-online"
+      github_repo_name  = "gcp-hcp-infra"
     }
     gcp-hcp-mc-integration-main-us-central1-yjiv = {
+      terraform_version = "1.14.3"
+      variables         = []
       working_directory = "terraform/config/management-cluster/integration/main/us-central1-yjiv"
+      github_repo_org   = "openshift-online"
+      github_repo_name  = "gcp-hcp-infra"
     }
   }
 }
 ```
+
+> **Note:** This is the current "Option A" implementation using raw `tfe_*` resources for variable sets. Once the `workspaces/tfe` module is updated with native `variable_sets` support (PR pending in `infra-platform`), the `tfe_variable_set`, `tfe_variable`, and `tfe_project_variable_set` resources will be replaced by a `variable_sets` input on the module.
 
 ### Ephemeral platform-ci workspaces (gcp-hcp-ci)
 
