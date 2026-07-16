@@ -205,4 +205,4 @@ HCP Terraform Workspace (gcp-hcp-dev-playground)
 
 ## Related Design Decision
 
-See [hcp-terraform-workload-identity-federation.md](../../design-decisions/hcp-terraform-workload-identity-federation.md) for the formal design decision documenting this authentication pattern.
+See [hcp-terraform-workload-identity-federation.md](../../design-decisions/automation/hcp-terraform-workload-identity-federation.md) for the formal design decision documenting this authentication pattern.
