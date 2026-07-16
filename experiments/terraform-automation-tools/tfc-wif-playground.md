@@ -45,7 +45,7 @@ The workspace is defined in code at `gcp-hcp-infra/hcp-terraform/test-gcp-hcp-te
 workspaces = {
   gcp-hcp-dev-playground = {
     terraform_version = "1.13.4"
-    variables         = local.tfc_wif_variables
+    variables         = []
     working_directory = "terraform/config/playground"
     github_repo_org   = "openshift-online"
     github_repo_name  = "gcp-hcp-infra"
@@ -54,7 +54,7 @@ workspaces = {
 }
 ```
 
-The workspace tracks the `gcp-hcp-dev-playground` branch and runs Terraform from `terraform/config/playground/`.
+The workspace tracks the `gcp-hcp-dev-playground` branch and runs Terraform from `terraform/config/playground/`. WIF variables are not set per-workspace — they are inherited from a project-level variable set (see below).
 
 ### 3. Configure Dynamic Provider Credentials
 
@@ -67,7 +67,7 @@ In the HCP Terraform workspace UI, configure a **GCP Dynamic Provider Credential
 | Provider ID | `tfc-oidc` |
 | Service Account Email | `tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com` |
 
-The following environment variables are also set on the workspace (managed in code via `local.tfc_wif_variables`):
+The following environment variables are inherited by the workspace from a project-level variable set (`wif-test`), managed in code via `tfe_variable_set` and `tfe_project_variable_set` resources:
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
@@ -152,7 +152,15 @@ The WIF service account (`tfc-automation`) lives in `gcp-hcp-commons` but needs 
 
 ### OPA deletion protection policy blocks variable cleanup
 
-The HCP Terraform organization has a `gcp-hcp-deletion-protection` OPA policy that blocks any run containing resource destruction. This includes destroying `tfe_variable` resources when cleaning up workspace variables. Requires a policy override or exclusion for dev/playground workspaces.
+The HCP Terraform organization has a `gcp-hcp-deletion-protection` OPA policy that blocks any run containing resource destruction. This includes destroying `tfe_variable` resources when migrating from per-workspace variables to a variable set. The policy checks a `_deletion_approvals` variable in `terraform.auto.tfvars` for explicitly approved resource addresses with ISO 8601 expiration timestamps (e.g., `expires_at = "2026-08-14T23:59:59Z"`).
+
+### Project-level variable sets require both `organization` and `parent_project_id`
+
+When creating a `tfe_variable_set` scoped to a TFC project, the resource requires both `organization` (for API auth) and `parent_project_id` (for ownership scoping). Omitting `organization` produces `no organization was specified on the resource or provider`. Omitting `parent_project_id` and using only `organization` produces `resource not found` if the workspace token lacks org-level permissions.
+
+### Variable set inheritance verified
+
+A second test workspace (`gcp-hcp-dev-playground-2`) was created with `variables = []` to confirm that new workspaces automatically inherit WIF credentials from the project-level variable set. The workspace authenticated to GCP successfully without any per-workspace WIF variables, validating the pattern for scaling across environments.
 
 ### Terraform version must match
 
@@ -190,6 +198,10 @@ HCP Terraform Workspace (gcp-hcp-dev-playground)
 | [#855](https://github.com/openshift-online/gcp-hcp-infra/pull/855) | Remove `allowed_audiences` (later reverted by #859) |
 | [#859](https://github.com/openshift-online/gcp-hcp-infra/pull/859) | Restore `allowed_audiences` + add `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` |
 | [#866](https://github.com/openshift-online/gcp-hcp-infra/pull/866) | Fix `required_version` mismatch |
+| [#873](https://github.com/openshift-online/gcp-hcp-infra/pull/873) | Add project-level WIF variable set (initial attempt) |
+| [#875](https://github.com/openshift-online/gcp-hcp-infra/pull/875) | Fix: scope variable set to project instead of org |
+| [#877](https://github.com/openshift-online/gcp-hcp-infra/pull/877) | Fix: add `organization` to project-scoped variable set |
+| [#878](https://github.com/openshift-online/gcp-hcp-infra/pull/878) | Test: second playground workspace to verify variable set inheritance |
 
 ## Related Design Decision
 

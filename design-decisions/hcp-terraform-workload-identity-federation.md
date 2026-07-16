@@ -51,7 +51,7 @@ HCP Terraform (Terraform Cloud) workspaces that manage GCP infrastructure must a
 
 * The distinction between `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` (legacy) and `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` (Dynamic Provider Credentials) is poorly documented by HashiCorp and caused debugging overhead during initial setup
 * Changes to the WIF provider (`allowed_audiences`) require an SRE to manually apply the commons module — cannot be automated via Atlantis
-* Adding a new workspace requires adding the `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` variable alongside the other WIF variables; omitting it will silently break authentication
+* ~~Adding a new workspace requires adding the `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` variable alongside the other WIF variables; omitting it will silently break authentication~~ — **Resolved**: WIF variables are now delivered via project-level variable sets; new workspaces inherit them automatically (validated with `gcp-hcp-dev-playground-2`)
 * Environment SAs in per-env global projects require cross-project `workloadIdentityUser` bindings on the commons WIF pool — an additional IAM step when onboarding a new environment
 
 ## Cross-Cutting Concerns
