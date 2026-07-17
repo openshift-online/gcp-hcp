@@ -83,7 +83,8 @@ ORG: hp-platform-engineering
 │
 ├── Project: gcp-hcp-{env}                          (one per environment: integration, stage, production)
 │   ├── Workspace: gcp-hcp-global-{env}             → terraform/config/global/{env}/main/{region}
-│   ├── Workspace: gcp-hcp-region-{env}-{region}    → terraform/config/region/{env}/main/{region}
+│   ├── Workspace: gcp-hcp-region-{env}-{sector}-{region}
+│   │                                                → terraform/config/region/{env}/{sector}/{region}
 │   └── Workspace(s): gcp-hcp-mc-{env}-{sector}-{region}-{infra_id}
 │                                                    → terraform/config/management-cluster/{env}/{sector}/{region}-{infra_id}
 │
@@ -104,7 +105,7 @@ Current Atlantis projects (from `atlantis-integration.yaml`) map 1:1 to TFC work
 | Atlantis Project | TFC Workspace | TFC Project | Working Directory |
 |------------------|---------------|-------------|-------------------|
 | `global-int-main-us-central1` | `gcp-hcp-global-integration` | `gcp-hcp-integration` | `terraform/config/global/integration/main/us-central1` |
-| `region-int-main-us-central1` | `gcp-hcp-region-integration-us-central1` | `gcp-hcp-integration` | `terraform/config/region/integration/main/us-central1` |
+| `region-int-main-us-central1` | `gcp-hcp-region-integration-main-us-central1` | `gcp-hcp-integration` | `terraform/config/region/integration/main/us-central1` |
 | `mc-int-main-us-central1-yjiv` | `gcp-hcp-mc-integration-main-us-central1-yjiv` | `gcp-hcp-integration` | `terraform/config/management-cluster/integration/main/us-central1-yjiv` |
 | `pagerduty` | `gcp-hcp-pagerduty` | `gcp-hcp-tooling` | `terraform/config/pagerduty` |
 | `hypershift-ci` | `gcp-hcp-hypershift-ci` | `gcp-hcp-ci` | `terraform/config/hypershift-ci` |
@@ -216,7 +217,7 @@ module "gcp-hcp-integration" {
       github_repo_org   = "openshift-online"
       github_repo_name  = "gcp-hcp-infra"
     }
-    gcp-hcp-region-integration-us-central1 = {
+    gcp-hcp-region-integration-main-us-central1 = {
       terraform_version = "1.14.3"
       variables         = []
       working_directory = "terraform/config/region/integration/main/us-central1"
