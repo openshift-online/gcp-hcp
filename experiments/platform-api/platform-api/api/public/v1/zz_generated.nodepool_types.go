@@ -22,6 +22,7 @@ type NodePoolList struct {
 	Items []NodePool `json:"items"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.nodeCount) || !has(self.autoscaling)",message="nodeCount and autoscaling are mutually exclusive"
 type NodePoolSpec struct {
 
 	// +kubebuilder:validation:Required
@@ -29,12 +30,16 @@ type NodePoolSpec struct {
 
 	Platform NodePoolPlatformSpec `json:"platform"`
 
-	Release *ClusterReleaseSpec `json:"release,omitempty"`
+	Release ReleaseSpec `json:"release"`
 
 	// +kubebuilder:validation:Minimum=0
 	NodeCount *int32 `json:"nodeCount,omitempty"`
 
 	Autoscaling *AutoscalingSpec `json:"autoscaling,omitempty"`
+
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
+
+	Taints []TaintSpec `json:"taints,omitempty"`
 }
 
 type NodePoolPlatformSpec struct {
@@ -46,34 +51,27 @@ type NodePoolPlatformSpec struct {
 }
 
 type GCPNodePoolPlatform struct {
-	ProjectID string `json:"projectID,omitempty"`
-
-	Region string `json:"region,omitempty"`
-
 	MachineType string `json:"machineType,omitempty"`
 
-	// +kubebuilder:validation:Minimum=10
-	DiskSize int32 `json:"diskSize,omitempty"`
+	// +kubebuilder:validation:Minimum=20
+	DiskSizeGB int64 `json:"diskSizeGB,omitempty"`
 
 	// +kubebuilder:validation:Enum=pd-standard;pd-ssd;pd-balanced
 	DiskType string `json:"diskType,omitempty"`
 
-	Zones []string `json:"zones,omitempty"`
+	Zone string `json:"zone,omitempty"`
 
-	Preemptible bool `json:"preemptible,omitempty"`
+	Subnet string `json:"subnet,omitempty"`
 
-	Accelerators []AcceleratorSpec `json:"accelerators,omitempty"`
+	// +kubebuilder:validation:Enum=Standard;Spot;Preemptible
+	ProvisioningModel string `json:"provisioningModel,omitempty"`
 
-	Labels map[string]string `json:"labels,omitempty"`
+	// +kubebuilder:validation:Enum=MIGRATE;TERMINATE
+	OnHostMaintenance string `json:"onHostMaintenance,omitempty"`
 
-	Taints []TaintSpec `json:"taints,omitempty"`
-}
+	ResourceLabels []GCPResourceLabel `json:"resourceLabels,omitempty"`
 
-type AcceleratorSpec struct {
-	Type string `json:"type"`
-
-	// +kubebuilder:validation:Minimum=1
-	Count int32 `json:"count"`
+	NetworkTags []string `json:"networkTags,omitempty"`
 }
 
 type TaintSpec struct {
@@ -86,25 +84,12 @@ type TaintSpec struct {
 }
 
 type AutoscalingSpec struct {
-	Enabled bool `json:"enabled,omitempty"`
 
 	// +kubebuilder:validation:Minimum=0
-	MinNodes int32 `json:"minNodes,omitempty"`
+	Min *int32 `json:"min,omitempty"`
 
 	// +kubebuilder:validation:Minimum=1
-	MaxNodes int32 `json:"maxNodes,omitempty"`
-
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=100
-	TargetCPUUtilization int32 `json:"targetCPUUtilization,omitempty"`
-
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=100
-	TargetMemoryUtilization int32 `json:"targetMemoryUtilization,omitempty"`
-
-	ScaleDownDelay string `json:"scaleDownDelay,omitempty"`
-
-	ScaleUpDelay string `json:"scaleUpDelay,omitempty"`
+	Max int32 `json:"max"`
 }
 
 // NodePoolStatus is written by controllers only.

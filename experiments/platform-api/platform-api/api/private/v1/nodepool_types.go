@@ -24,6 +24,7 @@ type NodePoolList struct {
 	Items []NodePool `json:"items"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.nodeCount) || !has(self.autoscaling)",message="nodeCount and autoscaling are mutually exclusive"
 type NodePoolSpec struct {
 	// +orlop:public
 	// +kubebuilder:validation:Required
@@ -31,12 +32,16 @@ type NodePoolSpec struct {
 	// +orlop:public
 	Platform NodePoolPlatformSpec `json:"platform"`
 	// +orlop:public
-	Release *ClusterReleaseSpec `json:"release,omitempty"`
+	Release ReleaseSpec `json:"release"`
 	// +orlop:public
 	// +kubebuilder:validation:Minimum=0
 	NodeCount *int32 `json:"nodeCount,omitempty"`
 	// +orlop:public
 	Autoscaling *AutoscalingSpec `json:"autoscaling,omitempty"`
+	// +orlop:public
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
+	// +orlop:public
+	Taints []TaintSpec `json:"taints,omitempty"`
 }
 
 type NodePoolPlatformSpec struct {
@@ -49,35 +54,27 @@ type NodePoolPlatformSpec struct {
 
 type GCPNodePoolPlatform struct {
 	// +orlop:public
-	ProjectID string `json:"projectID,omitempty"`
-	// +orlop:public
-	Region string `json:"region,omitempty"`
-	// +orlop:public
 	MachineType string `json:"machineType,omitempty"`
 	// +orlop:public
-	// +kubebuilder:validation:Minimum=10
-	DiskSize int32 `json:"diskSize,omitempty"`
+	// +kubebuilder:validation:Minimum=20
+	DiskSizeGB int64 `json:"diskSizeGB,omitempty"`
 	// +orlop:public
 	// +kubebuilder:validation:Enum=pd-standard;pd-ssd;pd-balanced
 	DiskType string `json:"diskType,omitempty"`
 	// +orlop:public
-	Zones []string `json:"zones,omitempty"`
+	Zone string `json:"zone,omitempty"`
 	// +orlop:public
-	Preemptible bool `json:"preemptible,omitempty"`
+	Subnet string `json:"subnet,omitempty"`
 	// +orlop:public
-	Accelerators []AcceleratorSpec `json:"accelerators,omitempty"`
+	// +kubebuilder:validation:Enum=Standard;Spot;Preemptible
+	ProvisioningModel string `json:"provisioningModel,omitempty"`
 	// +orlop:public
-	Labels map[string]string `json:"labels,omitempty"`
+	// +kubebuilder:validation:Enum=MIGRATE;TERMINATE
+	OnHostMaintenance string `json:"onHostMaintenance,omitempty"`
 	// +orlop:public
-	Taints []TaintSpec `json:"taints,omitempty"`
-}
-
-type AcceleratorSpec struct {
+	ResourceLabels []GCPResourceLabel `json:"resourceLabels,omitempty"`
 	// +orlop:public
-	Type string `json:"type"`
-	// +orlop:public
-	// +kubebuilder:validation:Minimum=1
-	Count int32 `json:"count"`
+	NetworkTags []string `json:"networkTags,omitempty"`
 }
 
 type TaintSpec struct {
@@ -92,25 +89,11 @@ type TaintSpec struct {
 
 type AutoscalingSpec struct {
 	// +orlop:public
-	Enabled bool `json:"enabled,omitempty"`
-	// +orlop:public
 	// +kubebuilder:validation:Minimum=0
-	MinNodes int32 `json:"minNodes,omitempty"`
+	Min *int32 `json:"min,omitempty"`
 	// +orlop:public
 	// +kubebuilder:validation:Minimum=1
-	MaxNodes int32 `json:"maxNodes,omitempty"`
-	// +orlop:public
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=100
-	TargetCPUUtilization int32 `json:"targetCPUUtilization,omitempty"`
-	// +orlop:public
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=100
-	TargetMemoryUtilization int32 `json:"targetMemoryUtilization,omitempty"`
-	// +orlop:public
-	ScaleDownDelay string `json:"scaleDownDelay,omitempty"`
-	// +orlop:public
-	ScaleUpDelay string `json:"scaleUpDelay,omitempty"`
+	Max int32 `json:"max"`
 }
 
 // NodePoolStatus is written by controllers only.

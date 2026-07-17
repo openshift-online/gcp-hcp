@@ -30,9 +30,9 @@ type ClusterSpec struct {
 
 	Platform ClusterPlatformSpec `json:"platform"`
 
-	Release *ClusterReleaseSpec `json:"release,omitempty"`
+	Release ReleaseSpec `json:"release"`
 
-	Networking *NetworkingSpec `json:"networking,omitempty"`
+	Networking NetworkingSpec `json:"networking"`
 
 	DNS *DNSSpec `json:"dns,omitempty"`
 }
@@ -98,18 +98,28 @@ type GCPResourceLabel struct {
 	Value string `json:"value"`
 }
 
-// ClusterReleaseSpec defines the target OCP release version.
+// ReleaseSpec defines the target OCP release version.
 // The version-resolution adapter resolves Version+ChannelGroup to a release image pullspec.
-type ClusterReleaseSpec struct {
+type ReleaseSpec struct {
 	Version string `json:"version,omitempty"`
 
 	ChannelGroup string `json:"channelGroup,omitempty"`
 }
 
 type NetworkingSpec struct {
+	MachineNetwork []MachineNetworkEntry `json:"machineNetwork,omitempty"`
+
 	ClusterNetwork []ClusterNetworkEntry `json:"clusterNetwork,omitempty"`
 
 	ServiceNetwork []string `json:"serviceNetwork,omitempty"`
+
+	// +kubebuilder:validation:Enum=OVNKubernetes;Other
+	// +kubebuilder:default=OVNKubernetes
+	NetworkType string `json:"networkType,omitempty"`
+}
+
+type MachineNetworkEntry struct {
+	CIDR string `json:"cidr"`
 }
 
 type ClusterNetworkEntry struct {

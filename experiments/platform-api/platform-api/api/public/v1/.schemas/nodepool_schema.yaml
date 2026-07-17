@@ -20,30 +20,16 @@ properties:
     properties:
       autoscaling:
         properties:
-          enabled:
-            type: boolean
-          maxNodes:
+          max:
             format: int32
             minimum: 1
             type: integer
-          minNodes:
+          min:
             format: int32
             minimum: 0
             type: integer
-          scaleDownDelay:
-            type: string
-          scaleUpDelay:
-            type: string
-          targetCPUUtilization:
-            format: int32
-            maximum: 100
-            minimum: 1
-            type: integer
-          targetMemoryUtilization:
-            format: int32
-            maximum: 100
-            minimum: 1
-            type: integer
+        required:
+        - max
         type: object
       clusterID:
         type: string
@@ -51,27 +37,17 @@ properties:
         format: int32
         minimum: 0
         type: integer
+      nodeLabels:
+        additionalProperties:
+          type: string
+        type: object
       platform:
         properties:
           gcp:
             properties:
-              accelerators:
-                items:
-                  properties:
-                    count:
-                      format: int32
-                      minimum: 1
-                      type: integer
-                    type:
-                      type: string
-                  required:
-                  - count
-                  - type
-                  type: object
-                type: array
-              diskSize:
-                format: int32
-                minimum: 10
+              diskSizeGB:
+                format: int64
+                minimum: 20
                 type: integer
               diskType:
                 enum:
@@ -79,40 +55,44 @@ properties:
                 - pd-ssd
                 - pd-balanced
                 type: string
-              labels:
-                additionalProperties:
-                  type: string
-                type: object
               machineType:
                 type: string
-              preemptible:
-                type: boolean
-              projectID:
-                type: string
-              region:
-                type: string
-              taints:
-                items:
-                  properties:
-                    effect:
-                      enum:
-                      - NoSchedule
-                      - PreferNoSchedule
-                      - NoExecute
-                      type: string
-                    key:
-                      type: string
-                    value:
-                      type: string
-                  required:
-                  - effect
-                  - key
-                  type: object
-                type: array
-              zones:
+              networkTags:
                 items:
                   type: string
                 type: array
+              onHostMaintenance:
+                enum:
+                - MIGRATE
+                - TERMINATE
+                type: string
+              provisioningModel:
+                enum:
+                - Standard
+                - Spot
+                - Preemptible
+                type: string
+              resourceLabels:
+                items:
+                  description: GCPResourceLabel is a label applied to GCP resources
+                    created for the cluster.
+                  properties:
+                    key:
+                      maxLength: 63
+                      minLength: 1
+                      type: string
+                    value:
+                      maxLength: 63
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              subnet:
+                type: string
+              zone:
+                type: string
             type: object
           type:
             enum:
@@ -123,7 +103,7 @@ properties:
         type: object
       release:
         description: |-
-          ClusterReleaseSpec defines the target OCP release version.
+          ReleaseSpec defines the target OCP release version.
           The version-resolution adapter resolves Version+ChannelGroup to a release image pullspec.
         properties:
           channelGroup:
@@ -131,10 +111,32 @@ properties:
           version:
             type: string
         type: object
+      taints:
+        items:
+          properties:
+            effect:
+              enum:
+              - NoSchedule
+              - PreferNoSchedule
+              - NoExecute
+              type: string
+            key:
+              type: string
+            value:
+              type: string
+          required:
+          - effect
+          - key
+          type: object
+        type: array
     required:
     - clusterID
     - platform
+    - release
     type: object
+    x-kubernetes-validations:
+    - message: nodeCount and autoscaling are mutually exclusive
+      rule: '!has(self.nodeCount) || !has(self.autoscaling)'
   status:
     description: NodePoolStatus is written by controllers only.
     properties:
