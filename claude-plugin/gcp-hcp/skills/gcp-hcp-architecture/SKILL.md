@@ -3,7 +3,7 @@ name: GCP-HCP-Architecture
 description: >
   Use when working on GCP HCP-related code or design in any of the GCP HCP repositories:
   hypershift (platform/gcp/, GCP provider, GCP-related tests), gcp-hcp-infra (Terraform,
-  ArgoCD, infrastructure), gcp-hcp-cli, cls-backend, cls-controller, or when creating
+  ArgoCD, infrastructure), gcp-hcp-cli, hyperkube (Platform API, controllers), or when creating
   or reviewing design decisions, or needing architectural context for GCP Hosted Control
   Planes on GKE. Accepts optional topic filter: networking, identity, observability,
   infrastructure, automation, governance, storage, operators, testing, incidents, slo.
@@ -64,8 +64,9 @@ These constraints apply across all topics. Violations should be flagged in code 
 | **hypershift** | GCP platform implementation code, CI enforcement (Tekton/Konflux, golangci-lint, gitlint, conventional commits) |
 | **gcp-hcp-infra** | Terraform modules, ArgoCD configs, infrastructure automation |
 | **gcp-hcp-cli** | CLI tooling |
-| **cls-backend** | Cluster Lifecycle Service backend |
-| **cls-controller** | Cluster Lifecycle Service controller |
+| **hyperkube** | Platform API server, Go lifecycle controllers — the full-stack CLM runtime |
+| **cls-backend** | ~~Cluster Lifecycle Service backend~~ *(being replaced by hyperkube)* |
+| **cls-controller** | ~~Cluster Lifecycle Service controller~~ *(being replaced by hyperkube)* |
 
 ## Quality Standards
 
