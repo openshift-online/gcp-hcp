@@ -87,6 +87,7 @@ type TaintSpec struct {
 	Effect string `json:"effect"`
 }
 
+// +kubebuilder:validation:XValidation:rule="self.max >= self.min",message="max must be greater than or equal to min"
 type AutoscalingSpec struct {
 	// +orlop:public
 	// +kubebuilder:validation:Minimum=0

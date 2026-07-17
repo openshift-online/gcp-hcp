@@ -108,9 +108,13 @@ type GCPResourceLabel struct {
 // The version-resolution adapter resolves Version+ChannelGroup to a release image pullspec.
 type ReleaseSpec struct {
 	// +orlop:public
-	Version string `json:"version,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Version string `json:"version"`
 	// +orlop:public
-	ChannelGroup string `json:"channelGroup,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ChannelGroup string `json:"channelGroup"`
 }
 
 type NetworkingSpec struct {

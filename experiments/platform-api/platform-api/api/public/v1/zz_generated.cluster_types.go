@@ -101,9 +101,14 @@ type GCPResourceLabel struct {
 // ReleaseSpec defines the target OCP release version.
 // The version-resolution adapter resolves Version+ChannelGroup to a release image pullspec.
 type ReleaseSpec struct {
-	Version string `json:"version,omitempty"`
 
-	ChannelGroup string `json:"channelGroup,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Version string `json:"version"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ChannelGroup string `json:"channelGroup"`
 }
 
 type NetworkingSpec struct {

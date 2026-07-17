@@ -134,9 +134,14 @@ properties:
           The version-resolution adapter resolves Version+ChannelGroup to a release image pullspec.
         properties:
           channelGroup:
+            minLength: 1
             type: string
           version:
+            minLength: 1
             type: string
+        required:
+        - channelGroup
+        - version
         type: object
     required:
     - networking

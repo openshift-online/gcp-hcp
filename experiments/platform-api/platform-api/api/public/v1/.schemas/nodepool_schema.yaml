@@ -31,6 +31,9 @@ properties:
         required:
         - max
         type: object
+        x-kubernetes-validations:
+        - message: max must be greater than or equal to min
+          rule: self.max >= self.min
       clusterID:
         type: string
       nodeCount:
@@ -107,9 +110,14 @@ properties:
           The version-resolution adapter resolves Version+ChannelGroup to a release image pullspec.
         properties:
           channelGroup:
+            minLength: 1
             type: string
           version:
+            minLength: 1
             type: string
+        required:
+        - channelGroup
+        - version
         type: object
       taints:
         items:
