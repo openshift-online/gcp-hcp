@@ -22,7 +22,8 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [gke-dataplane-v2-networking](networking/gke-dataplane-v2-networking.md) | GKE Dataplane V2 with eBPF/Cilium for enhanced security and observability |
 | [gke-ingress-controller](networking/gke-ingress-controller.md) | GKE Ingress (GCE) as standard ingress for infrastructure tooling services |
 | [google-managed-certificates](networking/google-managed-certificates.md) | Google-managed SSL/TLS certificates for automatic certificate lifecycle |
-| [gcp-api-gateway-frontend](networking/gcp-api-gateway-frontend.md) | GCP API Gateway for customer-facing API |
+| [gcp-api-gateway-frontend](networking/gcp-api-gateway-frontend.md) | ~~GCP API Gateway for customer-facing API~~ *(superseded by espv2-api-frontend)* |
+| [espv2-api-frontend](networking/espv2-api-frontend.md) | ESPv2 sidecar with Cloud Endpoints for API frontend and Marketplace integration |
 | [customer-dns-zone-management](networking/customer-dns-zone-management.md) | Customer DNS zones created by control-plane-operator with WIF authentication |
 | [ci-externaldns-configuration](networking/ci-externaldns-configuration.md) | Dedicated public Cloud DNS zone with WIF for CI E2E ExternalDNS |
 | [oidc-cdn-public-serving](networking/oidc-cdn-public-serving.md) | Cloud CDN for public OIDC document serving |
