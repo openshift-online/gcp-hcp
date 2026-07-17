@@ -53,7 +53,6 @@ properties:
                 enum:
                 - PublicAndPrivate
                 - Private
-                - Public
                 type: string
               network:
                 type: string
@@ -61,26 +60,25 @@ properties:
                 type: string
               region:
                 type: string
-              subnet:
-                type: string
-              subnets:
+              resourceLabels:
                 items:
+                  description: GCPResourceLabel is a label applied to GCP resources
+                    created for the cluster.
                   properties:
-                    cidr:
+                    key:
+                      maxLength: 63
+                      minLength: 1
                       type: string
-                    id:
-                      type: string
-                    name:
-                      type: string
-                    role:
+                    value:
+                      maxLength: 63
                       type: string
                   required:
-                  - cidr
-                  - id
-                  - name
-                  - role
+                  - key
+                  - value
                   type: object
                 type: array
+              subnet:
+                type: string
               workloadIdentity:
                 properties:
                   poolID:
@@ -105,6 +103,8 @@ properties:
                         type: string
                     type: object
                 type: object
+            required:
+            - workloadIdentity
             type: object
           type:
             enum:

@@ -54,12 +54,13 @@ type GCPClusterPlatform struct {
 
 	Subnet string `json:"subnet,omitempty"`
 
-	Subnets []SubnetSpec `json:"subnets,omitempty"`
-
-	// +kubebuilder:validation:Enum=PublicAndPrivate;Private;Public
+	// +kubebuilder:validation:Enum=PublicAndPrivate;Private
 	EndpointAccess string `json:"endpointAccess,omitempty"`
 
-	WorkloadIdentity *WorkloadIdentitySpec `json:"workloadIdentity,omitempty"`
+	// +kubebuilder:validation:Required
+	WorkloadIdentity WorkloadIdentitySpec `json:"workloadIdentity"`
+
+	ResourceLabels []GCPResourceLabel `json:"resourceLabels,omitempty"`
 }
 
 type WorkloadIdentitySpec struct {
@@ -86,14 +87,15 @@ type ServiceAccountsRef struct {
 	NetworkEmail string `json:"networkEmail,omitempty"`
 }
 
-type SubnetSpec struct {
-	ID string `json:"id"`
+// GCPResourceLabel is a label applied to GCP resources created for the cluster.
+type GCPResourceLabel struct {
 
-	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Key string `json:"key"`
 
-	CIDR string `json:"cidr"`
-
-	Role string `json:"role"`
+	// +kubebuilder:validation:MaxLength=63
+	Value string `json:"value"`
 }
 
 // ClusterReleaseSpec defines the target OCP release version.
