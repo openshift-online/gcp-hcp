@@ -1,6 +1,8 @@
 # GCP-333: GCP HCP HyperFleet Adapters Implementation Plan
 
-**Status**: In Progress
+> **Status**: Superseded — The config-based adapter framework is replaced by Go controllers per [Go Controllers Runtime](../design-decisions/automation/go-controllers-runtime.md). Business logic carries forward into Go controllers.
+
+**Status**: ~~In Progress~~
 **Jira**: [GCP-333](https://redhat.atlassian.net/browse/GCP-333)
 **Last Updated**: 2026-04-05
 
