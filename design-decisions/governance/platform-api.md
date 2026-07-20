@@ -47,7 +47,8 @@ The cluster lifecycle API surface has evolved through three phases. It started a
 
 * Increased scope and maintenance burden for the GCP HCP team
 * API server remains a critical path component — high availability requirements carry over from the existing CLM Backend
-* Dual API surface adds complexity in the converter layer and schema definitions
+* Dual API surface requires two Go type definitions per resource (private with all fields, public with customer-visible fields only) kept in sync via code generation
+* Converter layer depends on a consistent private prefix convention across labels, annotations, and conditions for metadata isolation
 
 ## Cross-Cutting Concerns
 
