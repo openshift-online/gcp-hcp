@@ -116,6 +116,11 @@ func (h *ConvertingResourceHandler) Create(w http.ResponseWriter, r *http.Reques
 	accessor.SetCreationTimestamp(metav1.Time{Time: time.Now()})
 	accessor.SetGeneration(1)
 
+	if err := validateMetadata(accessor); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
+
 	// Set GVK on public object
 	publicObj.GetObjectKind().SetGroupVersionKind(h.gvk)
 
@@ -391,6 +396,11 @@ func (h *ConvertingResourceHandler) Update(w http.ResponseWriter, r *http.Reques
 	accessor.SetNamespace(namespace)
 	accessor.SetName(name)
 
+	if err := validateMetadata(accessor); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
+
 	// Convert public to private, preserving internal fields
 	privateObj, err := h.converter.PublicToPrivate(publicObj, existingPrivate)
 	if err != nil {
@@ -527,6 +537,11 @@ func (h *ConvertingResourceHandler) Patch(w http.ResponseWriter, r *http.Request
 
 	accessor.SetNamespace(namespace)
 	accessor.SetName(name)
+
+	if err := validateMetadata(accessor); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
 
 	// Convert public to private
 	privateObj, err := h.converter.PublicToPrivate(publicObj, existingPrivate)

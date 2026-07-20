@@ -150,6 +150,11 @@ func (h *ResourceHandler) processPatchedObject(w http.ResponseWriter, r *http.Re
 	clientObj.SetNamespace(namespace)
 	clientObj.SetName(name)
 
+	if err := validateMetadata(clientObj); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
+
 	// Set GVK
 	clientObj.GetObjectKind().SetGroupVersionKind(h.gvk)
 

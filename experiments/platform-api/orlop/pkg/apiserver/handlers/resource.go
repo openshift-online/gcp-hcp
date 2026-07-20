@@ -134,6 +134,11 @@ func (h *ResourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	accessor.SetCreationTimestamp(metav1.Time{Time: time.Now()})
 	accessor.SetGeneration(1)
 
+	if err := validateMetadata(accessor); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
+
 	// Set GVK
 	clientObj.GetObjectKind().SetGroupVersionKind(h.gvk)
 
@@ -366,6 +371,11 @@ func (h *ResourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	accessor.SetNamespace(namespace)
 	accessor.SetName(name)
+
+	if err := validateMetadata(accessor); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
 
 	// Check if spec changed and increment generation if so
 	existingAccessor, _ := meta.Accessor(existing)
