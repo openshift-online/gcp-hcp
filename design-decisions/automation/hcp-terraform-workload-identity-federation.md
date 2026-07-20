@@ -15,7 +15,7 @@ HCP Terraform (Terraform Cloud) workspaces that manage GCP infrastructure must a
   - No static GCP service account JSON keys (consistent with platform-wide WIF-first policy)
   - The GCP WIF pool and OIDC provider live in the commons project (`gcp-hcp-commons`), managed by the commons Terraform module (applied manually by SRE, not by Atlantis)
   - Environment service accounts live in each environment's own global project (`tfc-automation@gcp-hcp-{env}-global.iam.gserviceaccount.com`) with cross-project `workloadIdentityUser` bindings on the commons pool. Tooling and CI base SAs remain in `gcp-hcp-commons`
-  - HCP Terraform workspace configuration is managed via the `hp-platform-engineering/workspaces/tfe` module in `hcp-terraform/test-gcp-hcp-terraform/main.tf`
+  - HCP Terraform workspace configuration is managed via the `hp-platform-engineering/workspaces/tfe` module in `hcp-terraform/{tfe_project}/main.tf`
   - The HCP Terraform organization uses Dynamic Provider Credentials (credential sets configured per workspace). `TFC_GCP_PROVIDER_AUTH=true` enables this feature. The legacy flow used `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` to set the token audience; Dynamic Provider Credentials use `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` instead
 - **Assumptions**:
   - All future HCP Terraform workspaces managing GCP resources will use the same commons WIF pool (`tfc-pool`) and OIDC provider (`tfc-oidc`)
