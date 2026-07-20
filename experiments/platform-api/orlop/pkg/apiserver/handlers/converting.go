@@ -81,7 +81,7 @@ func (h *ConvertingResourceHandler) Create(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Process object (prune, default, validate) using public schema
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}
@@ -369,7 +369,7 @@ func (h *ConvertingResourceHandler) Update(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Process object (prune, default, validate) using public schema
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}
@@ -511,7 +511,7 @@ func (h *ConvertingResourceHandler) Patch(w http.ResponseWriter, r *http.Request
 	}
 
 	// Process object (prune, default, validate) using public schema
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}

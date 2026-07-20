@@ -114,7 +114,7 @@ func (h *ResourceHandler) processPatchedObject(w http.ResponseWriter, r *http.Re
 	}
 
 	// Process object (prune, default, validate)
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}

@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"github.com/thetechnick/orlop/pkg/apiserver/constants"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/thetechnick/orlop/pkg/apiserver/constants"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-logr/logr"
@@ -16,10 +17,10 @@ import (
 	"github.com/thetechnick/orlop/pkg/apiserver/schema"
 	"github.com/thetechnick/orlop/pkg/apiserver/storage"
 	"github.com/thetechnick/orlop/pkg/apiserver/types"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -84,7 +85,7 @@ func (h *ResourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process object (prune, default, validate)
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}
@@ -102,30 +103,10 @@ func (h *ResourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	clientObj := obj.(client.Object)
 
-	if d, ok := obj.(types.CustomDefaulter); ok {
-		if err := d.Default(r.Context()); err != nil {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("defaulting failed: %v", err))
-			return
-		}
-	}
-
-	if v, ok := obj.(types.CustomValidator); ok {
-		if err := v.ValidateCreate(r.Context()); err != nil {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
-			return
-		}
-	}
-
 	// Set metadata
 	accessor, err := meta.Accessor(clientObj)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to access metadata: %v", err))
-		return
-	}
-
-	name := accessor.GetName()
-	if name == "" && accessor.GetGenerateName() == "" {
-		writeError(w, http.StatusBadRequest, "metadata.name or metadata.generateName is required")
 		return
 	}
 
@@ -134,19 +115,39 @@ func (h *ResourceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	accessor.SetCreationTimestamp(metav1.Time{Time: time.Now()})
 	accessor.SetGeneration(1)
 
+	// Set GVK
+	clientObj.GetObjectKind().SetGroupVersionKind(h.gvk)
+
+	if d, ok := obj.(types.CustomDefaulter); ok {
+		if err := d.Default(r.Context()); err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("defaulting failed: %v", err))
+			return
+		}
+	}
+
+	name := accessor.GetName()
+	if name == "" && accessor.GetGenerateName() == "" {
+		writeError(w, http.StatusBadRequest, "metadata.name or metadata.generateName is required")
+		return
+	}
+
 	if err := validateMetadata(accessor); err != nil {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
 		return
 	}
-
-	// Set GVK
-	clientObj.GetObjectKind().SetGroupVersionKind(h.gvk)
 
 	// Validate owner references exist
 	if err := h.validateOwnerReferences(r.Context(), clientObj); err != nil {
 		h.logger.V(1).Info("Owner reference validation failed", "kind", h.gvk.Kind, "namespace", namespace, "name", name, "error", err)
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid ownerReferences: %v", err))
 		return
+	}
+
+	if v, ok := obj.(types.CustomValidator); ok {
+		if err := v.ValidateCreate(r.Context()); err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
+			return
+		}
 	}
 
 	// Store object
@@ -330,7 +331,7 @@ func (h *ResourceHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process object (prune, default, validate)
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}
