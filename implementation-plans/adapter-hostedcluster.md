@@ -1,5 +1,7 @@
 # HostedCluster Adapter
 
+> **Status**: Superseded — The adapter framework is replaced by Go controllers per [Go Controllers Runtime](../design-decisions/automation/go-controllers-runtime.md). The business logic documented here carries forward.
+
 **Jira**: [GCP-333](https://redhat.atlassian.net/browse/GCP-333)
 
 | Field | Value |

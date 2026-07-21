@@ -23,6 +23,7 @@ go.work
 .env
 .env.local
 .env.production
+.envrc
 
 # IDE files
 .vscode/

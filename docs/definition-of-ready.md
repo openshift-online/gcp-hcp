@@ -48,9 +48,7 @@ Initiatives represent internal/architectural work at Level 4. See [Jira Hierarch
 - [ ] **Assignee** is assigned
 - [ ] At least one **Epic** has been identified for breakdown
 
-**Template**: Use [docs/jira-feature-template.md](./jira-feature-template.md) as a starting point, adapting for Initiative-level scope (internal/architectural work vs customer-facing features)
-
-**Note**: A dedicated Initiative template will be created in a follow-up task.
+**Template**: [docs/jira-initiative-template.md](./jira-initiative-template.md)
 
 ---
 
@@ -279,4 +277,5 @@ The `jira:gcp-hcp` skill (from openshift-eng/ai-helpers) should reference this D
 - [Jira Story Template](./jira-story-template.md) - Story structure and sizing guide
 - [Jira Epic Template](./jira-epic-template.md) - Epic structure and breakdown guide
 - [Jira Feature Template](./jira-feature-template.md) - Feature structure
+- [Jira Initiative Template](./jira-initiative-template.md) - Initiative structure
 - [Jira Task Template](./jira-task-template.md) - Task structure

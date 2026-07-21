@@ -1,0 +1,333 @@
+description: ManagedHostedCluster is the Schema for the managedhostedclusters API
+properties:
+  apiVersion:
+    description: |-
+      APIVersion defines the versioned schema of this representation of an object.
+      Servers should convert recognized schemas to the latest internal value, and
+      may reject unrecognized values.
+      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+    type: string
+  kind:
+    description: |-
+      Kind is a string value representing the REST resource this object represents.
+      Servers may infer this from the endpoint the client submits requests to.
+      Cannot be updated.
+      In CamelCase.
+      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+    type: string
+  metadata:
+    type: object
+  spec:
+    description: spec defines the desired state of ManagedHostedCluster
+    properties:
+      hostedCluster:
+        description: HostedCluster defines HyperShift HostedCluster configuration
+          options.
+        properties:
+          capabilities:
+            description: capabilities defines which cluster capabilities are enabled
+              or disabled.
+            properties:
+              disabled:
+                description: disabled is the list of cluster capabilities to disable.
+                items:
+                  type: string
+                type: array
+            type: object
+          channel:
+            description: channel is the Cincinnati release channel (e.g. "stable-4.16").
+            type: string
+          clusterID:
+            description: clusterID is the unique cluster identifier passed to the
+              HostedCluster CR.
+            type: string
+          configuration:
+            description: configuration defines cluster-level configuration (authentication,
+              API server, etc.).
+            properties:
+              authentication:
+                description: authentication defines the authentication configuration
+                  for the cluster.
+                properties:
+                  oidcProviders:
+                    description: oidcProviders defines the OIDC identity providers
+                      for the cluster.
+                    items:
+                      description: OIDCProvider defines an OIDC identity provider
+                        configuration.
+                      properties:
+                        claimMappings:
+                          description: claimMappings defines how OIDC claims are mapped
+                            to Kubernetes identities.
+                          properties:
+                            groups:
+                              description: groups defines the claim used for Kubernetes
+                                group membership.
+                              properties:
+                                claim:
+                                  description: claim is the name of the OIDC claim.
+                                  type: string
+                                prefix:
+                                  description: prefix is prepended to claim values.
+                                  type: string
+                              required:
+                              - claim
+                              type: object
+                            username:
+                              description: username defines the claim used for the
+                                Kubernetes username.
+                              properties:
+                                claim:
+                                  description: claim is the name of the OIDC claim.
+                                  type: string
+                                prefix:
+                                  description: prefix is prepended to claim values.
+                                  type: string
+                              required:
+                              - claim
+                              type: object
+                          required:
+                          - username
+                          type: object
+                        issuer:
+                          description: issuer defines the OIDC issuer configuration.
+                          properties:
+                            audiences:
+                              description: audiences is the list of valid audiences
+                                for tokens issued by this provider.
+                              items:
+                                type: string
+                              type: array
+                            issuerURL:
+                              description: issuerURL is the URL of the OIDC issuer.
+                              type: string
+                          required:
+                          - issuerURL
+                          type: object
+                        name:
+                          description: name is the name of the OIDC provider.
+                          type: string
+                      required:
+                      - claimMappings
+                      - issuer
+                      - name
+                      type: object
+                    type: array
+                  type:
+                    description: type is the authentication type (e.g. "OIDC").
+                    type: string
+                type: object
+            type: object
+          controllerAvailabilityPolicy:
+            description: controllerAvailabilityPolicy specifies the availability policy
+              for control plane controllers.
+            type: string
+          etcd:
+            description: etcd defines the etcd configuration for the hosted control
+              plane.
+            properties:
+              managed:
+                description: managed defines configuration when managementType is
+                  "Managed".
+                properties:
+                  storage:
+                    description: storage defines the storage configuration for etcd.
+                    properties:
+                      type:
+                        description: type is the storage backend type (e.g. "PersistentVolume").
+                        type: string
+                    required:
+                    - type
+                    type: object
+                required:
+                - storage
+                type: object
+              managementType:
+                description: managementType defines how etcd is managed (e.g. "Managed",
+                  "Unmanaged").
+                type: string
+            required:
+            - managementType
+            type: object
+          infraID:
+            description: infraID is the unique infrastructure identifier for this
+              cluster.
+            type: string
+          networking:
+            description: networking defines the networking configuration for the cluster.
+            properties:
+              clusterNetwork:
+                description: clusterNetwork is the list of IP address pools for pod
+                  IPs.
+                items:
+                  description: NetworkRange defines a network CIDR range.
+                  properties:
+                    cidr:
+                      description: cidr is the IP address range in CIDR notation (e.g.
+                        10.132.0.0/14).
+                      type: string
+                  required:
+                  - cidr
+                  type: object
+                type: array
+              networkType:
+                description: networkType is the CNI plugin type (e.g. "OVNKubernetes",
+                  "OpenShiftSDN").
+                type: string
+              serviceNetwork:
+                description: serviceNetwork is the list of IP address pools for service
+                  IPs.
+                items:
+                  description: NetworkRange defines a network CIDR range.
+                  properties:
+                    cidr:
+                      description: cidr is the IP address range in CIDR notation (e.g.
+                        10.132.0.0/14).
+                      type: string
+                  required:
+                  - cidr
+                  type: object
+                type: array
+            type: object
+          platform:
+            description: platform specifies the underlying infrastructure provider
+              for the cluster.
+            properties:
+              type:
+                description: type is the infrastructure provider type (e.g. "None",
+                  "GCP", "AWS").
+                type: string
+            required:
+            - type
+            type: object
+          pullSecret:
+            description: pullSecret references the Secret containing the pull secret
+              for the cluster.
+            properties:
+              name:
+                description: name is the name of the Secret.
+                type: string
+            required:
+            - name
+            type: object
+          release:
+            description: release specifies the OCP release image for the hosted cluster.
+            properties:
+              image:
+                description: image is the release image pullspec (e.g. quay.io/openshift-release-dev/ocp-release:4.16.3-x86_64).
+                type: string
+            required:
+            - image
+            type: object
+          serviceAccountSigningKey:
+            description: serviceAccountSigningKey references the Secret containing
+              the service account signing key.
+            properties:
+              name:
+                description: name is the name of the Secret.
+                type: string
+            required:
+            - name
+            type: object
+          services:
+            description: services defines the service publishing strategy for control
+              plane services.
+            items:
+              description: ServicePublishingStrategyMapping defines how a control
+                plane service is published.
+              properties:
+                service:
+                  description: service is the name of the service (e.g. "APIServer",
+                    "OAuthServer", "Konnectivity", "Ignition").
+                  type: string
+                servicePublishingStrategy:
+                  description: servicePublishingStrategy defines how the service is
+                    made available.
+                  properties:
+                    type:
+                      description: type is the publishing strategy (e.g. "LoadBalancer",
+                        "Route", "NodePort").
+                      type: string
+                  required:
+                  - type
+                  type: object
+              required:
+              - service
+              - servicePublishingStrategy
+              type: object
+            type: array
+        required:
+        - infraID
+        - platform
+        - release
+        type: object
+      managementCluster:
+        description: ManagementClusterName persists the scheduling decision of the
+          mhc-scheduler.
+        type: string
+    required:
+    - hostedCluster
+    type: object
+  status:
+    description: status defines the observed state of ManagedHostedCluster
+    properties:
+      conditions:
+        items:
+          description: Condition contains details for one aspect of the current state
+            of this API Resource.
+          properties:
+            lastTransitionTime:
+              description: |-
+                lastTransitionTime is the last time the condition transitioned from one status to another.
+                This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+              format: date-time
+              type: string
+            message:
+              description: |-
+                message is a human readable message indicating details about the transition.
+                This may be an empty string.
+              maxLength: 32768
+              type: string
+            observedGeneration:
+              description: |-
+                observedGeneration represents the .metadata.generation that the condition was set based upon.
+                For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                with respect to the current state of the instance.
+              format: int64
+              minimum: 0
+              type: integer
+            reason:
+              description: |-
+                reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                Producers of specific condition types may define expected values and meanings for this field,
+                and whether the values are considered a guaranteed API.
+                The value should be a CamelCase string.
+                This field may not be empty.
+              maxLength: 1024
+              minLength: 1
+              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+              type: string
+            status:
+              description: status of the condition, one of True, False, Unknown.
+              enum:
+              - "True"
+              - "False"
+              - Unknown
+              type: string
+            type:
+              description: type of condition in CamelCase or in foo.example.com/CamelCase.
+              maxLength: 316
+              pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+              type: string
+          required:
+          - lastTransitionTime
+          - message
+          - reason
+          - status
+          - type
+          type: object
+        type: array
+    type: object
+required:
+- spec
+type: object

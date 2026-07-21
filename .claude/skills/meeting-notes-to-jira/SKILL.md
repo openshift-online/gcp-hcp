@@ -2,7 +2,6 @@
 name: meeting-notes-to-jira
 description: Process GCP HCP meeting notes/transcripts into reviewed Jira updates — extracts action items, presents changes for approval, executes via MCP, and generates a Slack summary.
 argument-hint: "<path-to-transcript>"
-model: opus
 effort: high
 ---
 

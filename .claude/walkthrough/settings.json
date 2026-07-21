@@ -1,0 +1,7 @@
+{
+  "outputStyle": "Explanatory",
+  "env": {
+    "MCP_CONNECT_TIMEOUT_MS": "10000",
+    "MAX_MCP_OUTPUT_TOKENS": "100000"
+  }
+}

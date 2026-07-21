@@ -1,0 +1,10 @@
+apiVersion: gcp.orlop.thetechnick.ninja/v1alpha1
+kind: ManagedHostedCluster
+metadata:
+  name: test
+  namespace: default
+spec:
+  hostedCluster:
+    platform:
+      type: GCP
+    channel: stable
