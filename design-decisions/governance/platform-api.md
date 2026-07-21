@@ -12,12 +12,12 @@ We will implement a Platform API server as the single source of truth for the GC
 
 ## Context
 
-The cluster lifecycle API surface has evolved through three phases. It started as CLS (Cluster Lifecycle Service), a proof-of-concept that ended up deployed in production environments. The team then adopted CLM (Cluster Lifecycle Management) as part of the Hyperfleet project, with the API and backend developed by the Fleet Engineering team. The GCP HCP team is now transitioning to full-stack ownership, building the Platform API using the `orlop` framework in the `hyperkube` repository. Several gaps in the current architecture drive this change.
+The cluster lifecycle API surface has evolved through three phases. It started as CLS (Cluster Lifecycle Service), a proof-of-concept that ended up deployed in production environments. The team then adopted CLM (Cluster Lifecycle Management) as part of the Hyperfleet project, with the API and backend developed by the Fleet Engineering team. The GCP HCP team is now transitioning to full-stack ownership, building the Platform API using the `orlop` framework in the `gecko` repository. Several gaps in the current architecture drive this change.
 
 - **Problem Statement**: The current architecture lacks multi-tenancy, private API support, and a centralized API definition for code generation (CLI, controller clients). Full-stack ownership requires the GCP HCP team to control the API surface directly rather than depending on an upstream project.
 - **Authorization Gap**: GCP first-party IAM integration is unavailable to external services, necessitating an authorization middleware integrated into the API server.
 - **Constraints**: Must support both public (customer-facing) and private (controller-facing) API surfaces from a single source of truth. Must enable code generation for CLI and controller clients. Must support an authorization middleware for tenant-scoped access control. Must maintain an API abstraction in front of the database.
-- **Assumptions**: The validated `orlop` framework experiment demonstrates the viability of the dual API surface pattern. The production repository is `hyperkube`. The team has Go expertise to build and maintain the API server.
+- **Assumptions**: The validated `orlop` framework experiment demonstrates the viability of the dual API surface pattern. The production repository is `gecko`. The team has Go expertise to build and maintain the API server.
 
 ## Alternatives Considered
 
