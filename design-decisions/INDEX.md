@@ -22,7 +22,8 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [gke-dataplane-v2-networking](networking/gke-dataplane-v2-networking.md) | GKE Dataplane V2 with eBPF/Cilium for enhanced security and observability |
 | [gke-ingress-controller](networking/gke-ingress-controller.md) | GKE Ingress (GCE) as standard ingress for infrastructure tooling services |
 | [google-managed-certificates](networking/google-managed-certificates.md) | Google-managed SSL/TLS certificates for automatic certificate lifecycle |
-| [gcp-api-gateway-frontend](networking/gcp-api-gateway-frontend.md) | GCP API Gateway for customer-facing API |
+| [gcp-api-gateway-frontend](networking/gcp-api-gateway-frontend.md) | ~~GCP API Gateway for customer-facing API~~ *(superseded by espv2-api-frontend)* |
+| [espv2-api-frontend](networking/espv2-api-frontend.md) | ESPv2 sidecar with Cloud Endpoints for API frontend and Marketplace integration |
 | [customer-dns-zone-management](networking/customer-dns-zone-management.md) | Customer DNS zones created by control-plane-operator with WIF authentication |
 | [ci-externaldns-configuration](networking/ci-externaldns-configuration.md) | Dedicated public Cloud DNS zone with WIF for CI E2E ExternalDNS |
 | [oidc-cdn-public-serving](networking/oidc-cdn-public-serving.md) | Cloud CDN for public OIDC document serving |
@@ -64,6 +65,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [container-image-build-and-distribution-pipeline](automation/container-image-build-and-distribution-pipeline.md) | Konflux for builds, Artifact Registry for publishing, regional pull-through caches |
 | [ai-centric-sdlc](automation/ai-centric-sdlc.md) | AI-centric SDLC with multi-tool support and required human review |
 | [agent-autonomy-levels](automation/agent-autonomy-levels.md) | Three-stage approach for agent-driven remediation with increasing autonomy levels |
+| [go-controllers-runtime](automation/go-controllers-runtime.md) | Go controllers replacing config-based adapters for cluster lifecycle management |
 
 ## Governance
 
@@ -73,3 +75,4 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [repository-organization-policy](governance/repository-organization-policy.md) | Three-tier repository structure with graduation criteria |
 | [gcphcpctl-graduation](governance/gcphcpctl-graduation.md) | Graduate GCP HCP CLI to dedicated repository |
 | [adopt-cincinnati-for-version-resolution](governance/adopt-cincinnati-for-version-resolution.md) | Replace hardcoded release image with Cincinnati update service for version resolution |
+| [platform-api](governance/platform-api.md) | Platform API server as single source of truth for CLM API definition |

@@ -1,4 +1,6 @@
-# Frontend API Interface: GCP API Gateway
+Frontend API Interface: GCP API Gateway
+
+> **Status**: Superseded by [ESPv2 Sidecar as API Frontend](espv2-api-frontend.md) (2026-07-15)
 
 ***Scope***: GCP-HCP
 

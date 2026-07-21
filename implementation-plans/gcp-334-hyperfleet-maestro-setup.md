@@ -1,5 +1,7 @@
 # Hyperfleet & Maestro — Infrastructure Setup Overview
 
+> **Status**: Superseded — Maestro transport replaced by [Firestore Transport](../design-decisions/networking/datastore-transport.md). Adapter framework and Sentinel replaced by [Go Controllers Runtime](../design-decisions/automation/go-controllers-runtime.md).
+
 This document describes the architecture and GitOps work required to deploy the
 Hyperfleet core components and the Maestro messaging layer on GCP HCP infrastructure.
 
