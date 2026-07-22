@@ -251,12 +251,7 @@ func streamWatch(
 
 			// Update last resource version
 			streamer.lastResourceVersion = event.ResourceVersion
-
-			// Transform object if needed
-			obj, ok := event.Object.(client.Object)
-			if !ok {
-				continue
-			}
+			obj := event.Object
 
 			var sendObj interface{} = obj
 			if transformer != nil {

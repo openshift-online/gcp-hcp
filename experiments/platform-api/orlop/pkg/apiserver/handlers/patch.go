@@ -114,7 +114,7 @@ func (h *ResourceHandler) processPatchedObject(w http.ResponseWriter, r *http.Re
 	}
 
 	// Process object (prune, default, validate)
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}
@@ -149,6 +149,11 @@ func (h *ResourceHandler) processPatchedObject(w http.ResponseWriter, r *http.Re
 	// Ensure namespace and name are preserved
 	clientObj.SetNamespace(namespace)
 	clientObj.SetName(name)
+
+	if err := validateMetadata(clientObj); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
 
 	// Set GVK
 	clientObj.GetObjectKind().SetGroupVersionKind(h.gvk)

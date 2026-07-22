@@ -135,10 +135,6 @@ github.com/onsi/ginkgo/v2 v2.27.4 h1:fcEcQW/A++6aZAZQNUmNjvA9PSOzefMJBerHJ4t8v8Y
 github.com/onsi/ginkgo/v2 v2.27.4/go.mod h1:ArE1D/XhNXBXCBkKOLkbsb2c81dQHCRcF5zwn/ykDRo=
 github.com/onsi/gomega v1.40.0 h1:Vtol0e1MghCD2ZVIilPDIg44XSL9l2QAn8ZNaljWcJc=
 github.com/onsi/gomega v1.40.0/go.mod h1:M/Uqpu/8qTjtzCLUA2zJHX9Iilrau25x1PdoSRbWh5A=
-github.com/openshift/api v0.0.0-20260708150641-2b9eb962027d h1:oNg1nUiTw7YcyaeKJmGVR310QSWTbWCMSwpfyB2nSH4=
-github.com/openshift/api v0.0.0-20260708150641-2b9eb962027d/go.mod h1:7WJ3IPaK6nmWT8bDcaNooHqd0H5WepjVqV/10VlkMEM=
-github.com/openshift/hypershift/api v0.0.0-20260709060109-1f2811fcdc94 h1:wIG7WhGg/S6CJL7MPSkr2oydTH5Ks34kcv65eq9g8Pk=
-github.com/openshift/hypershift/api v0.0.0-20260709060109-1f2811fcdc94/go.mod h1:XO2zWpuo0rqxljntdt4aI5ZKhQCIeMYRDWtRNTo+bSE=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=

@@ -81,7 +81,7 @@ func (h *ConvertingResourceHandler) Create(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Process object (prune, default, validate) using public schema
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}
@@ -115,6 +115,11 @@ func (h *ConvertingResourceHandler) Create(w http.ResponseWriter, r *http.Reques
 	accessor.SetUID(k8stypes.UID(uuid.New().String()))
 	accessor.SetCreationTimestamp(metav1.Time{Time: time.Now()})
 	accessor.SetGeneration(1)
+
+	if err := validateMetadata(accessor); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
 
 	// Set GVK on public object
 	publicObj.GetObjectKind().SetGroupVersionKind(h.gvk)
@@ -364,7 +369,7 @@ func (h *ConvertingResourceHandler) Update(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Process object (prune, default, validate) using public schema
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}
@@ -390,6 +395,11 @@ func (h *ConvertingResourceHandler) Update(w http.ResponseWriter, r *http.Reques
 
 	accessor.SetNamespace(namespace)
 	accessor.SetName(name)
+
+	if err := validateMetadata(accessor); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
 
 	// Convert public to private, preserving internal fields
 	privateObj, err := h.converter.PublicToPrivate(publicObj, existingPrivate)
@@ -501,7 +511,7 @@ func (h *ConvertingResourceHandler) Patch(w http.ResponseWriter, r *http.Request
 	}
 
 	// Process object (prune, default, validate) using public schema
-	if errs := h.processor.Process(objMap); len(errs) > 0 {
+	if errs := h.processor.Process(r.Context(), objMap); len(errs) > 0 {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", errs.ToAggregate()))
 		return
 	}
@@ -527,6 +537,11 @@ func (h *ConvertingResourceHandler) Patch(w http.ResponseWriter, r *http.Request
 
 	accessor.SetNamespace(namespace)
 	accessor.SetName(name)
+
+	if err := validateMetadata(accessor); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid metadata: %v", err))
+		return
+	}
 
 	// Convert public to private
 	privateObj, err := h.converter.PublicToPrivate(publicObj, existingPrivate)
