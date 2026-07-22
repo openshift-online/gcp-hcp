@@ -68,6 +68,18 @@ These constraints apply across all topics. Violations should be flagged in code 
 | **cls-backend** | ~~Cluster Lifecycle Service backend~~ *(being replaced by hyperkube)* |
 | **cls-controller** | ~~Cluster Lifecycle Service controller~~ *(being replaced by hyperkube)* |
 
+### Component-to-Repo Mapping (Agent Reference)
+
+Canonical mapping used by Planning and Implementation Agents to route Stories to target repositories.
+
+| Component | GitHub URL | Language | Verify | Test |
+|-----------|------------|----------|--------|------|
+| hypershift | `https://github.com/openshift/hypershift` | Go | `make verify` | `make test` |
+| cls-backend | `https://github.com/apahim/cls-backend` | Go | `go build ./...` | `go test ./...` |
+| cls-controller | `https://github.com/apahim/cls-controller` | Go | `go build ./...` | `go test ./...` |
+| gcp-hcp-cli | `https://github.com/apahim/gcp-hcp-cli` | Python | `ruff check` | `python -m pytest` |
+| gcp-hcp | `https://github.com/openshift-online/gcp-hcp` | Docs/Config | N/A | N/A |
+
 ## Quality Standards
 
 - **Definition of Done**: [definition-of-done.md](https://github.com/openshift-online/gcp-hcp/blob/main/docs/definition-of-done.md) — test coverage >= 85%, PR merge criteria
