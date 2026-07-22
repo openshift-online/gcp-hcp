@@ -83,6 +83,57 @@ The experiment workspace authenticated via the existing commons WIF pool (Phase 
 
 Module was sourced from a temporary copy on `openshift-online/gcp-hcp` branch `tfc-wif-module-copy` because CI couldn't source from `infra-platform` (both SSH and HTTPS failed due to host key verification and DNS resolution issues).
 
+### E2E Walkthrough
+
+This section captures the chronological sequence of the experiment — what we did, what broke, and how we resolved it. This is the operational narrative that the static findings below don't convey.
+
+#### Step 1: Initial config and PR
+
+Created the experiment config at `hcp-terraform/test-gcp-dynamic-creds/` with the module sourced via HTTPS from `github.com/openshift-online/infra-platform//...`, variables in a separate `variables.tf` + `terraform.tfvars`, a `cloud.tf` backend for TFC, and a workspace registered in the meta workspace at `hcp-terraform/test-gcp-hcp-terraform/main.tf` with `branch = "test-gcp-dynamic-creds"`. Opened as [gcp-hcp-infra#907](https://github.com/openshift-online/gcp-hcp-infra/pull/907).
+
+#### Step 2: Code review and config restructuring
+
+Jim reviewed the PR and asked why `working_directory` pointed at `hcp-terraform/` instead of `terraform/config/` — our repo convention is that deployment configs live under `terraform/config/`. Valid point. Moved the config to `terraform/config/tfc-wif-experiment/`. This also meant switching from `variables.tf` + `terraform.tfvars` to inlined locals, because `*.tfvars` is gitignored under `terraform/config/`.
+
+CodeRabbit flagged three things: (1) module source not pinned — **fixed**, pinned to the infra-platform#90 merge commit (`58994fd`); (2) plan/apply role separation — **dismissed**, unified identity is intentional; (3) broad IAM defaults — **dismissed**, needed for validation on a dev project. Later flagged `public_access_prevention` on the validation bucket — **fixed**.
+
+#### Step 3: TFE_TOKEN discovery
+
+The module uses the `tfe` provider to create variable sets and look up TFC projects. The default TFC workspace token doesn't have enough permissions — even `data.tfe_project` lookups return 404 without a proper `TFE_TOKEN` (confirmed by infra-platform's own docs). Our `gcp-hcp-admin-creds` variable set has a `TFE_TOKEN` but it's scoped to `meta-gcp-hcp`, not accessible from `test-gcp-hcp-terraform`.
+
+Consulted Jim — he approved creating a temporary `test-tfe-creds` variable set in the `test-gcp-hcp-terraform` TFC project via the UI, with the understanding it gets cleaned up after the experiment.
+
+#### Step 4: Module sourcing failures
+
+After merging PR #907, CI couldn't source the module from infra-platform:
+- HTTPS source: `Could not resolve host: github.com` (DNS resolution failure on CI runner)
+- Switched to SSH (`git@github.com:openshift-online/infra-platform.git//...`): `Host key verification failed`
+- Workaround: Copied the module to `openshift-online/gcp-hcp` branch `tfc-wif-module-copy` at `hcp-terraform/modules/terraform-tfe-gcp-dynamic-creds/` and sourced from there via HTTPS. This worked because `gcp-hcp` is accessible to our CI.
+
+#### Step 5: Version and branch issues
+
+Two follow-up PRs to fix sequencing problems:
+- [#908](https://github.com/openshift-online/gcp-hcp-infra/pull/908): Commented out `required_version` in configs and set `terraform_version = "1.15.7"` in workspace definitions. The configs had `1.15.8` but TFC workspaces needed `1.15.7`.
+- [#911](https://github.com/openshift-online/gcp-hcp-infra/pull/911): Removed `branch = "test-gcp-dynamic-creds"` from workspace definitions. That branch only existed on the fork — after merging, TFC couldn't find it. Workspaces now track the default branch (main).
+
+#### Step 6: First apply — IAM permission failure
+
+The experiment workspace ran and failed: `Permission 'iam.workloadIdentityPools.create' denied on resource '//iam.googleapis.com/projects/rflores-dev/locations/global'`. The commons SA had roles from the Phase 1 playground (`roles/storage.admin`, `roles/resourcemanager.projectIamAdmin`) but the module also needs `roles/iam.workloadIdentityPoolAdmin` and `roles/iam.serviceAccountAdmin`. Granted both via `gcloud`.
+
+#### Step 7: Second apply — partial apply poisoning (circular dependency)
+
+Re-ran the apply. It failed again with `iam.serviceAccounts.getAccessToken` denied — a different error. Checked the TFC UI and found the root cause: the module had partially applied on the first attempt. It created the TFC resources (variable set with `apply_to_all_workspaces = true`) before the GCP resources (SAs). The variable set auto-attached to the experiment workspace itself, delivering `TFC_GCP_PLAN_SERVICE_ACCOUNT_EMAIL = hcp-tf-default-plan@rflores-dev` and `TFC_GCP_APPLY_SERVICE_ACCOUNT_EMAIL = hcp-tf-default-apply@rflores-dev` — SAs that didn't exist yet. On the re-run, TFC tried to impersonate those non-existent SAs instead of the commons SA.
+
+**Fix:** Manually detached the `test-gcp-hcp-terraform-rflores-dev-default-gcp-dynamic-creds` variable set from the experiment workspace in the TFC UI. Re-ran — apply succeeded, all 22 resources created.
+
+**Key lesson:** The module call must NOT live in the same TFC project as the workspaces it configures. For production, this is a non-issue because the module call lives in a separate bootstrap workspace.
+
+#### Step 8: Validation workspace — IAM propagation delay
+
+The validation workspace kicked off immediately after the experiment applied. It failed with `iam.serviceAccounts.getAccessToken` denied. Checked the TFC UI — the variable set was correctly delivered (confirmed `apply_to_all_workspaces` works), with all 4 `TFC_GCP_*` variables present and `TFC_GCP_WORKLOAD_PROVIDER_NAME` pointing at the new pool in `rflores-dev` (project `702934521445`), not the commons pool. The failure was IAM propagation delay — the `workloadIdentityUser` bindings on the newly created SAs hadn't taken effect yet.
+
+Re-ran after ~60 seconds — the validation workspace authenticated through the module-created WIF pool and SAs and successfully created the GCS bucket. Experiment complete.
+
 ### What We Proved
 
 1. **Module creates expected resources**: WIF pool (`hcp-tf-default`), OIDC provider, plan/apply SAs (`hcp-tf-default-plan`, `hcp-tf-default-apply`), project IAM bindings, variable set with 4 TFC env vars, project variable set for auto-attachment.
