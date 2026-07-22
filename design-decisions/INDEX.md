@@ -76,3 +76,4 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [gcphcpctl-graduation](governance/gcphcpctl-graduation.md) | Graduate GCP HCP CLI to dedicated repository |
 | [adopt-cincinnati-for-version-resolution](governance/adopt-cincinnati-for-version-resolution.md) | Replace hardcoded release image with Cincinnati update service for version resolution |
 | [platform-api](governance/platform-api.md) | Platform API server as single source of truth for CLM API definition |
+| [gecko-graduation](governance/gecko-graduation.md) | Graduate Platform API experiment to dedicated gecko repository |
