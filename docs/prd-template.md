@@ -1,43 +1,44 @@
-Version: 1.0  
-Reviewed by: August 7, 2024
+# \<FEATURE NAME\> PRD
 
-| Title:  | \<FEATURE NAME\> |
+| Field | Value |
 | :---- | :---- |
-| Date | Jan 1, 2024 |
-| Status:  | Draft |
-| Status Change Date: | Jan 1, 2024 |
-| Source:  | TBD |
-| PM Owner(s):  | TBD |
-| Feature Lead(s): | \< \> |
-| Author(s):  | TBD |
+| Version | 1.0 |
+| Date | YYYY-MM-DD |
+| Status | Draft |
+| Status Change Date | YYYY-MM-DD |
+| Reviewed By | YYYY-MM-DD |
+| Source | TBD |
+| PM Owner(s) | TBD |
+| Feature Lead(s) | \< \> |
+| Author(s) | TBD |
 
-1. # Overview
+## Overview
 
-   1. ## Problem Statement / Motivation 
+### Problem Statement / Motivation
 
 Describe the problem statement.
 
-2. ## Personas and Use Cases
+### Personas and Use Cases
 
 Describe how the various user personas and how they will use this capability.
 
-3. ## Customers and Business Impact
+### Customers and Business Impact
 
 Describe how this capability will impact customers.
 
-4. ## Existing Solutions or Expectations
+### Existing Solutions or Expectations
 
 Describe if there are any existing solutions or expectations.
 
-1. ## Proposal
+## Proposal
 
 Describe the high-level proposed solution on how this will be implemented.
 
-5. ## User Experience
+### User Experience
 
 Describe how customers will interact with this feature and use it. Describe the rosa CLI, OCM UI, terraform interactions. Include a User Journey/Mapping diagram to help describe the user experience. Provide any example inputs and outputs and any industry standard examples to use as a guideline.
 
-6. ## Goals/Non-Goals
+### Goals / Non-Goals
 
 Goals:
 
@@ -47,34 +48,24 @@ Non-Goals:
 
 * TBD
 
-2. # Definition of Success
+## Definition of Success
 
 Describe the acceptance criteria here and what it means for this capability to be successful.
 
-1. ## Service Level Objectives
+### Service Level Objectives
 
 Describe any new or existing service level objectives that will be affected by this capability. If the feature is rolled out in phases, describe the SLOs per release.
 
-* Internal Preview:  
-  * \<SLI\>- \<SLO VALUE\>  
-* Public Preview:  
-  * \<SLI\>- \<SLO VALUE\>  
-* General Availability:  
-  * \<SLI\>- \<SLO VALUE\>
+* Internal Preview:
+  * \<SLI\> - \<SLO VALUE\>
+* Public Preview:
+  * \<SLI\> - \<SLO VALUE\>
+* General Availability:
+  * \<SLI\> - \<SLO VALUE\>
 
-3. # Requirements
+## Requirements
 
-   1. ## Functional Requirements
-
-| Requirement | Pri |
-| :---- | :---- |
-|  |  |
-|  |  |
-|  |  |
-
-	
-
-2. ## Reliability Requirements
+### Functional Requirements
 
 | Requirement | Pri |
 | :---- | :---- |
@@ -82,7 +73,15 @@ Describe any new or existing service level objectives that will be affected by t
 |  |  |
 |  |  |
 
-   3. ## Client Requirements
+### Reliability Requirements
+
+| Requirement | Pri |
+| :---- | :---- |
+|  |  |
+|  |  |
+|  |  |
+
+### Client Requirements
 
 | Supported Client | Supported? |
 | :---- | :---- |
@@ -92,19 +91,9 @@ Describe any new or existing service level objectives that will be affected by t
 | Terraform | N/A |
 | CAPI | N/A |
 
-4. # Considerations
+## Considerations
 
-   1. ## Quality Considerations
-
-| Requirement | Pri |
-| :---- | :---- |
-|  |  |
-|  |  |
-|  |  |
-
-   2. ## Security Considerations
-
-Please reach out the HCM Security team in [\#hcm-team-security](https://redhat.enterprise.slack.com/archives/C0281LN70AC) channel for assistance for requirements review.
+### Quality Considerations
 
 | Requirement | Pri |
 | :---- | :---- |
@@ -112,7 +101,9 @@ Please reach out the HCM Security team in [\#hcm-team-security](https://redhat.e
 |  |  |
 |  |  |
 
-3. ## Dependencies Considerations
+### Security Considerations
+
+Please reach out the HCM Security team in [#hcm-team-security](https://redhat.enterprise.slack.com/archives/C0281LN70AC) channel for assistance for requirements review.
 
 | Requirement | Pri |
 | :---- | :---- |
@@ -120,29 +111,36 @@ Please reach out the HCM Security team in [\#hcm-team-security](https://redhat.e
 |  |  |
 |  |  |
 
-5. # Reviews
+### Dependencies Considerations
 
-Anybody may review the document and provide feedback.  
+| Requirement | Pri |
+| :---- | :---- |
+|  |  |
+|  |  |
+|  |  |
+
+## Reviews
+
+Anybody may review the document and provide feedback.
 
 | Reviewed By | Date | Notes |
 | :---- | :---- | :---- |
-|  | Jan 1, 2024 |  |
+|  | YYYY-MM-DD |  |
 |  |  |  |
 
-6. # Approval
+## Approval
 
-To approve, carefully review the content for clarity, completeness, and alignment with project objectives; if it meets the criteria, provide formal approval, otherwise, highlight the concerns or gaps that need to be addressed before considering approval.   
-An approval  is required from each lead that represents teams  involved in the feature. Typically this involves leads from OCM, OSDFM, SRE, QE, and Security.  
+To approve, carefully review the content for clarity, completeness, and alignment with project objectives; if it meets the criteria, provide formal approval, otherwise, highlight the concerns or gaps that need to be addressed before considering approval.
+An approval is required from each lead that represents teams involved in the feature. Typically this involves leads from OCM, OSDFM, SRE, QE, and Security.
 Please refer to the Stakeholders listed here for team information: [SD-ADR-0000: Template](https://docs.google.com/document/d/1oOEf5VdB8DiLfKc4JjG76CNgdpEF-PKVmcIesmaK1qc/edit#heading=h.gjkcfxvgtp0w)
 
 | Name | Role | Date | Status | Notes |
 | :---- | :---- | :---- | :---- | :---- |
-|  | None | Jan 1, 2024 | Not started |  |
+|  | None | YYYY-MM-DD | Not started |  |
 |  |  |  |  |  |
 |  |  |  |  |  |
 |  |  |  |  |  |
 
-7. # Compete (optional)
+## Compete (optional)
 
 Describe if ARO Classic or ARO HCP has a similar capability (or limitation).
-
