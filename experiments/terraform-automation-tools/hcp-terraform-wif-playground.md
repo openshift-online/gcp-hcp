@@ -1,196 +1,40 @@
-# HCP Terraform + WIF Playground: Provisioning GCP Resources via Dynamic Provider Credentials
+# HCP Terraform + WIF Playground: Dynamic Provider Credentials Validation
 
-**Status:** Validated
+**Status:** Validated (Phase 1 and Phase 2)
 **Date:** July 2026
 
-## Objective
+> **Note:** For the prior implementation of this document (Phase 1 step-by-step + Phase 2 direct WIF proposal), see commit `cd414e2`.
+
+## Phase 1: SA Impersonation via Commons Pool
+
+**Status:** Validated (2026-07-15)
+
+### Objective
 
 Validate that HCP Terraform can authenticate to GCP via Workload Identity Federation (WIF) using Dynamic Provider Credentials and provision real GCP resources in a developer project (`rflores-dev`), using the WIF pool and service account already established in the commons project (`gcp-hcp-commons`).
 
-## Prerequisites
+### What We Proved
 
-- An HCP Terraform organization (`hp-platform-engineering`) with a workspace (`gcp-hcp-dev-playground`)
-- The commons WIF infrastructure already deployed:
-  - Workload Identity Pool: `tfc-pool` in `gcp-hcp-commons`
-  - OIDC Provider: `tfc-oidc` with `issuer_uri = "https://app.terraform.io"` and `allowed_audiences = ["https://app.terraform.io"]`
-  - Service Account: `tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com`
-- A target GCP project (`rflores-dev`) where resources will be created
-- `gcloud` CLI authenticated with sufficient permissions on the target project
+* Dynamic Provider Credentials with OIDC -> GCP WIF works end-to-end
+* Cross-project operations: a service account in `gcp-hcp-commons` can manage resources in `rflores-dev` after granting the necessary IAM roles
+* Project-level variable sets deliver WIF credentials automatically to new workspaces (verified with a second playground workspace with `variables = []`)
 
-## Setup Steps
+### Key Finding: Audience Mismatch
 
-### 1. Grant the TFC service account IAM roles on the target project
+HCP Terraform Dynamic Provider Credentials use `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` — **not** `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` (legacy env var flow). Using the wrong variable causes the token to be sent with the WIF provider resource name as the audience, which does not match `allowed_audiences` on the GCP side.
 
-The `tfc-automation` service account lives in `gcp-hcp-commons` but needs permissions on the target project where resources will be created. These must be granted manually:
-
-```bash
-# Grant Storage Admin (for GCS buckets)
-gcloud projects add-iam-policy-binding rflores-dev \
-  --member="serviceAccount:tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com" \
-  --role="roles/storage.admin"
-
-# Grant Project IAM Admin (for managing project IAM bindings)
-gcloud projects add-iam-policy-binding rflores-dev \
-  --member="serviceAccount:tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com" \
-  --role="roles/resourcemanager.projectIamAdmin"
-```
-
-`roles/storage.admin` is needed by the GCS bucket and IAM binding resources. `roles/resourcemanager.projectIamAdmin` is a prerequisite permission that allows the service account to create `google_project_iam_member` bindings; the Terraform config grants `roles/storage.admin`, not `projectIamAdmin`.
-
-### 2. Configure the HCP Terraform workspace
-
-The workspace is defined in code at `gcp-hcp-infra/hcp-terraform/test-gcp-hcp-terraform/main.tf`:
-
-```hcl
-workspaces = {
-  gcp-hcp-dev-playground = {
-    terraform_version = "1.13.4"
-    variables         = []
-    working_directory = "terraform/config/playground"
-    github_repo_org   = "openshift-online"
-    github_repo_name  = "gcp-hcp-infra"
-    branch            = "gcp-hcp-dev-playground"
-  }
-}
-```
-
-The workspace tracks the `gcp-hcp-dev-playground` branch and runs Terraform from `terraform/config/playground/`. WIF variables are not set per-workspace — they are inherited from a project-level variable set (see below).
-
-### 3. Configure Dynamic Provider Credentials
-
-In the HCP Terraform workspace UI, configure a **GCP Dynamic Provider Credential set** ("Default provider instance") with:
-
-| Setting | Value |
-|---------|-------|
-| Project ID | (the GCP project number for `gcp-hcp-commons`: `573522191771`) |
-| Pool ID | `tfc-pool` |
-| Provider ID | `tfc-oidc` |
-| Service Account Email | `tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com` |
-
-The following environment variables are inherited by the workspace from a project-level variable set (`wif-test`), managed in code via `tfe_variable_set` and `tfe_project_variable_set` resources:
-
-| Variable | Value | Purpose |
-|----------|-------|---------|
-| `TFC_GCP_PROVIDER_AUTH` | `true` | Enables WIF authentication |
-| `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` | `tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com` | SA to impersonate |
-| `TFC_GCP_WORKLOAD_PROVIDER_NAME` | `projects/573522191771/locations/global/workloadIdentityPools/tfc-pool/providers/tfc-oidc` | Full WIF provider resource name |
-| `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` | `https://app.terraform.io` | OIDC token audience for Dynamic Provider Credentials |
-
-### 4. Write the Terraform config
-
-The playground config (`terraform/config/playground/main.tf`) on the `gcp-hcp-dev-playground` branch:
-
-```hcl
-terraform {
-  required_version = "1.13.4"
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "6.37.0"
-    }
-  }
-}
-
-provider "google" {
-  project = var.project
-}
-
-resource "google_project_iam_member" "tfc_storage_admin" {
-  project = var.project
-  role    = "roles/storage.admin"
-  member  = "serviceAccount:${var.service_account_email}"
-}
-
-module "gcs_bucket" {
-  source = "../../modules/gcs-bucket"
-
-  project       = var.project
-  name          = var.bucket_name
-  location      = var.location
-  force_destroy = true
-}
-```
-
-The `cloud` backend block (`terraform/config/playground/cloud.tf`) connects to HCP Terraform:
-
-```hcl
-terraform {
-  cloud {
-    organization = "hp-platform-engineering"
-    workspaces {
-      name = "gcp-hcp-dev-playground"
-    }
-  }
-}
-```
-
-### 5. Trigger a run
-
-Push a commit to the `gcp-hcp-dev-playground` branch. HCP Terraform automatically triggers a plan. After review, apply to create the resources.
-
-## Findings
-
-### Audience mismatch is the primary pitfall
-
-The most significant issue encountered was an OIDC token audience mismatch. HCP Terraform's Dynamic Provider Credentials use `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` to set the OIDC token audience — **not** `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` (which is the legacy env var flow). Using the wrong variable name causes the token to be sent with the WIF provider resource name as the audience, which does not match `allowed_audiences` on the GCP side.
-
-**Error observed:**
-```text
-oauth2/google: status code 400: {"error":"invalid_grant",
-  "error_description":"The audience in ID Token
-  [//iam.googleapis.com/projects/573522191771/locations/global/workloadIdentityPools/tfc-pool/providers/tfc-oidc]
-  does not match the expected audience."}
-```
-
-**Root cause:** `TFC_GCP_WORKLOAD_PROVIDER_AUDIENCE` was set but Dynamic Provider Credentials ignore it. The credential set was sending the default audience (provider resource name) instead of `https://app.terraform.io`.
+**Error:** `invalid_grant: The audience in ID Token [...] does not match the expected audience.`
 
 **Fix:** Add `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE = "https://app.terraform.io"` to the workspace.
 
-### Cross-project IAM is a manual step
+### Other Findings
 
-The WIF service account (`tfc-automation`) lives in `gcp-hcp-commons` but needs IAM roles on whatever target project it manages. These cross-project bindings must be granted manually via `gcloud` before the first Terraform run. Without them, `terraform plan` succeeds (read-only) but `terraform apply` fails with permission denied.
+* **Cross-project IAM is manual**: The WIF SA lives in commons but needs roles on whatever target project it manages. These must be granted before the first apply.
+* **OPA deletion protection**: Blocks `tfe_variable` destruction. Bypass via `_deletion_approvals` in `terraform.auto.tfvars`.
+* **Variable set requires both `organization` and `parent_project_id`**: Omitting either causes different errors.
+* **Terraform version must match**: `required_version` must match the TFC workspace version exactly.
 
-### OPA deletion protection policy blocks variable cleanup
-
-The HCP Terraform organization has a `gcp-hcp-deletion-protection` OPA policy that blocks any run containing resource destruction. This includes destroying `tfe_variable` resources when migrating from per-workspace variables to a variable set. The policy checks a `_deletion_approvals` variable in `terraform.auto.tfvars` for explicitly approved resource addresses with ISO 8601 expiration timestamps (e.g., `expires_at = "2026-08-14T23:59:59Z"`).
-
-### Project-level variable sets require both `organization` and `parent_project_id`
-
-When creating a `tfe_variable_set` scoped to a TFC project, the resource requires both `organization` (for API auth) and `parent_project_id` (for ownership scoping). Omitting `organization` produces `no organization was specified on the resource or provider`. Omitting `parent_project_id` and using only `organization` produces `resource not found` if the workspace token lacks org-level permissions.
-
-### Variable set inheritance verified
-
-A second test workspace (`gcp-hcp-dev-playground-2`) was created with `variables = []` to confirm that new workspaces automatically inherit WIF credentials from the project-level variable set. The workspace authenticated to GCP successfully without any per-workspace WIF variables, validating the pattern for scaling across environments.
-
-### Terraform version must match
-
-The `required_version` in the Terraform config must exactly match the version configured on the HCP Terraform workspace. A mismatch (e.g., config says `1.15.8` but workspace runs `1.15.7`) causes init failure before any plan runs.
-
-## Authentication Flow
-
-```text
-HCP Terraform Workspace (gcp-hcp-dev-playground)
-    │
-    ├─ 1. Run triggered by push to gcp-hcp-dev-playground branch
-    │
-    ├─ 2. Dynamic Provider Credentials generate OIDC token:
-    │      issuer:   https://app.terraform.io
-    │      audience: https://app.terraform.io  (from TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE)
-    │      subject:  organization:hp-platform-engineering:project:...:workspace:gcp-hcp-dev-playground:...
-    │
-    ├─ 3. Token sent to GCP STS → validated against tfc-oidc provider in gcp-hcp-commons
-    │      ✓ issuer matches
-    │      ✓ audience matches allowed_audiences
-    │      ✓ attribute_condition passes (organization name)
-    │
-    ├─ 4. STS returns federated token → exchanged for tfc-automation SA access token
-    │
-    └─ 5. Terraform uses SA token to manage resources in rflores-dev project
-           ✓ google_storage_bucket (requires roles/storage.admin)
-           ✓ google_project_iam_member (requires roles/resourcemanager.projectIamAdmin to manage IAM)
-```
-
-## Related PRs
+### Related PRs
 
 | PR | Description |
 |----|-------------|
@@ -205,179 +49,168 @@ HCP Terraform Workspace (gcp-hcp-dev-playground)
 
 ---
 
-## Phase 2: Direct Workload Identity (No Service Account)
+## Phase 2: Adopt infra-platform `terraform-tfe-gcp-dynamic-creds` Module
 
-**Status:** Proposed — pending validation
-**Date:** July 2026
+**Status:** Validated (2026-07-21)
 
 ### Background
 
-During architecture review (2026-07-17), Pat proposed eliminating service accounts entirely by using HCP Terraform's `TFC_GCP_PRINCIPAL_TYPE = workload_pool` mode. Instead of authenticating through WIF and then impersonating a service account, TFC authenticates as a federated principal directly and gets IAM permissions via `principal://` or `principalSet://` bindings.
+The app-sre team published a reusable `terraform-tfe-gcp-dynamic-creds` module in [infra-platform#90](https://github.com/openshift-online/infra-platform/pull/90) that automates WIF pool, service account, and variable set lifecycle. After reviewing the module and discussing with Jim, the team decided to adopt it instead of pursuing direct Workload Identity (`principal://` bindings without SAs).
 
-Jim confirmed the approach and agreed it expands the testing scope to validate `principal://` binding support across all GCP resource types we manage.
+The earlier Phase 2 proposal (2026-07-17) to use `TFC_GCP_PRINCIPAL_TYPE = workload_pool` with direct `principal://` bindings was abandoned. See [HCP Terraform WIF design decision](../../design-decisions/automation/hcp-terraform-workload-identity-federation.md) for the full rationale.
 
-See [GCP Dynamic Provider Credentials — GCP Configuration](https://developer.hashicorp.com/terraform/cloud-docs/dynamic-provider-credentials/gcp-configuration) for the HashiCorp documentation.
+### What Changed from Phase 1
 
-### What Changes
+| Aspect | Phase 1 (Playground) | Phase 2 (Module) |
+|---|---|---|
+| WIF pool location | `gcp-hcp-commons` (single pool) | Per-environment global project (one pool per role group) |
+| Service accounts | Single `tfc-automation` SA in commons | Per-role-group plan/apply SAs in target project |
+| Attribute condition | Org-wide (`organization_name == ...`) | Workspace-scoped (`sub.startsWith(...)` per role group) |
+| Variable sets | Hand-managed `tfe_variable_set` | Module-managed, auto-attached via `apply_to_all_workspaces` |
+| Audience | Explicit `allowed_audiences` + `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` | Default audience behavior (neither side sets it) |
+| Variable set contents | `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` (single SA) | `TFC_GCP_PLAN_SERVICE_ACCOUNT_EMAIL` + `TFC_GCP_APPLY_SERVICE_ACCOUNT_EMAIL` (separate plan/apply) |
 
-**Current flow (Phase 1 — SA impersonation):**
-```
-TFC workspace → OIDC token → WIF Pool (org-level check) → impersonate tfc-automation SA → GCP resources
-```
+### Experiment Setup
 
-**Proposed flow (Phase 2 — direct WID):**
-```
-TFC workspace → OIDC token → WIF Pool (project-scoped check) → direct principal access → GCP resources
-```
+Two workspaces in the `test-gcp-hcp-terraform` TFC project ([gcp-hcp-infra#907](https://github.com/openshift-online/gcp-hcp-infra/pull/907)):
 
-#### Attribute Condition
+| Workspace | Config | Purpose |
+|---|---|---|
+| `test-gcp-dynamic-creds` | `terraform/config/tfc-wif-experiment/` | Calls the module against `rflores-dev` — creates WIF pool, SAs, variable sets |
+| `test-gcp-wif-validation` | `terraform/config/tfc-wif-validation/` | Creates a GCS bucket with zero WIF variables — proves `apply_to_all_workspaces` inheritance |
 
-The current attribute condition is org-wide — any workspace in the org can authenticate:
+The experiment workspace authenticated via the existing commons WIF pool (Phase 1 credentials) to bootstrap the new per-project WIF infrastructure. The validation workspace had no explicit WIF variables — it relied entirely on the module-created variable set.
 
-```hcl
-attribute_condition = "assertion.terraform_organization_name == \"hp-platform-engineering\""
-```
+Module was sourced from a temporary copy on `openshift-online/gcp-hcp` branch `tfc-wif-module-copy` because CI couldn't source from `infra-platform` (both SSH and HTTPS failed due to host key verification and DNS resolution issues).
 
-The proposed condition scopes access to a specific TFC project using the `sub` claim:
+### What We Proved
 
-```hcl
-attribute_condition = "assertion.sub.startsWith(\"organization:hp-platform-engineering:project:gcp-hcp-integration:\")"
-```
+1. **Module creates expected resources**: WIF pool (`hcp-tf-default`), OIDC provider, plan/apply SAs (`hcp-tf-default-plan`, `hcp-tf-default-apply`), project IAM bindings, variable set with 4 TFC env vars, project variable set for auto-attachment.
 
-The TFC `sub` claim format is `organization:{org}:project:{project}:workspace:{workspace}:run_phase:{phase}`, so `startsWith` at the project level restricts authentication to only workspaces within that TFC project.
+2. **Default audience works**: The module does not set `allowed_audiences` on the OIDC provider. HCP Terraform sends the provider resource name as the audience by default, and GCP accepts it when `allowed_audiences` is unset. No `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` variable needed. This is safe as long as neither side explicitly sets an audience.
 
-#### Variable Sets
+3. **`apply_to_all_workspaces` works**: The validation workspace received the module-created variable set automatically — zero manual configuration. It authenticated through the module-created WIF pool and SAs, and successfully created a GCS bucket in `rflores-dev`.
 
-Phase 1 variable sets carry SA-specific variables:
+4. **Workspace-scoped attribute conditions work**: The module's OIDC provider uses `assertion.sub.startsWith("organization:hp-platform-engineering:project:test-gcp-hcp-terraform:workspace:")`, restricting authentication to workspaces within the specified TFC project.
 
-| Variable | Phase 1 (SA) | Phase 2 (Direct WID) |
-|----------|-------------|---------------------|
-| `TFC_GCP_PROVIDER_AUTH` | `true` | `true` |
-| `TFC_GCP_PRINCIPAL_TYPE` | (omitted, defaults to `service_account`) | `workload_pool` |
-| `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` | `tfc-automation@...` | (not needed) |
-| `TFC_GCP_WORKLOAD_PROVIDER_NAME` | full provider resource name | full provider resource name |
-| `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` | `https://app.terraform.io` | `https://app.terraform.io` |
+5. **`plan_roles = apply_roles` works**: Setting both to the same role list gives two SAs with identical permissions — functionally a unified identity with two SA objects.
 
-#### IAM Bindings
+### Issues Encountered
 
-Phase 1 grants IAM roles to the service account:
+#### 1. Partial apply poisons the workspace (circular dependency)
 
-```hcl
-member = "serviceAccount:tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com"
-```
+**Severity:** High — blocks further applies until manually resolved.
 
-Phase 2 grants IAM roles directly to the federated principal:
+The module creates both GCP resources (WIF pool, SAs) and TFC resources (variable sets). When GCP resources fail (e.g., missing IAM permissions), the TFC resources still get created. With `apply_to_all_workspaces = true`, the module-created variable set is auto-attached to ALL workspaces in the project — including the experiment workspace that's running the module.
 
-```hcl
-member = "principalSet://iam.googleapis.com/projects/{project_number}/locations/global/workloadIdentityPools/tfc-pool/attribute.terraform_project_name/gcp-hcp-integration"
-```
+The variable set contains `TFC_GCP_PLAN_SERVICE_ACCOUNT_EMAIL` and `TFC_GCP_APPLY_SERVICE_ACCOUNT_EMAIL` pointing at SAs that don't exist yet. On the next run, TFC tries to impersonate those non-existent SAs instead of the commons SA, causing `iam.serviceAccounts.getAccessToken` denied.
 
-Or scoped to a specific workspace:
+**Fix:** Manually detach the variable set from the experiment workspace in the TFC UI, then re-run.
 
-```hcl
-member = "principal://iam.googleapis.com/projects/{project_number}/locations/global/workloadIdentityPools/tfc-pool/subject/organization:hp-platform-engineering:project:gcp-hcp-integration:workspace:gcp-hcp-region-integration-us-central1:run_phase:apply"
-```
+**Production implication:** The module call must NOT live in the same TFC project as the workspaces it configures. For production, the module call lives in a separate workspace — either in the infra-platform tenant config or in a dedicated bootstrap workspace in `gcp-hcp-infra`. This eliminates the circular dependency.
 
-#### Resources Eliminated
+#### 2. CI cannot source modules from infra-platform
 
-The following resources in `terraform/modules/commons/tfc.tf` would be removed:
+**Severity:** Medium — workaround available.
 
-- `google_service_account.tfc` — the `tfc-automation` SA
-- `google_service_account_iam_member.tfc_wif_impersonation` — the WIF→SA impersonation binding
+Both HTTPS (`github.com/openshift-online/infra-platform//...`) and SSH (`git@github.com:openshift-online/infra-platform.git//...`) module sources failed in CI. HTTPS failed with DNS resolution errors; SSH failed with host key verification. 
 
-### Proposed Authentication Flow
+**Workaround:** Copied the module to `openshift-online/gcp-hcp` branch `tfc-wif-module-copy` and sourced from there.
+
+**Production resolution:** Use the TFC private registry (`app.terraform.io/hp-platform-engineering/gcp-dynamic-creds/tfe`) once the module is published via the infra-platform bootstrap workspace. The module is already registered in `registry_modules` in the bootstrap config.
+
+#### 3. IAM permissions not pre-granted on rflores-dev
+
+**Severity:** Low — one-time setup per project.
+
+The commons SA had `roles/storage.admin` and `roles/resourcemanager.projectIamAdmin` from Phase 1, but the module also needs:
+- `roles/iam.workloadIdentityPoolAdmin` — to create WIF pools
+- `roles/iam.serviceAccountAdmin` — to create SAs
+- `roles/serviceusage.serviceUsageAdmin` — to enable APIs
+
+**Production implication:** When deploying per-environment, the SA (or whatever identity runs the module) needs these roles on the target project. For production, this is handled by the Atlantis/TFC bootstrap IAM flow.
+
+#### 4. IAM propagation delay
+
+**Severity:** Low — transient.
+
+The validation workspace failed with `iam.serviceAccounts.getAccessToken` immediately after the experiment workspace applied. The `workloadIdentityUser` bindings on the newly created SAs hadn't propagated yet. Re-running after ~60 seconds succeeded.
+
+**Production implication:** When deploying the module and immediately triggering dependent workspaces, expect a brief propagation delay. Not a blocking issue.
+
+#### 5. Terraform version drift
+
+**Severity:** Low — operational discipline.
+
+`required_version` in configs must match `terraform_version` on the TFC workspace. Mismatches cause init failures. We hit this multiple times during the experiment. Commented out `required_version` as a workaround for the experiment.
+
+**Production implication:** Pin versions consistently. The module supports `>= 1.13.4`, so any recent version works.
+
+#### 6. Branch attribute in workspace definition
+
+**Severity:** Low — sequencing mistake.
+
+Workspace definitions referenced `branch = "test-gcp-dynamic-creds"` which only existed on the fork, not upstream. After merging the PR, the branch was deleted and workspace creation failed with "Branch doesn't exist".
+
+**Fix:** Remove `branch` attribute — workspaces track the default branch (main).
+
+### Module Variable Set Contents
+
+The module creates one variable set per (role group, TFC project) pair. For our `default` role group:
+
+| Variable | Value | Notes |
+|---|---|---|
+| `TFC_GCP_PROVIDER_AUTH` | `true` | Enables Dynamic Provider Credentials |
+| `TFC_GCP_WORKLOAD_PROVIDER_NAME` | `projects/702934521445/locations/global/workloadIdentityPools/hcp-tf-default/providers/oidc` | Points at the module-created pool, not commons |
+| `TFC_GCP_PLAN_SERVICE_ACCOUNT_EMAIL` | `hcp-tf-default-plan@rflores-dev.iam.gserviceaccount.com` | Plan-phase SA |
+| `TFC_GCP_APPLY_SERVICE_ACCOUNT_EMAIL` | `hcp-tf-default-apply@rflores-dev.iam.gserviceaccount.com` | Apply-phase SA |
+
+Notably absent: `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` (Phase 1 used this for a unified SA) and `TFC_GCP_WORKLOAD_IDENTITY_AUDIENCE` (not needed with default audience behavior).
+
+### Authentication Flow (Validated)
 
 ```text
-HCP Terraform Workspace (gcp-hcp-region-integration-us-central1)
-    │
-    ├─ 1. Run triggered by push
-    │
-    ├─ 2. Dynamic Provider Credentials generate OIDC token:
-    │      issuer:   https://app.terraform.io
-    │      audience: https://app.terraform.io
-    │      subject:  organization:hp-platform-engineering:project:gcp-hcp-integration:workspace:...
-    │
-    ├─ 3. Token sent to GCP STS → validated against WIF provider in gcp-hcp-int-global
-    │      ✓ issuer matches
-    │      ✓ audience matches allowed_audiences
-    │      ✓ attribute_condition: sub starts with "...project:gcp-hcp-integration:"
-    │
-    ├─ 4. STS returns federated access token (no SA impersonation)
-    │
-    └─ 5. Terraform uses federated token directly to manage resources
-           ✓ IAM granted via principalSet:// bindings on target project
+HCP Terraform Workspace (test-gcp-wif-validation)
+    |
+    +-- 1. TFC generates OIDC token:
+    |       issuer:   https://app.terraform.io
+    |       audience: projects/702934521445/locations/global/workloadIdentityPools/hcp-tf-default/providers/oidc
+    |                 (auto-matched, no explicit audience variable)
+    |       subject:  organization:hp-platform-engineering:project:test-gcp-hcp-terraform:workspace:test-gcp-wif-validation:run_phase:apply
+    |
+    +-- 2. Token sent to GCP STS -> validated against module-created WIF provider in rflores-dev
+    |       - issuer matches
+    |       - audience matches (default = provider resource name)
+    |       - attribute_condition: sub starts with "...project:test-gcp-hcp-terraform:workspace:"
+    |
+    +-- 3. STS returns federated token -> exchanged for apply SA access token
+    |       SA: hcp-tf-default-apply@rflores-dev.iam.gserviceaccount.com
+    |
+    +-- 4. SA token used for GCP API calls
+            - Created GCS bucket rflores-dev-tfc-wif-validation successfully
 ```
 
-### Revised WIF Pool Topology
+### Cleanup Checklist
 
-Each environment gets its own WIF pool in its global project (not a single pool in commons):
+- [ ] Destroy `test-gcp-dynamic-creds` workspace resources (`terraform destroy`)
+- [ ] Destroy `test-gcp-wif-validation` workspace resources
+- [ ] Remove both workspaces from `hcp-terraform/test-gcp-hcp-terraform/main.tf`
+- [ ] Delete `test-tfe-creds` variable set from `test-gcp-hcp-terraform` TFC project
+- [ ] Delete `terraform/config/tfc-wif-experiment/` directory
+- [ ] Delete `terraform/config/tfc-wif-validation/` directory
+- [ ] Delete `tfc-wif-module-copy` branch from `openshift-online/gcp-hcp`
+- [ ] Remove additional IAM roles granted on `rflores-dev` for the commons SA (`workloadIdentityPoolAdmin`, `serviceAccountAdmin`)
 
-| WIF Pool Location | TFC Project Served | Attribute Condition |
-|---|---|---|
-| `gcp-hcp-int-global` | `gcp-hcp-integration` | `assertion.sub.startsWith("...project:gcp-hcp-integration:")` |
-| `gcp-hcp-stg-global` | `gcp-hcp-stage` | `assertion.sub.startsWith("...project:gcp-hcp-stage:")` |
-| `gcp-hcp-prd-global` | `gcp-hcp-production` | `assertion.sub.startsWith("...project:gcp-hcp-production:")` |
-| CI projects (extend Prow pools) | `gcp-hcp-ci` | Extend existing pools with TFC OIDC provider |
-| `gcp-hcp-commons` | `gcp-hcp-tooling` (agents only) | `assertion.sub.startsWith("...project:gcp-hcp-tooling:")` |
+### Related PRs
 
-PagerDuty workspace does not need GCP IAM — it uses a PagerDuty API key only.
+| PR | Description |
+|----|-------------|
+| [infra-platform#90](https://github.com/openshift-online/infra-platform/pull/90) | Module merged — `terraform-tfe-gcp-dynamic-creds` |
+| [gcp-hcp-infra#907](https://github.com/openshift-online/gcp-hcp-infra/pull/907) | Experiment: two workspaces calling the module |
+| [gcp-hcp-infra#908](https://github.com/openshift-online/gcp-hcp-infra/pull/908) | Fix: pin terraform_version to 1.15.7 |
+| [gcp-hcp-infra#911](https://github.com/openshift-online/gcp-hcp-infra/pull/911) | Fix: remove branch attribute from workspace definitions |
 
-### Additional Decisions
+### Related Decisions
 
-- **Same identity for plan and apply** — no need for separate plan/apply principals.
-- **CI workspaces reuse existing Prow WIF pools** — extend with a TFC OIDC provider instead of two-hop impersonation. CI workspaces may need workspace-specific env vars (not all via variable sets) since each targets a different IAM case.
-
-### Validation Plan
-
-#### 1. Validate `principal://` binding support for all managed resource types
-
-Need to confirm that GCP accepts `principal://` or `principalSet://` members for IAM bindings on all resource types we manage. Some older GCP APIs may only accept `serviceAccount:` or `user:` member types.
-
-**Resource types to test** (from the Atlantis IAM role table):
-
-| Resource Type | Required Role | `principal://` Supported? |
-|---|---|---|
-| `google_project_service` | `roles/serviceusage.serviceUsageAdmin` | ? |
-| `google_container_*` (GKE) | `roles/container.admin` | ? |
-| `google_compute_*` | `roles/compute.networkAdmin`, `roles/compute.instanceAdmin.v1` | ? |
-| `google_service_account` | `roles/iam.serviceAccountAdmin` | ? |
-| `google_project_iam_*` | `roles/resourcemanager.projectIamAdmin` | ? |
-| `google_dns_*` | `roles/dns.admin` | ? |
-| `google_secret_manager_*` | `roles/secretmanager.admin` | ? |
-| `google_workflows_*` | `roles/workflows.admin` | ? |
-| `google_cloud_run_*` | `roles/run.admin` | ? |
-| `google_pubsub_*` | `roles/pubsub.admin` | ? |
-| `google_eventarc_*` | `roles/eventarc.admin` | ? |
-| `google_tags_*` | `roles/resourcemanager.tagAdmin` | ? |
-| PAM entitlements | `roles/privilegedaccessmanager.admin` | ? |
-| `google_monitoring_*` | `roles/monitoring.metricsScopesAdmin` | ? |
-
-**Test approach:** In the playground workspace, switch to `TFC_GCP_PRINCIPAL_TYPE = workload_pool`, grant `principalSet://` IAM bindings on `rflores-dev`, and attempt to provision each resource type.
-
-#### 2. Workspace cleanup
-
-The current playground workspaces (`gcp-hcp-dev-playground`, `gcp-hcp-dev-playground-2`) use SA impersonation. To properly test direct WID:
-
-1. Remove or update the playground variable set to drop `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL`
-2. Add `TFC_GCP_PRINCIPAL_TYPE = workload_pool` to the variable set
-3. Grant `principalSet://` IAM bindings on `rflores-dev` for the pool principal
-4. Trigger a run and verify authentication works without any SA
-
-#### 3. Per-environment pool setup
-
-Once direct WID is validated in the playground, test the per-environment pool pattern:
-
-1. Create a WIF pool + OIDC provider in `rflores-dev` (simulating a per-env global project)
-2. Set the attribute condition to scope by TFC project
-3. Point the playground workspace at the new pool
-4. Verify isolation — a workspace in a different TFC project should fail to authenticate
-
-### Open Questions
-
-- Does GCP enforce any rate limits or quotas on federated principal tokens differently than SA tokens?
-- Are there any GCP Console UX differences when viewing resources created by a federated principal vs a service account (e.g., audit log display, IAM policy readability)?
-- For CI: can we add a TFC OIDC provider to the existing Prow WIF pool, or do pool-level attribute conditions conflict?
-
-## Related Design Decision
-
-See [hcp-terraform-workload-identity-federation.md](../../design-decisions/automation/hcp-terraform-workload-identity-federation.md) for the formal design decision documenting this authentication pattern.
+- [HCP Terraform WIF](../../design-decisions/automation/hcp-terraform-workload-identity-federation.md) — formal design decision
+- [HCP Terraform Workspace Architecture](../../design-decisions/automation/hcp-terraform-workspace-architecture.md) — TFC project hierarchy
