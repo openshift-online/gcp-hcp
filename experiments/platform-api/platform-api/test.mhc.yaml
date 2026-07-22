@@ -1,4 +1,4 @@
-apiVersion: gcp.orlop.thetechnick.ninja/v1alpha1
+apiVersion: hyperkube/v1alpha1
 kind: ManagedHostedCluster
 metadata:
   name: test

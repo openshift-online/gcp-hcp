@@ -262,6 +262,12 @@ func (h *ResourceHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Apply parent filter if the route is nested under a parent resource.
+	if err := applyParentFilter(r.Context(), list); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to filter list: %v", err))
+		return
+	}
+
 	// Set GVK on the list
 	list.GetObjectKind().SetGroupVersionKind(h.gvk.GroupVersion().WithKind(h.gvk.Kind + "List"))
 

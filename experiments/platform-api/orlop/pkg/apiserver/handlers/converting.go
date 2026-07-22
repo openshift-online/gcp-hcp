@@ -116,6 +116,14 @@ func (h *ConvertingResourceHandler) Create(w http.ResponseWriter, r *http.Reques
 	accessor.SetCreationTimestamp(metav1.Time{Time: time.Now()})
 	accessor.SetGeneration(1)
 
+	// Validate parent ID when the route is nested under a parent resource.
+	if f, ok := parentFilterFromContext(r.Context()); ok {
+		if got := fieldValue(publicObj, f.IDField); got != f.ID {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("%s must be %q (got %q)", f.IDField, f.ID, got))
+			return
+		}
+	}
+
 	// Set GVK on public object
 	publicObj.GetObjectKind().SetGroupVersionKind(h.gvk)
 
@@ -256,9 +264,13 @@ func (h *ConvertingResourceHandler) List(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Convert each private object to public
+	// Convert each private object to public, applying parent filter when present.
+	filter, hasFilter := parentFilterFromContext(r.Context())
 	publicObjects := make([]runtime.Object, 0, len(privateItems))
 	for _, privateObj := range privateItems {
+		if hasFilter && fieldValue(privateObj, filter.IDField) != filter.ID {
+			continue
+		}
 		publicObj, err := h.converter.PrivateToPublic(privateObj)
 		if err != nil {
 			continue // Skip objects that fail conversion

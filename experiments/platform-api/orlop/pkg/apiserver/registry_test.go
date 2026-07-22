@@ -66,7 +66,7 @@ func TestNewResourceRegistry_CustomStorage(t *testing.T) {
 		t.Error("Custom factory was not called")
 	}
 
-	store := registry.GetStore("tests")
+	store := registry.GetStore(schema.GroupVersionKind{Group: "test", Version: "v1", Kind: "Test"}.String())
 	if store == nil {
 		t.Error("Expected store to be created")
 	}
@@ -123,7 +123,7 @@ func TestRegister_StoresResource(t *testing.T) {
 	}
 
 	// Verify store is created
-	store := registry.GetStore("tests")
+	store := registry.GetStore(schema.GroupVersionKind{Group: "test", Version: "v1", Kind: "Test"}.String())
 	if store == nil {
 		t.Error("Expected store to be created")
 	}

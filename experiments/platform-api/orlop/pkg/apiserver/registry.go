@@ -84,18 +84,29 @@ func (r *ResourceRegistry) Register(info ResourceInfo) error {
 		return fmt.Errorf("failed to create storage for %s: %w", info.Plural, err)
 	}
 
-	r.stores[info.Plural] = store
+	r.stores[info.GVK.String()] = store
 	return nil
 }
 
-// GetStore returns the store for a given resource plural name.
-func (r *ResourceRegistry) GetStore(plural string) storage.ResourceStore {
-	return r.stores[plural]
+// GetStore returns the store for a given GVK string key.
+func (r *ResourceRegistry) GetStore(gvkKey string) storage.ResourceStore {
+	return r.stores[gvkKey]
 }
 
-// GetStores returns all stores indexed by resource plural name.
+// GetStores returns all stores indexed by GVK string key.
 func (r *ResourceRegistry) GetStores() map[string]storage.ResourceStore {
 	return r.stores
+}
+
+// GetStoreByPlural returns the store for the first registered resource matching the given plural name.
+// Useful when only the plural name is known (e.g. converting handler looking up the private store).
+func (r *ResourceRegistry) GetStoreByPlural(plural string) storage.ResourceStore {
+	for _, res := range r.resources {
+		if res.Plural == plural {
+			return r.stores[res.GVK.String()]
+		}
+	}
+	return nil
 }
 
 // Resources returns all registered resources.
@@ -110,8 +121,8 @@ func (r *ResourceRegistry) GetResources() []ResourceInfo {
 
 // CreateHandler creates a ResourceHandler for the given resource info.
 func (r *ResourceRegistry) CreateHandler(info ResourceInfo) (*handlers.ResourceHandler, error) {
-	// Get store for this resource
-	store := r.GetStore(info.Plural)
+	// Get store for this resource (keyed by GVK to avoid collisions across groups)
+	store := r.GetStore(info.GVK.String())
 	if store == nil {
 		return nil, fmt.Errorf("no store found for resource %s", info.Plural)
 	}
@@ -151,8 +162,8 @@ func (r *ResourceRegistry) CreateHandler(info ResourceInfo) (*handlers.ResourceH
 
 // CreateConvertingHandler creates a ConvertingResourceHandler for the given resource info.
 func (r *ResourceRegistry) CreateConvertingHandler(converter interface{}, privateScheme *runtime.Scheme, info ResourceInfo) (interface{}, error) {
-	// Get store for this resource
-	store := r.GetStore(info.Plural)
+	// Get store for this resource (keyed by GVK to avoid collisions across groups)
+	store := r.GetStore(info.GVK.String())
 	if store == nil {
 		return nil, fmt.Errorf("no store found for resource %s", info.Plural)
 	}

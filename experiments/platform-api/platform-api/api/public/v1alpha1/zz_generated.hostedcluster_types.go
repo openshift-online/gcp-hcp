@@ -21,6 +21,10 @@ type HostedClusterSpec struct {
 	Configuration *ClusterConfiguration `json:"configuration,omitempty" openapi:"hidden"`
 }
 
+// ReleaseSpec defines the target OCP release.
+type ReleaseSpec struct {
+}
+
 // PlatformSpec specifies the underlying infrastructure provider configuration.
 type PlatformSpec struct {
 	// type is the infrastructure provider type (e.g. "None", "GCP", "AWS").

@@ -11,8 +11,8 @@ import (
 // createConvertingHandlerWithSharedStore creates a converting handler that uses the private registry's store
 // but the public registry's schema and types.
 func createConvertingHandlerWithSharedStore(publicRegistry *ResourceRegistry, privateRegistry *ResourceRegistry, converter *conversion.Converter, privateScheme *runtime.Scheme, publicRes ResourceInfo) (interface{}, error) {
-	// Get store from private registry (shared storage)
-	store := privateRegistry.GetStore(publicRes.Plural)
+	// Get store from private registry by plural name (shared storage; plural matches across public/private)
+	store := privateRegistry.GetStoreByPlural(publicRes.Plural)
 	if store == nil {
 		return nil, fmt.Errorf("no store found for resource %s in private registry", publicRes.Plural)
 	}
