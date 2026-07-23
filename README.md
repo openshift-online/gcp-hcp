@@ -50,3 +50,20 @@ claude --plugin-dir <path-to-local-clone>
 ## License
 
 Apache License 2.0 -- see [LICENSE](LICENSE) for details.
+
+## Usage
+
+- Browse `design-decisions/` for Architecture Decision Records
+- Review `implementation-plans/` for step-by-step delivery plans
+- Run experiments from the `experiments/` directory
+
+To use the Claude Code plugin, see the [Installation section](#claude-code-plugin) above.
+
+## Development
+
+Contributions follow the standard GitHub fork-and-PR workflow:
+
+1. Fork this repository
+2. Create a feature branch
+3. Add your design decision, experiment, or documentation
+4. Submit a pull request for review
