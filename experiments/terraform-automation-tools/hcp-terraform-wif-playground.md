@@ -134,6 +134,22 @@ The validation workspace kicked off immediately after the experiment applied. It
 
 Re-ran after ~60 seconds — the validation workspace authenticated through the module-created WIF pool and SAs and successfully created the GCS bucket. Experiment complete.
 
+#### Step 9: CI authentication to TFC private registry
+
+With the module published to the TFC private registry ([gcp-hcp-infra#926](https://github.com/openshift-online/gcp-hcp-infra/pull/926)), switched the experiment workspace's module source from the GitHub URL workaround to `app.terraform.io/hp-platform-engineering/gcp-dynamic-creds/tfe`. CI jobs (`terraform-validate`, `terraform-test`) immediately failed with `401 Unauthorized` on `app.terraform.io` — they had no TFC API token to pull private registry modules.
+
+Created a Vault secret at `selfservice/gcp-hcp-infra-terraform-cloud/tfcloud-token` with secretsync targets `tfcloud-ci-secret` in namespace `ci`. Updated the CI config in openshift/release ([release#82376](https://github.com/openshift/release/pull/82376)) to mount the secret and write a `$HOME/.terraformrc` with the TFC credentials block before running `make terraform-validate`/`make terraform-test`. After the Vault secret propagated (~30 minutes), CI authenticated to the registry successfully.
+
+#### Step 10: Variable set precedence conflict on experiment workspace
+
+After CI resolved the module download, TFC triggered a new plan on the experiment workspace. It failed with `iam.serviceAccounts.getAccessToken` denied on `hcp-tf-default-apply@rflores-dev.iam.gserviceaccount.com` — the same SA from the project-scoped variable set created in Step 7.
+
+Root cause: TFC variable precedence. The workspace had `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL = tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com` (workspace-level), but the project-scoped variable set also set `TFC_GCP_PLAN_SERVICE_ACCOUNT_EMAIL` and `TFC_GCP_APPLY_SERVICE_ACCOUNT_EMAIL` to the rflores-dev SAs. In TFC, phase-specific SA variables (`PLAN`/`APPLY`) take precedence over `RUN` regardless of source — so the variable set's plan/apply SAs overrode the workspace's run SA. The workspace tried to impersonate rflores-dev SAs through the commons WIF pool, which can only impersonate `tfc-automation@gcp-hcp-commons`.
+
+This was latent since Step 7 but never surfaced because all subsequent runs after the manual variable set detach (Step 7) had failed at module download before reaching GCP auth. The TFC registry source fix in Step 9 was the first time the workspace got past `terraform init`, exposing the credential mismatch.
+
+**Fix:** Added workspace-level `TFC_GCP_PLAN_SERVICE_ACCOUNT_EMAIL` and `TFC_GCP_APPLY_SERVICE_ACCOUNT_EMAIL` overrides pointing to `tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com` ([gcp-hcp-infra#942](https://github.com/openshift-online/gcp-hcp-infra/pull/942)). Workspace-level variables take precedence over variable set values, so the plan/apply SAs now consistently match the commons WIF pool. Apply succeeded.
+
 ### What We Proved
 
 1. **Module creates expected resources**: WIF pool (`hcp-tf-default`), OIDC provider, plan/apply SAs (`hcp-tf-default-plan`, `hcp-tf-default-apply`), project IAM bindings, variable set with 4 TFC env vars, project variable set for auto-attachment.
@@ -205,6 +221,28 @@ Workspace definitions referenced `branch = "test-gcp-dynamic-creds"` which only 
 
 **Fix:** Remove `branch` attribute — workspaces track the default branch (main).
 
+#### 7. Variable set precedence conflict (plan/apply SA override)
+
+**Severity:** High — blocks applies silently with a misleading error.
+
+The experiment workspace had `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` set at the workspace level pointing to `tfc-automation@gcp-hcp-commons.iam.gserviceaccount.com`. The project-scoped variable set (created by the `gcp_dynamic_creds` module) also set `TFC_GCP_PLAN_SERVICE_ACCOUNT_EMAIL` and `TFC_GCP_APPLY_SERVICE_ACCOUNT_EMAIL` to rflores-dev SAs. In TFC, phase-specific variables (`PLAN`/`APPLY`) take precedence over `RUN` regardless of whether they come from a variable set or workspace — so the rflores-dev SAs won. The commons WIF pool cannot impersonate rflores-dev SAs, causing `iam.serviceAccounts.getAccessToken` 403 errors.
+
+This was latent from Step 7 but masked by module download failures — the workspace never got past `terraform init` until the TFC registry source was configured.
+
+**Fix:** Add workspace-level `TFC_GCP_PLAN_SERVICE_ACCOUNT_EMAIL` and `TFC_GCP_APPLY_SERVICE_ACCOUNT_EMAIL` overrides pointing to the commons SA. Workspace variables override variable set variables at the same specificity level.
+
+**Production implication:** When mixing commons WIF credentials (workspace-level) with per-project variable sets from `gcp_dynamic_creds`, all three SA variables (`RUN`, `PLAN`, `APPLY`) must be set at the workspace level to avoid the variable set's plan/apply SAs taking precedence. Alternatively, ensure the module call and the workspaces it configures use the same WIF pool.
+
+#### 8. CI needs TFC API token for private registry modules
+
+**Severity:** Medium — blocks CI validation of any config using TFC registry sources.
+
+After switching the module source from a GitHub URL to the TFC private registry (`app.terraform.io/...`), CI jobs (`terraform-validate`, `terraform-test`) failed with `401 Unauthorized`. The CI environment had no TFC API token.
+
+**Fix:** Created a Vault secret with the TFC API token, synced to the CI namespace via secretsync. Updated the CI config in openshift/release to mount the secret and write a `$HOME/.terraformrc` credentials block before running terraform commands.
+
+**Production implication:** Any CI job that runs `terraform init` on configs using TFC registry module sources needs a `.terraformrc` with a valid TFC API token. This is now configured for `gcp-hcp-infra`'s `terraform-validate` and `terraform-test` steps.
+
 ### Module Variable Set Contents
 
 The module creates one variable set per (role group, TFC project) pair. For our `default` role group:
@@ -260,6 +298,9 @@ HCP Terraform Workspace (test-gcp-wif-validation)
 | [gcp-hcp-infra#907](https://github.com/openshift-online/gcp-hcp-infra/pull/907) | Experiment: two workspaces calling the module |
 | [gcp-hcp-infra#908](https://github.com/openshift-online/gcp-hcp-infra/pull/908) | Fix: pin terraform_version to 1.15.7 |
 | [gcp-hcp-infra#911](https://github.com/openshift-online/gcp-hcp-infra/pull/911) | Fix: remove branch attribute from workspace definitions |
+| [gcp-hcp-infra#926](https://github.com/openshift-online/gcp-hcp-infra/pull/926) | Switch module source from GitHub URL to TFC private registry |
+| [release#82376](https://github.com/openshift/release/pull/82376) | Add TFC API token to CI for private registry authentication |
+| [gcp-hcp-infra#942](https://github.com/openshift-online/gcp-hcp-infra/pull/942) | Fix: workspace-level plan/apply SA overrides to resolve variable set precedence conflict |
 
 ### Related Decisions
 
