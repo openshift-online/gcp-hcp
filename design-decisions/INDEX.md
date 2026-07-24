@@ -56,6 +56,8 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [terraform-infrastructure-as-code](automation/terraform-infrastructure-as-code.md) | Terraform as primary IaC scoped to region bootstrapping and foundational infra |
 | [terraform-code-structure](automation/terraform-code-structure.md) | Hierarchical Terraform directory structure separating global and regional resources |
 | [terraform-automation-tooling](automation/terraform-automation-tooling.md) | Atlantis for PR-based Terraform automation on global GKE clusters per environment |
+| [hcp-terraform-workload-identity-federation](automation/hcp-terraform-workload-identity-federation.md) | HCP Terraform must use WIF with Dynamic Provider Credentials and explicit audience |
+| [hcp-terraform-workspace-architecture](automation/hcp-terraform-workspace-architecture.md) | HCP Terraform workspace hierarchy, variable sets, and state migration strategy |
 | [argocd-sync-wave-standardization](automation/argocd-sync-wave-standardization.md) | Standardized ArgoCD sync wave annotations using minimal 3-wave system |
 | [deployment-tooling-swim-lanes](automation/deployment-tooling-swim-lanes.md) | Configuration management swim lanes defining tool-specific resource lifecycle |
 | [pipeline-automation-tooling](automation/pipeline-automation-tooling.md) | Tekton as general-purpose pipeline automation for scheduled/event-driven workflows |
@@ -66,6 +68,8 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [ai-centric-sdlc](automation/ai-centric-sdlc.md) | AI-centric SDLC with multi-tool support and required human review |
 | [agent-autonomy-levels](automation/agent-autonomy-levels.md) | Three-stage approach for agent-driven remediation with increasing autonomy levels |
 | [go-controllers-runtime](automation/go-controllers-runtime.md) | Go controllers replacing config-based adapters for cluster lifecycle management |
+| [hcp-terraform-workload-identity-federation](automation/hcp-terraform-workload-identity-federation.md) | HCP Terraform authenticates via infra-platform `terraform-tfe-gcp-dynamic-creds` module with per-environment WIF pools |
+| [hcp-terraform-workspace-architecture](automation/hcp-terraform-workspace-architecture.md) | Per-environment TFC projects with module-managed WIF and `apply_to_all_workspaces` |
 
 ## Governance
 
