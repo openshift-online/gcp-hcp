@@ -11,6 +11,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [regional-independence-architecture](infrastructure/regional-independence-architecture.md) | Regions operate independently with minimal cross-region dependencies |
 | [gke-fleet-management](infrastructure/gke-fleet-management.md) | GKE Fleet for cluster bootstrap without external network access |
 | [shared-node-pools](infrastructure/shared-node-pools.md) | Shared node pool architecture for management cluster control plane components |
+| [gecko-backend-datastore](infrastructure/gecko-backend-datastore.md) | PostgreSQL for dev, AlloyDB for persistent environments as Gecko's backend datastore |
 
 ## Networking
 
