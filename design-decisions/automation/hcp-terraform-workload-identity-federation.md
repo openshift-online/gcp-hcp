@@ -70,6 +70,7 @@ HCP Terraform workspaces that manage GCP infrastructure must authenticate via Wo
 * Cross-project IAM grants (the bulk of the implementation) are still managed separately outside the module — the module only handles WIF plumbing within the access project
 * Plan/apply SA split creates two SA objects per environment regardless of whether roles differ
 * IAM propagation delay (~60s) after module apply means dependent workspaces may fail on first run
+* SAs in the access project trigger GCP API activation checks against the access project (quota project), not the target project — every workspace must set `user_project_override = true` and `billing_project` in its provider blocks to redirect these checks ([GCP-990](https://redhat.atlassian.net/browse/GCP-990))
 
 ## Cross-Cutting Concerns
 
@@ -83,9 +84,11 @@ HCP Terraform workspaces that manage GCP infrastructure must authenticate via Wo
 
 ### Operability:
 
-* **Adding a new workspace**: Zero WIF configuration needed — workspace inherits credentials from the project-level variable set via `apply_to_all_workspaces`. Cross-project IAM for the apply SA must already be in place on the target project.
+* **Adding a new workspace**: Zero WIF configuration needed — workspace inherits credentials from the project-level variable set via `apply_to_all_workspaces`. Cross-project IAM for the apply SA must already be in place on the target project. The workspace config must include `user_project_override = true` and `billing_project` in provider blocks (see below).
 * **Adding a new environment**: Create access GCP project, create access workspace with bootstrap credentials, apply module, then create infrastructure workspaces. Grant cross-project IAM on each target project via `tfc.tf` files.
 * **Adding a new region**: `scripts/infra.py` generates config and adds a workspace entry. WIF credentials are inherited — no per-workspace config needed. Cross-project IAM grants for the new region project must be added to `modules/region/tfc.tf`.
+* **Provider configuration (`user_project_override`)**: Because TFC SAs live in a dedicated access project (not the target project), GCP checks API activation against the access project by default. This fails because the access project only has WIF-related APIs enabled. Each workspace's `google` and `google-beta` provider blocks must set `user_project_override = true` and `billing_project = "<target-project-id>"` to redirect API activation checks to the target project. See [GCP Quota project overview](https://cloud.google.com/docs/quotas/quota-project). This is a direct consequence of the dedicated access project architecture. Reference: [GCP-990](https://redhat.atlassian.net/browse/GCP-990).
+* **State seeding for existing workspaces**: TFC remote execution mode ignores `backend "gcs"` blocks. Migrating an existing workspace requires uploading the current GCS state to TFC via the [State Versions API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/state-versions) before the first plan. Without this, TFC sees zero resources and attempts to create everything.
 * **Debugging authentication failures**: Check the WIF provider attribute condition matches the TFC project name. Verify the module-created SAs have the required cross-project IAM bindings on target projects. Check for IAM propagation delay (~60s) on newly created bindings.
 * **Module updates**: Pin to a specific module version in the TFC private registry. Test version upgrades in integration before promoting to stage/production.
 
@@ -225,6 +228,7 @@ The PagerDuty workspace uses a PagerDuty API key — no GCP IAM needed. It does 
 
 ## References
 
+- [Atlantis to HCP Terraform Cutover Implementation Plan](../../implementation-plans/gcp-532-atlantis-to-tfc-cutover.md) — Story-by-story cutover process
 - [HCP Terraform WIF Playground Experiment](../experiments/terraform-automation-tools/hcp-terraform-wif-playground.md) — Phase 1 (SA impersonation) and Phase 2 (module) validation results
 - [GCP-536](https://redhat.atlassian.net/browse/GCP-536) — Spike: Evaluate HCP Terraform for GCP-HCP Infrastructure
 - [gcp-dynamic-creds module](https://app.terraform.io/app/hp-platform-engineering/registry/modules/private/hp-platform-engineering/gcp-dynamic-creds/tfe) — TFC private registry
