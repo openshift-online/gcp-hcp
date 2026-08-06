@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Audit Report - gcp-hcp</title>
+<style>
+  :root {
+    --critical: #dc2626;
+    --critical-bg: #fef2f2;
+    --critical-border: #fca5a5;
+    --high: #ea580c;
+    --high-bg: #fff7ed;
+    --high-border: #fdba74;
+    --medium: #d97706;
+    --medium-bg: #fffbeb;
+    --medium-border: #fcd34d;
+    --low: #2563eb;
+    --low-bg: #eff6ff;
+    --low-border: #93c5fd;
+    --positive: #16a34a;
+    --positive-bg: #f0fdf4;
+    --positive-border: #86efac;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-500: #6b7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid var(--gray-200);
+  }
+
+  header h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem; }
+  header .subtitle { color: var(--gray-500); font-size: 0.95rem; }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .meta-item {
+    background: white;
+    padding: 0.6rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--gray-200);
+    font-size: 0.85rem;
+  }
+
+  .meta-item strong { display: block; color: var(--gray-500); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .dashboard {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid var(--gray-200);
+    border-top: 3px solid var(--gray-300);
+  }
+
+  .stat-card.critical { border-top-color: var(--critical); }
+  .stat-card.high { border-top-color: var(--high); }
+  .stat-card.medium { border-top-color: var(--medium); }
+  .stat-card.low { border-top-color: var(--low); }
+  .stat-card.total { border-top-color: var(--gray-700); }
+
+  .stat-card .count { font-size: 2rem; font-weight: 700; line-height: 1.2; }
+  .stat-card.critical .count { color: var(--critical); }
+  .stat-card.high .count { color: var(--high); }
+  .stat-card.medium .count { color: var(--medium); }
+  .stat-card.low .count { color: var(--low); }
+  .stat-card.total .count { color: var(--gray-700); }
+  .stat-card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); font-weight: 600; }
+
+  .severity-bar {
+    display: flex;
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 0.5rem 0 2rem;
+  }
+
+  .severity-bar .seg-critical { background: var(--critical); }
+  .severity-bar .seg-high { background: var(--high); }
+  .severity-bar .seg-medium { background: var(--medium); }
+  .severity-bar .seg-low { background: var(--low); }
+
+  .risk-banner {
+    background: white;
+    border: 1px solid var(--medium-border);
+    border-left: 4px solid var(--medium);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .risk-banner h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  .risk-banner p { font-size: 0.88rem; color: var(--gray-700); margin-bottom: 0.35rem; }
+
+  .priorities {
+    background: var(--critical-bg);
+    border: 1px solid var(--critical-border);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .priorities h3 { font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--critical); }
+  .priorities ol { padding-left: 1.25rem; font-size: 0.88rem; }
+  .priorities li { margin-bottom: 0.3rem; }
+  .priorities code { background: white; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.82rem; }
+
+  section { margin-bottom: 2rem; }
+
+  section > h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--gray-200);
+    margin-bottom: 1rem;
+  }
+
+  .finding {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+  }
+
+  .finding-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .finding-header:hover { background: var(--gray-50); }
+
+  .finding-header .chevron {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .finding.open .chevron { transform: rotate(90deg); }
+
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  .badge-critical { background: var(--critical); color: white; }
+  .badge-high { background: var(--high); color: white; }
+  .badge-medium { background: var(--medium); color: white; }
+  .badge-low { background: var(--low); color: white; }
+
+  .finding-id {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+    color: var(--gray-500);
+    flex-shrink: 0;
+    min-width: 3rem;
+  }
+
+  .finding-title { font-weight: 600; font-size: 0.9rem; flex: 1; }
+
+  .finding-body {
+    display: none;
+    padding: 0 1rem 1rem 1rem;
+    border-top: 1px solid var(--gray-100);
+    font-size: 0.88rem;
+  }
+
+  .finding.open .finding-body { display: block; }
+
+  .finding-body .field { margin-bottom: 0.6rem; }
+  .finding-body .field-label { font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-500); margin-bottom: 0.15rem; }
+
+  .file-ref {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.82rem;
+    background: var(--gray-100);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    word-break: break-all;
+  }
+
+  .remediation-box {
+    background: var(--positive-bg);
+    border: 1px solid var(--positive-border);
+    border-radius: 4px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .positive-section {
+    background: var(--positive-bg);
+    border: 1px solid var(--positive-border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+  }
+
+  .positive-section h3 { color: var(--positive); margin-bottom: 0.5rem; font-size: 0.95rem; }
+  .positive-section ul { padding-left: 1.25rem; font-size: 0.88rem; }
+  .positive-section li { margin-bottom: 0.25rem; }
+
+  .quick-wins {
+    background: var(--low-bg);
+    border: 1px solid var(--low-border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-top: 1rem;
+  }
+
+  .quick-wins h3 { color: var(--low); margin-bottom: 0.5rem; font-size: 0.95rem; }
+  .quick-wins ul { padding-left: 1.25rem; font-size: 0.88rem; }
+  .quick-wins li { margin-bottom: 0.25rem; }
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--gray-200);
+    font-size: 0.8rem;
+    color: var(--gray-500);
+  }
+
+  .expand-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .expand-btn {
+    background: white;
+    border: 1px solid var(--gray-300);
+    border-radius: 4px;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--gray-700);
+  }
+
+  .expand-btn:hover { background: var(--gray-100); }
+
+  @media (max-width: 640px) {
+    .dashboard { grid-template-columns: repeat(3, 1fr); }
+    .meta-grid { grid-template-columns: 1fr 1fr; }
+    body { padding: 1rem; }
+  }
+
+  @media print {
+    .finding-body { display: block !important; }
+    .expand-controls { display: none; }
+    .finding-header { cursor: default; }
+    body { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Security Audit Report</h1>
+  <div class="subtitle">Full-Spectrum Static Security Analysis</div>
+  <div class="meta-grid">
+    <div class="meta-item"><strong>Repository</strong>gcp-hcp</div>
+    <div class="meta-item"><strong>Date</strong>2026-06-25</div>
+    <div class="meta-item"><strong>Scan Mode</strong>Full Project Audit</div>
+    <div class="meta-item"><strong>Files Reviewed</strong>187</div>
+    <div class="meta-item"><strong>Tech Stack</strong>Go, Python, Shell, K8s, ArgoCD, Tekton, Konflux, Docker, GCP</div>
+    <div class="meta-item"><strong>Domains</strong>SAST, Containers, K8s, CI/CD, Secrets, Supply Chain, Cloud, Auth, Infra, Git</div>
+  </div>
+</header>
+
+<div class="dashboard">
+  <div class="stat-card critical"><div class="count">8</div><div class="label">Critical</div></div>
+  <div class="stat-card high"><div class="count">20</div><div class="label">High</div></div>
+  <div class="stat-card medium"><div class="count">25</div><div class="label">Medium</div></div>
+  <div class="stat-card low"><div class="count">19</div><div class="label">Low</div></div>
+  <div class="stat-card total"><div class="count">72</div><div class="label">Total</div></div>
+</div>
+
+<div class="severity-bar">
+  <div class="seg-critical" style="width:11.1%"></div>
+  <div class="seg-high" style="width:27.8%"></div>
+  <div class="seg-medium" style="width:34.7%"></div>
+  <div class="seg-low" style="width:26.4%"></div>
+</div>
+
+<div class="risk-banner">
+  <h3>Overall Risk: MODERATE</h3>
+  <p>Production infrastructure (bootstrap/ArgoCD/ExternalSecrets) follows strong security patterns with Workload Identity Federation and Secret Manager. Risk is concentrated in <code>experiments/</code> -- prototype code and pipeline automation with security gaps typical of rapidly iterated experimental work. Two Konflux release pipeline issues (C-07, C-08) and wildcard RBAC (C-05) pose real risk if patterns propagate to production.</p>
+</div>
+
+<div class="priorities">
+  <h3>Top Priority Fixes</h3>
+  <ol>
+    <li>Pin Konflux release pipeline image and task revision (<code>C-07</code>, <code>C-08</code>) -- active supply chain risk</li>
+    <li>Scope kube-applier RBAC to specific resources (<code>C-05</code>) -- cluster-admin equivalent</li>
+    <li>Add credential file patterns to root <code>.gitignore</code> (<code>M-25</code>) -- prevents accidental secret commits</li>
+    <li>Add <code>CODEOWNERS</code> file (<code>H-14</code>) -- enforced review for critical paths</li>
+  </ol>
+</div>
+
+<!-- CRITICAL FINDINGS -->
+<section>
+  <h2>Critical Findings (8)</h2>
+  <div class="expand-controls">
+    <button class="expand-btn" onclick="toggleAll(this.parentElement.parentElement, true)">Expand All</button>
+    <button class="expand-btn" onclick="toggleAll(this.parentElement.parentElement, false)">Collapse All</button>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="chevron">&#9654;</span>
+      <span class="badge badge-critical">Critical</span>
+      <span class="finding-id">C-01</span>
+      <span class="finding-title">Pervasive subprocess shell=True with Unsanitized Config Values</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/common.py:174</span></div>
+      <div class="field"><div class="field-label">Category</div>Application &mdash; Command Injection</div>
+      <div class="field"><div class="field-label">Issue</div><code>CommandRunner.run()</code> uses <code>shell=True</code> for all commands. Every installer step passes environment-sourced config values (PROJECT_ID, ZONE, WORKER_NODE_NAME, etc.) via f-strings into shell command strings without escaping or sanitization.</div>
+      <div class="field"><div class="field-label">Impact</div>If any config value contains shell metacharacters, arbitrary commands execute as the running user. All 20+ installer step files are affected.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use <code>subprocess.run()</code> with list arguments instead of <code>shell=True</code>. Validate inputs with <code>shlex.quote()</code>. Add character-set validation in <code>InstallConfig.__post_init__()</code>.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="chevron">&#9654;</span>
+      <span class="badge badge-critical">Critical</span>
+      <span class="finding-id">C-02</span>
+      <span class="finding-title">JWT Decoded Without Signature Verification</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/auth/phase2-poc/cloud-function/main.py:172-180</span></div>
+      <div class="field"><div class="field-label">Category</div>Auth &mdash; Broken Authentication</div>
+      <div class="field"><div class="field-label">Issue</div><code>decode_jwt_claims()</code> splits the JWT on "." and base64-decodes the payload without cryptographic verification. The extracted <code>email</code> claim (line 238) is used for IAM role lookups and Kubernetes group membership decisions.</div>
+      <div class="field"><div class="field-label">Impact</div>An attacker could craft a JWT with arbitrary claims to impersonate any user and gain elevated Kubernetes access (e.g., cluster-admin).</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use <code>google.oauth2.id_token.verify_oauth2_token()</code> to cryptographically verify JWT signatures before trusting claims.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="chevron">&#9654;</span>
+      <span class="badge badge-critical">Critical</span>
+      <span class="finding-id">C-03</span>
+      <span class="finding-title">eval with User-Influenced Variables</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/auth/phase2-poc/cloud-function/deploy.sh:115</span></div>
+      <div class="field"><div class="field-label">Category</div>Application &mdash; Command Injection</div>
+      <div class="field"><div class="field-label">Issue</div>A gcloud command string is built via variable interpolation (including interactively-entered <code>IDP_API_KEY</code> from <code>read</code> at line 90), then executed via <code>eval "$DEPLOY_CMD"</code>.</div>
+      <div class="field"><div class="field-label">Impact</div>Shell metacharacters in the API key input could execute arbitrary commands as the running user.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Build arguments in a Bash array and expand with <code>"${args[@]}"</code> instead of using <code>eval</code>.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="chevron">&#9654;</span>
+      <span class="badge badge-critical">Critical</span>
+      <span class="finding-id">C-04</span>
+      <span class="finding-title">--insecure-skip-tls-verify with Bearer Token Authentication</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/auth/phase2-poc/demo-oidc-flow.sh:59,69</span></div>
+      <div class="field"><div class="field-label">Category</div>Auth &mdash; Insecure Transport</div>
+      <div class="field"><div class="field-label">Issue</div>kubectl commands disable TLS verification (<code>--insecure-skip-tls-verify</code>) while simultaneously sending bearer tokens (<code>--token=$IDP_TOKEN</code>). Line 73 confirms this grants cluster-admin access.</div>
+      <div class="field"><div class="field-label">Impact</div>A man-in-the-middle attacker can intercept the bearer token and gain cluster-admin access to the hosted cluster.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use <code>--certificate-authority</code> with the cluster CA certificate instead of skipping verification.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="chevron">&#9654;</span>
+      <span class="badge badge-critical">Critical</span>
+      <span class="finding-id">C-05</span>
+      <span class="finding-title">Wildcard RBAC ClusterRole for kube-applier</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/kube-applier-gcp/hack/manifests/rbac.yaml:6-8</span></div>
+      <div class="field"><div class="field-label">Category</div>Kubernetes &mdash; Excessive Privileges</div>
+      <div class="field"><div class="field-label">Issue</div>ClusterRole grants <code>get, list, watch, create, update, patch, delete</code> on <code>apiGroups: ["*"]</code> and <code>resources: ["*"]</code> &mdash; functionally equivalent to cluster-admin.</div>
+      <div class="field"><div class="field-label">Impact</div>Any compromise of the kube-applier service account gives complete cluster control, including reading all secrets and modifying RBAC.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Enumerate the specific resource types kube-applier manages. Remove wildcard apiGroups, resources, and verbs.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="chevron">&#9654;</span>
+      <span class="badge badge-critical">Critical</span>
+      <span class="finding-id">C-06</span>
+      <span class="finding-title">Cluster-wide Secret Read Access for Prometheus/GMP</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">Files</div><span class="file-ref">experiments/google-managed-prometheus/prometheus-cluster-wide.yaml:25-28</span>, <span class="file-ref">gmp-podmonitoring-example.yaml:24-26</span></div>
+      <div class="field"><div class="field-label">Category</div>Kubernetes &mdash; Excessive Privileges</div>
+      <div class="field"><div class="field-label">Issue</div>Two ClusterRoles grant <code>get, list, watch</code> on all secrets in all namespaces for Prometheus/GMP TLS scraping.</div>
+      <div class="field"><div class="field-label">Impact</div>Compromise of Prometheus or GMP collector allows reading every secret cluster-wide: credentials, tokens, TLS keys, pull secrets across all namespaces.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use namespace-scoped Roles where possible. Add <code>resourceNames</code> to restrict which secrets are accessible.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="chevron">&#9654;</span>
+      <span class="badge badge-critical">Critical</span>
+      <span class="finding-id">C-07</span>
+      <span class="finding-title">Unpinned :latest Image in Konflux Release Pipeline</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">konflux/release-pipelines/tasks/push-snapshot-to-gar.yaml:40-41</span></div>
+      <div class="field"><div class="field-label">Category</div>Supply Chain &mdash; Image Integrity</div>
+      <div class="field"><div class="field-label">Issue</div>The production release task uses <code>image: quay.io/jimd_openshift/release-service-utils-gcr:latest</code>. A TODO acknowledges this. This is a <strong>production release pipeline</strong> pushing images to Google Artifact Registry.</div>
+      <div class="field"><div class="field-label">Impact</div>Full supply chain compromise. A poisoned image from this personal Quay account could exfiltrate secrets, tamper with release artifacts, or inject backdoors into pushed images.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Pin to a specific digest from an organizational registry. Complete the TODO to move to a Konflux-built image.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header">
+      <span class="chevron">&#9654;</span>
+      <span class="badge badge-critical">Critical</span>
+      <span class="finding-id">C-08</span>
+      <span class="finding-title">Konflux Pipeline Task Resolution Uses Mutable main Branch</span>
+    </div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">konflux/release-pipelines/push-snapshot-to-gar.yaml:30-31</span></div>
+      <div class="field"><div class="field-label">Category</div>Supply Chain &mdash; Pipeline Integrity</div>
+      <div class="field"><div class="field-label">Issue</div>Pipeline resolves its task definition via git resolver with <code>default: main</code>. Task definitions can change between runs without any pipeline change.</div>
+      <div class="field"><div class="field-label">Impact</div>A commit to <code>main</code> that modifies the task definition is automatically picked up by subsequent release pipeline runs, enabling supply chain attacks.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Pin <code>taskGitRevision</code> to a specific commit SHA or release tag. Never use <code>main</code> as default for production release pipelines.</div>
+    </div>
+  </div>
+</section>
+
+<!-- HIGH FINDINGS -->
+<section>
+  <h2>High Findings (20)</h2>
+  <div class="expand-controls">
+    <button class="expand-btn" onclick="toggleAll(this.parentElement.parentElement, true)">Expand All</button>
+    <button class="expand-btn" onclick="toggleAll(this.parentElement.parentElement, false)">Collapse All</button>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-01</span><span class="finding-title">API Key Exposed in URL Query Parameter</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/auth/phase2-poc/cloud-function/main.py:282,312</span></div>
+      <div class="field"><div class="field-label">Category</div>Secrets &mdash; Credential Exposure</div>
+      <div class="field"><div class="field-label">Issue</div>Identity Platform API key passed as URL query parameter. URLs are logged by proxies, CDNs, and monitoring systems.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Restrict the API key with application restrictions in GCP Console. Ensure logs don't capture full URLs.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-02</span><span class="finding-title">TLS Private Keys Written to /tmp Without Secure Permissions</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">Files</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/deploy_webhook.py:125</span>, <span class="file-ref">build_hypershift.py:88</span>, <span class="file-ref">webhook/deploy-webhook.sh:17</span>, <span class="file-ref">webhook/setup-webhook.sh:17</span></div>
+      <div class="field"><div class="field-label">Issue</div>TLS private keys generated into <code>/tmp/</code> or current directory with default permissions (0644). Cleanup exists but no trap on EXIT &mdash; keys persist on script failure.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use <code>mktemp -d</code> with <code>trap</code> cleanup. Set <code>chmod 600</code> immediately after key generation.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-03</span><span class="finding-title">Kubeconfig Files Written to Predictable /tmp Paths</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">Files</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/common.py:33-34</span>, <span class="file-ref">configure_kubelet.py:244-245</span></div>
+      <div class="field"><div class="field-label">Issue</div>Kubeconfig files with cluster-admin credentials written to <code>/tmp/kubeconfig-gke</code> and <code>/tmp/kubeconfig-hosted</code>.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use <code>~/.kube/</code> with 0600 permissions. Use <code>tempfile.mkstemp()</code> for temporary credential files.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-04</span><span class="finding-title">Firewall Rules Open to 0.0.0.0/0</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">Files</div><span class="file-ref">create_ignition_worker.py:296-298</span>, <span class="file-ref">01-setup-hypershift-redhat-vpc.sh:96-104</span>, <span class="file-ref">02-setup-hypershift-customer-vpc.sh:64-73</span>, <span class="file-ref">vpc.go:216-222</span></div>
+      <div class="field"><div class="field-label">Issue</div>Multiple firewall rules allow SSH and ignition endpoints from all IPs (0.0.0.0/0).</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Restrict to VPC CIDR ranges or use IAP tunneling (<code>35.235.240.0/20</code>).</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-05</span><span class="finding-title">Binary Downloads Without Checksum Verification</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/templates/worker-setup.sh:72,102</span></div>
+      <div class="field"><div class="field-label">Issue</div>kubelet and CNI plugins downloaded without SHA-256 verification. CNI plugins piped directly from <code>curl</code> to <code>tar</code>.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Download checksum files and verify with <code>sha256sum --check</code> before installation.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-06</span><span class="finding-title">Tokens Visible in Process Table</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">Files</div><span class="file-ref">demo-oidc-flow.sh:17,32,35,57,68</span>, <span class="file-ref">setup-identity-platform.sh:77</span></div>
+      <div class="field"><div class="field-label">Issue</div>Bearer tokens and access tokens passed as CLI arguments to <code>curl</code> and <code>kubectl --token=</code>, visible via <code>ps aux</code>.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use <code>--password-stdin</code>, config files, or environment variables instead of CLI arguments.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-07</span><span class="finding-title">GCP Service Account Key File With Default Permissions</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/tekton/gcp-region-provision/setup/setup-local-gcp-auth.sh:160</span></div>
+      <div class="field"><div class="field-label">Issue</div>JSON key created with default umask (0644). The SA has <code>compute.admin</code>, <code>iam.serviceAccountUser</code>, <code>viewer</code>, <code>storage.admin</code>.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Set <code>umask 077</code> before creation or <code>chmod 600</code> immediately after.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-08</span><span class="finding-title">API Key Written to Unprotected Config File</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/auth/phase2-poc/setup-identity-platform.sh:185-194</span></div>
+      <div class="field"><div class="field-label">Issue</div>Identity Platform API key written to <code>idp-config.json</code> in plaintext with default file permissions.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> <code>chmod 600</code> on config file. Use Secret Manager for key storage.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-09</span><span class="finding-title">Overly Broad IAM Roles at Project Level</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">Files</div><span class="file-ref">setup-local-gcp-auth.sh:111-141</span>, <span class="file-ref">setup-workload-identity.sh:141-163</span></div>
+      <div class="field"><div class="field-label">Issue</div><code>roles/compute.admin</code>, <code>roles/iam.serviceAccountUser</code>, <code>roles/viewer</code>, <code>roles/storage.admin</code> granted at project level.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use custom roles or scoped predefined roles with IAM conditions.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-10</span><span class="finding-title">Unpinned :latest Images in Tekton Pipeline Steps</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">Files</div><span class="file-ref">pipeline.yaml:36,98</span>, <span class="file-ref">cronjob.yaml:18</span>, <span class="file-ref">gcp-region-e2e/pipeline.yaml:117</span></div>
+      <div class="field"><div class="field-label">Issue</div>Pipeline steps use <code>alpine:latest</code>, <code>alpine/git:latest</code>, and <code>tkn:latest</code>. The CronJob image runs <code>kubectl apply</code> with cluster access.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Pin all images to specific digests.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-11</span><span class="finding-title">Missing Resource Limits on All Tekton Task Steps</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">Files</div>All pipeline files in <span class="file-ref">experiments/pipeline-automation/tekton/</span> and <span class="file-ref">konflux/release-pipelines/tasks/</span></div>
+      <div class="field"><div class="field-label">Issue</div>No <code>resources.requests</code> or <code>resources.limits</code> defined on any task step.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Add CPU/memory requests and limits to all task steps.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-12</span><span class="finding-title">Command Injection Risk in Terraform Task</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/tekton/gcp-region-provision/k8s/terraform-gcp-task.yaml:74-78</span></div>
+      <div class="field"><div class="field-label">Issue</div><code>$(params.command)</code> and <code>$(params.args)</code> interpolated directly into shell script without validation. Container has GCP credentials.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Allowlist <code>command</code> parameter (init, validate, plan, apply, destroy). Quote arguments.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-13</span><span class="finding-title">Unsanitized Webhook Body Data in Trigger Binding</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/tekton/gcp-region-provision/triggerbinding.yaml:7-15</span></div>
+      <div class="field"><div class="field-label">Issue</div><code>region</code>, <code>environment</code>, <code>sector</code> extracted from HTTP webhook body with insufficient validation. Path traversal possible via crafted values.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Add strict regex validation. Region: <code>^[a-z]+-[a-z]+[0-9]+$</code>.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-14</span><span class="finding-title">No CODEOWNERS File</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div>Repository root</div>
+      <div class="field"><div class="field-label">Issue</div>No <code>CODEOWNERS</code> file exists. Critical infrastructure files (release pipelines, ArgoCD bootstrap, Tekton configs) can be modified without mandatory review.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Create CODEOWNERS requiring review for <code>konflux/</code>, <code>bootstrap/</code>, and <code>experiments/pipeline-automation/</code>.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-15</span><span class="finding-title">ArgoCD Auto-Sync with Prune + Default Project</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">bootstrap/argocd/root-applicationset.yaml:47-53</span></div>
+      <div class="field"><div class="field-label">Issue</div><code>prune: true</code>, <code>selfHeal: true</code>, <code>project: default</code>. Source derived from cluster secret annotations. No guardrails on destinations or resource types.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Create a dedicated AppProject with explicit source/destination restrictions. Consider <code>prune: false</code> or sync windows.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-16</span><span class="finding-title">Dockerfile Running as Root (etcd-benchmark-tool)</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">tools/etcd-benchmark-tool/Dockerfile:8-17</span></div>
+      <div class="field"><div class="field-label">Issue</div>No <code>USER</code> directive in final stage. Container runs as UID 0 with <code>ubi-minimal:latest</code> base.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Add <code>USER 65534</code> after COPY steps, before ENTRYPOINT.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-17</span><span class="finding-title">hostPath Volume in PersistentVolume</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/tekton/gcp-region-provision/pvc.yaml:14-16</span></div>
+      <div class="field"><div class="field-label">Issue</div>PV uses <code>hostPath: /tmp/tekton-workspace</code>. Pods get direct host filesystem access, bypassing container isolation.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use a proper StorageClass with dynamic provisioning.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-18</span><span class="finding-title">WIF Example Deployment Missing securityContext</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/wif-example/app/deployment.yaml:50-169</span></div>
+      <div class="field"><div class="field-label">Issue</div>No securityContext at pod or container level. No <code>runAsNonRoot</code>, <code>readOnlyRootFilesystem</code>, or capabilities drop.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Add full securityContext with <code>runAsNonRoot</code>, <code>readOnlyRootFilesystem</code>, <code>allowPrivilegeEscalation: false</code>, <code>capabilities: {drop: [ALL]}</code>.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-19</span><span class="finding-title">PSC Service Attachment with ACCEPT_AUTOMATIC</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/psc-research/bash/04-setup-private-service-connect.sh:122-128</span></div>
+      <div class="field"><div class="field-label">Issue</div>Private Service Connect allows any GCP project to connect automatically without approval.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Use <code>ACCEPT_MANUAL</code> with <code>--consumer-accept-list</code>.</div>
+    </div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-high">High</span><span class="finding-id">H-20</span><span class="finding-title">SA Signing Key Written to Unprotected YAML File</span></div>
+    <div class="finding-body">
+      <div class="field"><div class="field-label">File</div><span class="file-ref">experiments/wif-example/hosted-cluster-setup/2-create-secret.sh:54-63</span></div>
+      <div class="field"><div class="field-label">Issue</div>SA signing private key base64-encoded into <code>sa-signing-key-secret.yaml</code> with default file permissions. Anyone with read access can forge SA tokens.</div>
+      <div class="remediation-box"><strong>Remediation:</strong> Pipe directly to <code>kubectl apply -f -</code> without writing to disk, or <code>chmod 600</code> immediately.</div>
+    </div>
+  </div>
+</section>
+
+<!-- MEDIUM FINDINGS -->
+<section>
+  <h2>Medium Findings (25)</h2>
+  <div class="expand-controls">
+    <button class="expand-btn" onclick="toggleAll(this.parentElement.parentElement, true)">Expand All</button>
+    <button class="expand-btn" onclick="toggleAll(this.parentElement.parentElement, false)">Collapse All</button>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-01</span><span class="finding-title">Command Injection via gcloud SSH --command</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/psc-research/golang/pkg/testing/testing.go:256-258</span></div><div class="field"><div class="field-label">Issue</div>IP addresses interpolated via <code>fmt.Sprintf</code> into <code>--command</code> arguments for <code>gcloud compute ssh</code>, executed by a remote shell.</div><div class="remediation-box"><strong>Remediation:</strong> Validate IPs against strict IPv4/IPv6 regex before interpolation.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-02</span><span class="finding-title">Unvalidated Input in kubectl Arguments</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/gcpctl/internal/client/kubectl.go:28-35</span></div><div class="field"><div class="field-label">Issue</div><code>namespace</code> and <code>eventID</code> passed to <code>exec.CommandContext</code> with only empty-string check.</div><div class="remediation-box"><strong>Remediation:</strong> Validate against expected patterns (UUID, alphanumeric+dash).</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-03</span><span class="finding-title">Missing TLS MinVersion Configuration</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/webhook/main.go:44-49</span></div><div class="field"><div class="field-label">Issue</div>No explicit <code>MinVersion</code> in TLS config. Could allow TLS 1.0/1.1 on older Go runtimes.</div><div class="remediation-box"><strong>Remediation:</strong> Set <code>MinVersion: tls.VersionTLS12</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-04</span><span class="finding-title">Insecure Temporary File for Ignition Data</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/create_ignition_worker.py:212-214</span></div><div class="field"><div class="field-label">Issue</div>Temp file with bootstrap tokens created via <code>NamedTemporaryFile(delete=False)</code> without restrictive permissions.</div><div class="remediation-box"><strong>Remediation:</strong> Set <code>os.chmod(f.name, 0o600)</code> immediately after creation.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-05</span><span class="finding-title">TLS Verification Bypassed with curl -k</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/create_ignition_worker.py:131</span></div><div class="field"><div class="field-label">Issue</div><code>curl -k</code> skips TLS verification for ignition server health check.</div><div class="remediation-box"><strong>Remediation:</strong> Use the ignition server CA certificate for verification.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-06</span><span class="finding-title">Sensitive Data Logged in Error Responses</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/auth/phase2-poc/cloud-function/main.py:293,106-107</span></div><div class="field"><div class="field-label">Issue</div>Full IDP response bodies (potentially containing tokens) logged at error level.</div><div class="remediation-box"><strong>Remediation:</strong> Sanitize logs. Log only error codes, not response bodies.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-07</span><span class="finding-title">User Email Disclosed in Error Responses</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/auth/phase2-poc/cloud-function/main.py:252,257</span></div><div class="field"><div class="field-label">Issue</div>Error responses confirm whether specific emails have project access, enabling account enumeration.</div><div class="remediation-box"><strong>Remediation:</strong> Return generic "Access denied" messages. Log details server-side only.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-08</span><span class="finding-title">Missing set -o pipefail Across Shell Scripts</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div>15 scripts across <span class="file-ref">experiments/auth/</span>, <span class="file-ref">experiments/psc-research/</span>, <span class="file-ref">experiments/ho-platform-none/webhook/</span></div><div class="field"><div class="field-label">Issue</div>Without <code>pipefail</code>, failed commands in pipelines are masked by the exit code of the last command.</div><div class="remediation-box"><strong>Remediation:</strong> Use <code>set -euo pipefail</code> in all scripts.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-09</span><span class="finding-title">Unquoted Variables in gcloud Commands</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div>20+ locations across PSC research and pipeline setup scripts</div><div class="field"><div class="field-label">Issue</div>Unquoted <code>$PROJECT_ID</code>, <code>$GSA_EMAIL</code>, etc. in gcloud commands. Word splitting and glob expansion possible.</div><div class="remediation-box"><strong>Remediation:</strong> Quote all variable expansions: <code>"$PROJECT_ID"</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-10</span><span class="finding-title">Missing set -u (nounset) Across Shell Scripts</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div>Most scripts outside kube-applier-gcp</div><div class="field"><div class="field-label">Issue</div>Undefined variables silently expand to empty strings, risking injection when combined with unquoted variables.</div><div class="remediation-box"><strong>Remediation:</strong> Add <code>set -euo pipefail</code> to all scripts.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-11</span><span class="finding-title">Unpinned Dockerfile Base Images</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div>All 4 Dockerfiles (<code>golang:1.23</code>, <code>golang:1.26</code>, <code>ubi-minimal:latest</code>, <code>distroless/static:nonroot</code>)</div><div class="field"><div class="field-label">Issue</div>Version tags instead of digests. <code>ubi-minimal:latest</code> is especially risky as it tracks the latest release.</div><div class="remediation-box"><strong>Remediation:</strong> Pin to digests: <code>golang:1.26@sha256:&lt;digest&gt;</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-12</span><span class="finding-title">Loosely Pinned Python Dependencies</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/requirements.txt</span>, <span class="file-ref">experiments/auth/phase2-poc/cloud-function/requirements.txt</span></div><div class="field"><div class="field-label">Issue</div>All Python deps use <code>&gt;=</code> or <code>*</code> version specs with no hash pinning.</div><div class="remediation-box"><strong>Remediation:</strong> Pin exact versions with hashes: <code>flask==3.1.1 --hash=sha256:&lt;hash&gt;</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-13</span><span class="finding-title">ServiceAccount Impersonation Without resourceNames</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/tekton/gcp-region-provision/sa.yaml:25-27</span></div><div class="field"><div class="field-label">Issue</div><code>impersonate</code> verb on <code>serviceaccounts</code> without <code>resourceNames</code> restriction.</div><div class="remediation-box"><strong>Remediation:</strong> Scope to specific SA names.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-14</span><span class="finding-title">Tekton Deployer Can Read All Namespace Secrets</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/tekton/gcp-region-provision/k8s/serviceaccount.yaml:26-28</span></div><div class="field"><div class="field-label">Issue</div><code>get</code> and <code>list</code> on all <code>secrets</code> in namespace, not scoped to specific names.</div><div class="remediation-box"><strong>Remediation:</strong> Add <code>resourceNames: ["gcp-credentials"]</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-15</span><span class="finding-title">ServiceAccount Token Automount Not Disabled</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div>6 ServiceAccount definitions across webhook, wif-example, pipeline, ArgoCD, Prometheus</div><div class="field"><div class="field-label">Issue</div>SA tokens automatically mounted into pods even when not needed for K8s API access.</div><div class="remediation-box"><strong>Remediation:</strong> Set <code>automountServiceAccountToken: false</code> where pod doesn't need K8s API access.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-16</span><span class="finding-title">Webhook readOnlyRootFilesystem Explicitly Disabled</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/webhook/simple-webhook.yaml:67</span></div><div class="field"><div class="field-label">Issue</div><code>readOnlyRootFilesystem: false</code> explicitly set, allowing filesystem modification if compromised.</div><div class="remediation-box"><strong>Remediation:</strong> Use volumes for writable paths and set <code>readOnlyRootFilesystem: true</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-17</span><span class="finding-title">Test Webhook Uses Full SDK Image with Runtime Compilation</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/webhook/test-webhook-deployment.yaml:388</span></div><div class="field"><div class="field-label">Issue</div><code>golang:1.21-alpine</code> with <code>apk add</code> and <code>go run</code> at startup. Massive attack surface from SDK image and network-dependent startup.</div><div class="remediation-box"><strong>Remediation:</strong> Use multi-stage build with minimal final image.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-18</span><span class="finding-title">OAuthServer Bound to 0.0.0.0</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/templates/hosted-cluster.yaml:33-34</span></div><div class="field"><div class="field-label">Issue</div>OAuth server NodePort listens on all network interfaces.</div><div class="remediation-box"><strong>Remediation:</strong> Bind to a specific interface IP address.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-19</span><span class="finding-title">Missing Resource Limits in ArgoCD Deployments</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">bootstrap/argocd/install.yaml</span> (6 Deployment definitions)</div><div class="field"><div class="field-label">Issue</div>No resource limits on ArgoCD containers. Unbounded resource consumption possible.</div><div class="remediation-box"><strong>Remediation:</strong> Add limits via Kustomize patches.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-20</span><span class="finding-title">CronJob Container Missing securityContext</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/tekton/gcp-region-e2e/cronjob.yaml:17-63</span></div><div class="field"><div class="field-label">Issue</div>Container running <code>kubectl apply</code> has no securityContext.</div><div class="remediation-box"><strong>Remediation:</strong> Add <code>runAsNonRoot</code>, <code>readOnlyRootFilesystem</code>, <code>capabilities: {drop: [ALL]}</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-21</span><span class="finding-title">Hardcoded Placeholder Project IDs</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div>7 scripts in <span class="file-ref">experiments/psc-research/bash/</span></div><div class="field"><div class="field-label">Issue</div>Default <code>"your-project-id"</code> values. Scripts proceed with placeholders, causing confusing failures.</div><div class="remediation-box"><strong>Remediation:</strong> Use <code>PROJECT_ID="${PROJECT_ID:?Error: PROJECT_ID must be set}"</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-22</span><span class="finding-title">SSH Key Generated with Empty Passphrase</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/install-ho-platform-none/create_namespace_secrets.py:43</span></div><div class="field"><div class="field-label">Issue</div>SSH key generated without passphrase, directory permissions not explicitly set.</div><div class="remediation-box"><strong>Remediation:</strong> Set restrictive directory permissions (0700) on the SSH key directory.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-23</span><span class="finding-title">Credentials/Config Written with Default Permissions</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div><span class="file-ref">deploy.sh:147-156</span> (deployment-config.json), <span class="file-ref">setup-wif-example-gcp.sh:247-258</span> (credentials.json)</div><div class="field"><div class="field-label">Issue</div>Config files with infrastructure details and WIF configuration written as world-readable.</div><div class="remediation-box"><strong>Remediation:</strong> <code>chmod 600</code> immediately after creation.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-24</span><span class="finding-title">Race Condition in Webhook Certificate Issuance</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div><span class="file-ref">deploy-webhook.sh:69</span>, <span class="file-ref">setup-webhook.sh:68</span></div><div class="field"><div class="field-label">Issue</div>Fixed <code>sleep 5</code> after CSR approval with no retry logic. Certificate may not be ready.</div><div class="remediation-box"><strong>Remediation:</strong> Use a polling loop with timeout.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-medium">Medium</span><span class="finding-id">M-25</span><span class="finding-title">Credential File Patterns Missing from Root .gitignore</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">.gitignore</span></div><div class="field"><div class="field-label">Issue</div>Root <code>.gitignore</code> lacks patterns for <code>gcp-key.json</code>, <code>*-key.json</code>, <code>credentials.json</code>, <code>*.pem</code>, <code>sa-signing-key-secret.yaml</code>, <code>idp-config.json</code>.</div><div class="remediation-box"><strong>Remediation:</strong> Add these patterns to prevent accidental credential commits.</div></div>
+  </div>
+</section>
+
+<!-- LOW FINDINGS -->
+<section>
+  <h2>Low Findings (19)</h2>
+  <div class="expand-controls">
+    <button class="expand-btn" onclick="toggleAll(this.parentElement.parentElement, true)">Expand All</button>
+    <button class="expand-btn" onclick="toggleAll(this.parentElement.parentElement, false)">Collapse All</button>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-01</span><span class="finding-title">Information Disclosure in Webhook Error Responses</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/webhook/main.go:83-84,620-621,640-641</span></div><div class="field"><div class="field-label">Issue</div>Raw <code>err.Error()</code> returned to clients, revealing parsing/marshaling details.</div><div class="remediation-box"><strong>Remediation:</strong> Return generic error messages; log details server-side.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-02</span><span class="finding-title">Missing Request Body Size Limit</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/webhook/main.go:69-71</span></div><div class="field"><div class="field-label">Issue</div><code>io.ReadAll(r.Body)</code> with no size limit enables memory exhaustion DoS.</div><div class="remediation-box"><strong>Remediation:</strong> Use <code>http.MaxBytesReader(w, r.Body, 10&lt;&lt;20)</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-03</span><span class="finding-title">Missing HTTP Server Timeouts</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/webhook/main.go:44-49</span></div><div class="field"><div class="field-label">Issue</div>No <code>ReadTimeout</code>, <code>WriteTimeout</code>, or <code>IdleTimeout</code>. Susceptible to slowloris attacks.</div><div class="remediation-box"><strong>Remediation:</strong> Configure all three timeouts on <code>http.Server</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-04</span><span class="finding-title">Race Condition on Global Config Object</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/pipeline-automation/tekton/gcpctl/internal/config/config.go:19,56-70</span></div><div class="field"><div class="field-label">Issue</div><code>globalConfig</code> read/written without synchronization. Data race in concurrent scenarios.</div><div class="remediation-box"><strong>Remediation:</strong> Protect with <code>sync.RWMutex</code> or <code>sync.Once</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-05</span><span class="finding-title">Token Metadata Logged Including Subject Claim</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/wif-example/app/main.go:164-167</span></div><div class="field"><div class="field-label">Issue</div>JWT <code>sub</code> claim logged, potentially containing service account identity.</div><div class="remediation-box"><strong>Remediation:</strong> Redact or hash the <code>sub</code> claim in logs.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-06</span><span class="finding-title">Unsafe Type Assertion in Cooldown Checker</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/kube-applier-gcp/internal/controllerutils/cooldown.go:58</span></div><div class="field"><div class="field-label">Issue</div>LRU cache value type-asserted to <code>time.Time</code> without checking second return value. Potential panic.</div><div class="remediation-box"><strong>Remediation:</strong> Use checked assertion: <code>if t, ok := nextExecTime.(time.Time); ok</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-07</span><span class="finding-title">Health Endpoint Exposes Project ID</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/auth/phase2-poc/cloud-function/main.py:191</span></div><div class="field"><div class="field-label">Issue</div><code>/health</code> returns <code>{"project": PROJECT_ID}</code> without authentication.</div><div class="remediation-box"><strong>Remediation:</strong> Remove project ID from health response.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-08</span><span class="finding-title">Hardcoded Certificate Metadata</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div><span class="file-ref">fix_ovn_networking.py:99-100</span>, <span class="file-ref">fix_ovn_networking_final.py:146-149</span></div><div class="field"><div class="field-label">Issue</div>Hardcoded certificate issuer IDs and date ranges that will become stale.</div><div class="remediation-box"><strong>Remediation:</strong> Extract values dynamically from the actual certificate.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-09</span><span class="finding-title">Partial Token/Key Display in Output</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div><span class="file-ref">demo-oidc-flow.sh:18</span>, <span class="file-ref">setup-identity-platform.sh:161</span></div><div class="field"><div class="field-label">Issue</div>Truncated display of tokens (60 chars) and API keys (10 chars).</div><div class="remediation-box"><strong>Remediation:</strong> Display only "[set]" or "[redacted]".</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-10</span><span class="finding-title">Using :latest Tag for Built Container Images</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div><span class="file-ref">build-and-push.sh:17</span>, <span class="file-ref">deploy-webhook.sh:164</span></div><div class="field"><div class="field-label">Issue</div>Images tagged as <code>:latest</code> &mdash; mutable and non-reproducible.</div><div class="remediation-box"><strong>Remediation:</strong> Use immutable tags (SHA digests or version tags).</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-11</span><span class="finding-title">Missing Cleanup Traps for Temporary Files</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div><span class="file-ref">03-deploy-vms.sh:32-144</span>, <span class="file-ref">setup-webhook.sh:96</span></div><div class="field"><div class="field-label">Issue</div>Temp files with infrastructure or TLS data persist on early script exit.</div><div class="remediation-box"><strong>Remediation:</strong> Add <code>trap 'rm -f ...' EXIT</code> at script top.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-12</span><span class="finding-title">Demo API Service Runs as Root</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/psc-research/bash/03-deploy-vms.sh:104-105</span></div><div class="field"><div class="field-label">Issue</div>Systemd service for demo Python HTTP server specifies <code>User=root</code>.</div><div class="remediation-box"><strong>Remediation:</strong> Create and use a dedicated non-root user.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-13</span><span class="finding-title">Empty TLS Secret Placeholder in Manifest</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/webhook/webhook-deployment.yaml:128-137</span></div><div class="field"><div class="field-label">Issue</div>Empty TLS secret declared as placeholder. Applied without setup script = broken TLS config.</div><div class="remediation-box"><strong>Remediation:</strong> Remove from manifest; generate via setup script or cert-manager.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-14</span><span class="finding-title">Webhook failurePolicy: Ignore</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/ho-platform-none/webhook/webhook-deployment.yaml:162</span></div><div class="field"><div class="field-label">Issue</div>If webhook is down, admission requests pass without required mutations.</div><div class="remediation-box"><strong>Remediation:</strong> Consider <code>failurePolicy: Fail</code> with high-availability webhook.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-15</span><span class="finding-title">Default Namespace for Tekton Resources</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div>Multiple SA/CronJob definitions in <span class="file-ref">experiments/pipeline-automation/tekton/</span></div><div class="field"><div class="field-label">Issue</div>No namespace isolation. Other workloads share the default namespace.</div><div class="remediation-box"><strong>Remediation:</strong> Deploy to a dedicated namespace with RBAC and NetworkPolicies.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-16</span><span class="finding-title">Missing HEALTHCHECK in All Dockerfiles</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">Files</div>All 4 Dockerfiles</div><div class="field"><div class="field-label">Issue</div>Orchestrators cannot detect unhealthy containers.</div><div class="remediation-box"><strong>Remediation:</strong> Add HEALTHCHECK instructions.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-17</span><span class="finding-title">Password via CLI Argument (podman login)</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/wif-example/app/build-and-push.sh:26</span></div><div class="field"><div class="field-label">Issue</div>Access token passed as <code>-p</code> argument, visible in process table.</div><div class="remediation-box"><strong>Remediation:</strong> Use <code>gcloud auth print-access-token | podman login --password-stdin gcr.io</code>.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-18</span><span class="finding-title">Undefined Variable Reference in Script</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div><span class="file-ref">experiments/psc-research/bash/04-setup-private-service-connect.sh:174</span></div><div class="field"><div class="field-label">Issue</div><code>$PSC_NAT_SUBNET_RANGE</code> never defined in this script. Firewall rule gets empty source-ranges.</div><div class="remediation-box"><strong>Remediation:</strong> Define the variable in this script's variable section.</div></div>
+  </div>
+
+  <div class="finding" onclick="this.classList.toggle('open')">
+    <div class="finding-header"><span class="chevron">&#9654;</span><span class="badge badge-low">Low</span><span class="finding-id">L-19</span><span class="finding-title">Branch Protection Not Codified</span></div>
+    <div class="finding-body"><div class="field"><div class="field-label">File</div>Repository root</div><div class="field"><div class="field-label">Issue</div>No <code>.github/settings.yml</code> or rulesets. Branch protection is not version-controlled.</div><div class="remediation-box"><strong>Remediation:</strong> Codify with required reviews, status checks, and signed commits.</div></div>
+  </div>
+</section>
+
+<!-- POSITIVE OBSERVATIONS -->
+<section>
+  <div class="positive-section">
+    <h3>Positive Observations</h3>
+    <ul>
+      <li><strong>No hardcoded real secrets found</strong> across the entire repository</li>
+      <li><strong>ExternalSecrets properly configured</strong> &mdash; GCP Secret Manager via Workload Identity Federation</li>
+      <li><strong>SecretStore uses WIF</strong>, not JSON keys (bootstrap/argocd/secret-store.yaml)</li>
+      <li><strong>Konflux release task verifies WIF auth</strong> before pushing images</li>
+      <li><strong>kube-applier-gcp sample deployment</strong> follows best practices: automountServiceAccountToken: false, runAsNonRoot, seccomp, readOnlyRootFilesystem, capabilities drop, resource limits</li>
+      <li><strong>Most Dockerfiles use multi-stage builds</strong> with non-root final stages</li>
+      <li><strong>Go modules with verified go.sum</strong> lock files</li>
+      <li><strong>Python YAML loading uses safe_load()</strong> correctly everywhere</li>
+      <li><strong>No eval()/exec()/pickle</strong> on untrusted data in Python</li>
+      <li><strong>No InsecureSkipVerify</strong> in Go TLS configurations</li>
+      <li><strong>Secret volume mounts</strong> in Tekton tasks are readOnly: true</li>
+      <li><strong>ArgoCD NetworkPolicies</strong> included in the install manifest</li>
+      <li><strong>kube-applier-gcp scripts</strong> use <code>set -euo pipefail</code> consistently</li>
+      <li><strong>Tekton provision pipeline</strong> has input validation step with allowlisting</li>
+    </ul>
+  </div>
+
+  <div class="quick-wins">
+    <h3>Quick Wins</h3>
+    <ul>
+      <li>Add <code>set -euo pipefail</code> to all shell scripts (M-08, M-10)</li>
+      <li>Quote all shell variables (M-09)</li>
+      <li>Pin Dockerfile base images to digests (M-11)</li>
+      <li>Pin Python dependencies to exact versions (M-12)</li>
+      <li>Set <code>automountServiceAccountToken: false</code> on unused SAs (M-15)</li>
+      <li>Add resource limits to Tekton task steps (H-11)</li>
+      <li>Add credential file patterns to root .gitignore (M-25)</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  Security Audit Report &bull; gcp-hcp &bull; Generated 2026-06-25 &bull; Full Project Audit
+</footer>
+
+<script>
+function toggleAll(section, open) {
+  section.querySelectorAll('.finding').forEach(f => {
+    if (open) f.classList.add('open');
+    else f.classList.remove('open');
+  });
+}
+</script>
+
+</body>
+</html>
