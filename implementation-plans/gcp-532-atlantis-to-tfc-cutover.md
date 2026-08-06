@@ -257,15 +257,7 @@ Create TFC workspaces mirroring the Atlantis projects in `atlantis-integration.y
 - [ ] Create `hcp-terraform/gcp-hcp-int/cloud.tf` pointing at meta workspace
 - [ ] No `tfe_variable_set` or `tfe_variable` resources needed — module handles variable sets via `apply_to_all_workspaces`
 - [ ] Open PR, merge to main (meta workspace applies)
-- [ ] **State seeding** (per workspace, for workspaces with existing Atlantis-managed infrastructure):
-  1. Lock the TFC workspace via API
-  2. Download the current state from GCS: `gsutil cp gs://{state-bucket}/{workspace}.tfstate .`
-  3. Base64-encode the state JSON and compute its MD5 hash
-  4. Upload to TFC via the [State Versions API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/state-versions): `POST /workspaces/{id}/state-versions`
-  5. Verify in TFC UI that resource count matches the GCS state
-  6. Unlock the workspace
-  7. Run a speculative plan — it should show no changes (or only expected drift)
-- [ ] **Provider configuration** for each migrated workspace config — update `google` and `google-beta` provider blocks:
+- [ ] **Provider configuration** for each migrated workspace config — update `google` and `google-beta` provider blocks **before** state seeding and the first speculative plan:
   ```hcl
   provider "google" {
     billing_project       = "<target-project-id>"
@@ -273,14 +265,24 @@ Create TFC workspaces mirroring the Atlantis projects in `atlantis-integration.y
     default_labels        = local.common_labels
   }
   ```
-  This redirects GCP API activation checks to the target project (see [API Activation](#api-activation-and-the-user_project_override-pattern) below). Same pattern as `terraform/config/org/main.tf`. See [PR #1073](https://github.com/openshift-online/gcp-hcp-infra/pull/1073) for reference.
+  This redirects GCP API activation checks to the target project (see [API Activation](#api-activation-and-the-user_project_override-pattern) below). Same pattern as `terraform/config/org/main.tf`. See [PR #1073](https://github.com/openshift-online/gcp-hcp-infra/pull/1073) for reference. Both `google` and `google-beta` provider blocks must be updated, including any aliased providers.
+- [ ] **State seeding** (per workspace, for workspaces with existing Atlantis-managed infrastructure):
+  1. Freeze Atlantis for the workspace: disable the autoplan entry in `atlantis-{env}.yaml` (or drain/cancel in-flight Atlantis operations) to prevent state changes during the migration window
+  2. Lock the TFC workspace via API
+  3. Download the current state from GCS: `gsutil cp gs://{state-bucket}/{workspace}.tfstate .`
+  4. Base64-encode the state JSON and compute its MD5 hash
+  5. Upload to TFC via the [State Versions API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/state-versions): `POST /workspaces/{id}/state-versions`
+  6. Verify in TFC UI that resource count matches the GCS state
+  7. Unlock the workspace
+  8. Run a speculative plan — it should show no changes (or only expected drift)
+  > **Important**: Atlantis must remain frozen from step 1 through the end of verification (step 8). An Atlantis apply between state download and TFC upload would leave TFC with a stale snapshot.
 
 ### Acceptance Criteria
 
 - [ ] Workspaces appear in `gcp-hcp-integration` TFC project
 - [ ] Each workspace has WIF variables inherited from the project-level variable set
+- [ ] Provider blocks include `user_project_override = true` and `billing_project` (merged before state seeding)
 - [ ] Each workspace with existing infrastructure has state seeded from GCS (resource count matches)
-- [ ] Provider blocks include `user_project_override = true` and `billing_project`
 - [ ] Speculative plans run on PR pushes (from upstream branches — not forks, see [Workflow Fit](#1-workflow-fit))
 
 ---
@@ -422,7 +424,7 @@ Stories 2 and 3 can run in parallel (both depend only on Story 1).
 | Risk | Mitigation |
 |---|---|
 | IAM propagation delay on new SA roles | Split SA creation (Story 1) from workspace creation (Story 4); allow ~60s between apply and first workspace run |
-| State file locking during parallel Atlantis + TFC | Only one system should apply at a time during validation; use TFC speculative plans |
+| State file locking during parallel Atlantis + TFC | Freeze Atlantis for the workspace before downloading GCS state for seeding; keep frozen through upload, verification, and cutover. Only one system should apply at a time |
 | Commons module requires SRE manual apply | Coordinate with SRE; include in phase sequencing |
 | Atlantis and TFC both triggering on same PR | Disable Atlantis autoplan for workspaces that TFC manages before enabling TFC |
 | Module upstream breakage | Pin to specific module version in TFC private registry; test upgrades in integration first |
