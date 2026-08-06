@@ -58,7 +58,7 @@ TFC workspaces that manage infrastructure must track GitOps Promoter environment
 * The upstream `workspaces/tfe` module may need a `vcs_branch` parameter if it does not already support one
 * Speculative plans against `main` code (not yet promoted) may show drift from the environment's actual current state -- this is expected and acceptable since they serve as a "what would happen" preview, not an exact state comparison
 * Adding a new environment branch requires both the promoter config update AND the TFC workspace branch update -- two-place coordination
-* The branch cutover requires a controlled procedure: freeze merges, lock workspaces, cancel/discard queued `main` runs, switch `vcs_branch`, verify no `main`-triggered run can apply, then unlock and re-enable auto-apply (see implementation plan Phase 4 for the detailed procedure)
+* The branch cutover requires a controlled procedure: lock workspaces (gates all new runs), disable auto-apply, wait for any in-flight runs to reach a terminal state, switch `vcs_branch`, verify, then unlock and re-enable auto-apply (see implementation plan Phase 4 for the detailed procedure)
 
 ## Cross-Cutting Concerns
 

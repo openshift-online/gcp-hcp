@@ -265,17 +265,17 @@ This workstream is **blocked until all workspaces are ported to TFC**. It cannot
 
 ### Branch Cutover Procedure
 
-The `vcs_branch` change must be applied atomically to avoid dual-triggering (runs from both `main` and the environment branch targeting the same state). Disabling auto-apply alone does not prevent VCS-triggered runs from queuing.
+The `vcs_branch` change must be applied atomically to avoid dual-triggering (runs from both `main` and the environment branch targeting the same state). Locking a workspace is the hard gate: a locked workspace rejects all new runs (VCS-triggered or otherwise), so locking first eliminates the window where a merge to `main` could queue a run during cutover.
 
-1. **Freeze merges to `main`** for terraform paths (coordinate with team to pause terraform PRs during cutover)
-2. **Disable auto-apply** on all three workspaces via TFC UI or API
-3. **Lock all three workspaces** via TFC UI or API -- this holds any new VCS-triggered runs in `pending` state
-4. **Cancel/discard queued runs**: cancel any in-progress `main`-triggered runs; discard any queued or pending `main`-triggered runs
+1. **Lock all three workspaces** via TFC UI or API -- this rejects any new VCS-triggered runs immediately, no race window
+2. **Disable auto-apply** on all three workspaces -- prevents any existing queued run from auto-applying if it was accepted before the lock
+3. **Wait for in-flight runs to finish**: let any currently `planning` or `applying` runs reach a terminal state naturally rather than cancelling mid-apply
+4. **Discard any remaining queued/pending runs** that were accepted before the lock took effect
 5. **Apply the `vcs_branch` change** via the meta workspace (this switches TFC to track the environment branch)
 6. **Verify**: confirm TFC shows the environment branch as the tracked branch and the expected commit; confirm no `main`-triggered run exists in a runnable state
 7. **Unlock workspaces and re-enable auto-apply** on all three workspaces
 8. **Trigger a test run**: push a trivial change through the promotion pipeline to verify end-to-end flow
-9. **Unfreeze merges to `main`**
+9. **Unfreeze merges to `main`** (if a merge freeze was communicated to the team)
 
 **Acceptance Criteria**:
 - [ ] TFC workspaces show the environment branch as the tracked branch in the TFC UI
