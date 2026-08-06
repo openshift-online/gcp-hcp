@@ -1,15 +1,18 @@
-# GCP-985: TFC + GitOps Promoter Progressive Terraform Delivery
+# TFC Progressive Delivery and Speculative Plans
 
 ## Overview
 
-Wire up TFC workspaces to track GitOps Promoter environment branches for progressive terraform delivery. Add a Prow presubmit for speculative plans on PRs.
+Two independent workstreams under [GCP-532](https://redhat.atlassian.net/browse/GCP-532):
+
+1. **Speculative plans on PRs** ([GCP-1006](https://redhat.atlassian.net/browse/GCP-1006)) -- Prow presubmit that runs `terraform plan -refresh=false` on PRs, restoring the plan visibility Atlantis provided. **Can start immediately** against existing workspaces on `main`.
+2. **Progressive delivery** ([GCP-985](https://redhat.atlassian.net/browse/GCP-985)) -- TFC workspaces track GitOps Promoter environment branches so terraform changes flow through the same promotion pipeline as ArgoCD. **Blocked** until all workspaces are ported to TFC.
 
 | | |
 |---|---|
 | **Epic** | [GCP-532](https://redhat.atlassian.net/browse/GCP-532) -- Terraform Cloud Evaluation & Plan |
-| **Story** | [GCP-985](https://redhat.atlassian.net/browse/GCP-985) -- Wire up GitOps Promoter with TFC |
+| **GCP-1006** | Prow presubmit for speculative Terraform plans on PRs |
+| **GCP-985** | Wire up GitOps Promoter with TFC for progressive delivery |
 | **Design Decision** | [tfc-gitops-promoter-progressive-delivery](../design-decisions/automation/tfc-gitops-promoter-progressive-delivery.md) |
-| **Depends On** | GCP-532 workspace definitions (Phase 4 of the cutover plan) |
 
 ### Current Architecture
 
@@ -66,85 +69,16 @@ Developer -> PR to main -----> Prow: speculative terraform plan (refresh=false)
 
 ---
 
-## Phase 1: Extend Upstream Workspaces Module for Branch Support
+# Workstream A: Speculative Plans on PRs (GCP-1006)
 
-**Summary**: Verify or add `vcs_branch` parameter to the upstream `workspaces/tfe` module.
+This workstream can proceed immediately -- it does not depend on the progressive delivery branch migration.
 
-**Repo**: `infra-platform` (upstream module at `app.terraform.io/hp-platform-engineering/workspaces/tfe`)
-
-**Tasks**:
-- [ ] Check if `workspaces/tfe` module (v0.0.11) already supports a `vcs_branch` parameter in its workspace object type
-- [ ] If not: add `vcs_branch` (optional string, defaults to null) to the workspace object, passing it through to `tfe_workspace.vcs_repo.branch`
-- [ ] Publish new module version
-- [ ] Test: create a workspace with `vcs_branch = "test-branch"` and verify TFC tracks that branch
-
-**Acceptance Criteria**:
-- [ ] Workspace objects accept a `vcs_branch` parameter
-- [ ] When set, TFC workspace is configured to track the specified branch
-- [ ] When unset, TFC defaults to the repository's default branch (backwards compatible)
-
----
-
-## Phase 2: Configure Integration Workspaces for Environment Branches
-
-**Summary**: Update integration workspace definitions to track environment branches instead of `main`.
-
-**Repo**: `gcp-hcp-infra`
-**File**: `hcp-terraform/gcp-hcp-integration/main.tf`
-**Applied by**: TFC meta workspace
-**Depends on**: Phase 1
-
-**Tasks**:
-- [ ] Bump `workspaces/tfe` module version to the version with `vcs_branch` support
-- [ ] Add `vcs_branch` to each workspace definition:
-
-  ```hcl
-  gcp-hcp-global-integration = {
-    auto_apply        = true
-    working_directory = "terraform/config/global/integration/main/us-central1"
-    vcs_branch        = "environment/global-integration"
-    trigger_prefixes  = ["terraform/metadata/", "terraform/dashboards/global/", "terraform/modules/global/"]
-    github_repo_org   = "openshift-online"
-    github_repo_name  = "gcp-hcp-infra"
-    terraform_version = "1.14.9"
-    variables         = []
-  }
-  ```
-
-- [ ] **Retain `trigger_prefixes`** for shared directories outside `working_directory`. Without them, TFC only detects changes within `working_directory` and will miss changes to shared modules, metadata, workflows, or dashboards. The existing `trigger_prefixes` values are correct and should be kept as-is.
-- [ ] Verify `auto_apply = true` so promotion merges automatically apply without manual confirmation
-- [ ] Run `terraform plan` on the meta workspace to preview the changes
-
-### Branch Cutover Procedure
-
-The `vcs_branch` change must be applied safely to avoid dual-triggering (runs from both `main` and the environment branch targeting the same state):
-
-1. **Disable auto-apply** on all three workspaces via TFC UI or API
-2. **Drain queued runs**: wait for any in-progress `main`-triggered runs to complete; cancel any queued `main`-triggered runs that have not started
-3. **Apply the `vcs_branch` change** via the meta workspace (this switches TFC to track the environment branch)
-4. **Verify**: confirm TFC shows the environment branch as the tracked branch; confirm no `main`-triggered run can apply
-5. **Re-enable auto-apply** on all three workspaces
-6. **Trigger a test run**: push a trivial change through the promotion pipeline to verify end-to-end flow
-
-**Acceptance Criteria**:
-- [ ] TFC workspaces show the environment branch as the tracked branch in the TFC UI
-- [ ] A promotion merge to `environment/global-integration` triggers a TFC plan+apply on `gcp-hcp-global-integration`
-- [ ] A promotion merge to `environment/sector-integration-main` triggers TFC plan+apply on both region and MC workspaces
-- [ ] Pushes to `main` no longer trigger TFC runs on these workspaces
-- [ ] No dual-triggered runs occurred during the cutover
-
-**Notes**:
-- Region and MC workspaces both track `environment/sector-integration-main` because sector branches contain content for both cluster types. The `working_directory` filter ensures each workspace only triggers on changes to its own config path.
-- `trigger_prefixes` remain necessary because shared terraform directories (`modules/`, `metadata/`, etc.) are outside each workspace's `working_directory`. Without them, a change to a shared module would not trigger a TFC run.
-
----
-
-## Phase 3: Add Prow Presubmit for Speculative Plans
+## Phase 1: Add Prow Presubmit for Speculative Plans
 
 **Summary**: Create a Prow presubmit job that triggers speculative `terraform plan` runs on PR commits using CLI remote execution against VCS-connected TFC workspaces.
 
 **Repos**: `openshift/release` (ci-operator config), `gcp-hcp-infra` (plan script)
-**Depends on**: Phase 2 (workspaces must be configured with environment branches)
+**Depends on**: None -- works against existing integration workspaces on `main`
 
 ### Execution Mode: CLI Remote Execution
 
@@ -250,14 +184,106 @@ Key characteristics:
 - **Credential helper scoping**: The Git credential helper is scoped to `github.com` only. It rejects credential requests for other hosts to prevent a malicious Terraform module source from exfiltrating the GitHub token.
 - **Why CLI over TFC Runs API**: CLI remote execution is simpler (no tarball upload, no polling for run completion, no plan output parsing). TFC handles configuration version creation and execution automatically. The API approach (`POST /api/v2/runs` with `plan_only: true`, `refresh: false`) is documented as a fallback if CLI limitations are hit.
 
+## Phase 2: Update Branch Protection for Speculative Plans
+
+**Summary**: Add `ci/prow/terraform-plan` to `main` branch status checks.
+
+**Repo**: `openshift/release`
+**File**: `core-services/prow/02_config/openshift-online/gcp-hcp-infra/_prowconfig.yaml`
+**Depends on**: Phase 1
+
+**Tasks**:
+- [ ] Remove remaining Atlantis status checks from `main` branch required status checks (PR #83051 removes `atlantis-int/plan` and `atlantis-int/apply`; stage checks should also be removed when stage moves to TFC)
+- [ ] Optionally add `ci/prow/terraform-plan` to `main` branch required status checks if the speculative plan should be required before merge
+
+**Acceptance Criteria**:
+- [ ] Speculative plan check runs appear on PRs to `main` (when terraform files are changed)
+
 ---
 
-## Phase 4: Wire TFC Apply Status into Promoter Commit Status Gates (Deferred from v1, Required for Stage/Production)
+# Workstream B: Progressive Delivery (GCP-985)
+
+This workstream is **blocked until all workspaces are ported to TFC**. It cannot proceed until the workspace migration from the GCP-532 cutover plan is complete.
+
+## Phase 3: Extend Upstream Workspaces Module for Branch Support
+
+**Summary**: Verify or add `vcs_branch` parameter to the upstream `workspaces/tfe` module.
+
+**Repo**: `infra-platform` (upstream module at `app.terraform.io/hp-platform-engineering/workspaces/tfe`)
+
+**Tasks**:
+- [ ] Check if `workspaces/tfe` module (v0.0.11) already supports a `vcs_branch` parameter in its workspace object type
+- [ ] If not: add `vcs_branch` (optional string, defaults to null) to the workspace object, passing it through to `tfe_workspace.vcs_repo.branch`
+- [ ] Publish new module version
+- [ ] Test: create a workspace with `vcs_branch = "test-branch"` and verify TFC tracks that branch
+
+**Acceptance Criteria**:
+- [ ] Workspace objects accept a `vcs_branch` parameter
+- [ ] When set, TFC workspace is configured to track the specified branch
+- [ ] When unset, TFC defaults to the repository's default branch (backwards compatible)
+
+---
+
+## Phase 4: Configure Integration Workspaces for Environment Branches
+
+**Summary**: Update integration workspace definitions to track environment branches instead of `main`.
+
+**Repo**: `gcp-hcp-infra`
+**File**: `hcp-terraform/gcp-hcp-integration/main.tf`
+**Applied by**: TFC meta workspace
+**Depends on**: Phase 3, all workspaces ported to TFC
+
+**Tasks**:
+- [ ] Bump `workspaces/tfe` module version to the version with `vcs_branch` support
+- [ ] Add `vcs_branch` to each workspace definition:
+
+  ```hcl
+  gcp-hcp-global-integration = {
+    auto_apply        = true
+    working_directory = "terraform/config/global/integration/main/us-central1"
+    vcs_branch        = "environment/global-integration"
+    trigger_prefixes  = ["terraform/metadata/", "terraform/dashboards/global/", "terraform/modules/global/"]
+    github_repo_org   = "openshift-online"
+    github_repo_name  = "gcp-hcp-infra"
+    terraform_version = "1.14.9"
+    variables         = []
+  }
+  ```
+
+- [ ] **Retain `trigger_prefixes`** for shared directories outside `working_directory`. Without them, TFC only detects changes within `working_directory` and will miss changes to shared modules, metadata, workflows, or dashboards. The existing `trigger_prefixes` values are correct and should be kept as-is.
+- [ ] Verify `auto_apply = true` so promotion merges automatically apply without manual confirmation
+- [ ] Run `terraform plan` on the meta workspace to preview the changes
+
+### Branch Cutover Procedure
+
+The `vcs_branch` change must be applied safely to avoid dual-triggering (runs from both `main` and the environment branch targeting the same state):
+
+1. **Disable auto-apply** on all three workspaces via TFC UI or API
+2. **Drain queued runs**: wait for any in-progress `main`-triggered runs to complete; cancel any queued `main`-triggered runs that have not started
+3. **Apply the `vcs_branch` change** via the meta workspace (this switches TFC to track the environment branch)
+4. **Verify**: confirm TFC shows the environment branch as the tracked branch; confirm no `main`-triggered run can apply
+5. **Re-enable auto-apply** on all three workspaces
+6. **Trigger a test run**: push a trivial change through the promotion pipeline to verify end-to-end flow
+
+**Acceptance Criteria**:
+- [ ] TFC workspaces show the environment branch as the tracked branch in the TFC UI
+- [ ] A promotion merge to `environment/global-integration` triggers a TFC plan+apply on `gcp-hcp-global-integration`
+- [ ] A promotion merge to `environment/sector-integration-main` triggers TFC plan+apply on both region and MC workspaces
+- [ ] Pushes to `main` no longer trigger TFC runs on these workspaces
+- [ ] No dual-triggered runs occurred during the cutover
+
+**Notes**:
+- Region and MC workspaces both track `environment/sector-integration-main` because sector branches contain content for both cluster types. The `working_directory` filter ensures each workspace only triggers on changes to its own config path.
+- `trigger_prefixes` remain necessary because shared terraform directories (`modules/`, `metadata/`, etc.) are outside each workspace's `working_directory`. Without them, a change to a shared module would not trigger a TFC run.
+
+---
+
+## Phase 5: Wire TFC Apply Status into Promoter Commit Status Gates (Deferred from v1, Required for Stage/Production)
 
 **Summary**: Configure GitOps Promoter to gate promotion on TFC apply success.
 
 **Repo**: `gcp-hcp-infra`
-**Depends on**: Phase 2
+**Depends on**: Phase 4
 
 **Tasks**:
 - [ ] Determine the exact GitHub check run name that TFC posts on environment branches (e.g., `hashicorp-cloud/plan:gcp-hcp-global-integration` or similar)
@@ -277,26 +303,23 @@ This phase is **deferred from the initial integration rollout** but **required b
 
 ---
 
-## Phase 5: Update Branch Protection in Prow Config
+## Phase 6: Update Branch Protection for Environment Branches
 
-**Summary**: Ensure Prow branch protection allows TFC check runs and add speculative plan status.
+**Summary**: Ensure Prow branch protection allows TFC check runs on environment branches.
 
 **Repo**: `openshift/release`
 **File**: `core-services/prow/02_config/openshift-online/gcp-hcp-infra/_prowconfig.yaml`
-**Depends on**: Phases 2, 3
+**Depends on**: Phase 4
 
 **Tasks**:
 - [ ] Verify TFC GitHub App can post check runs on environment branches without being blocked by branch protection (currently only `gcp-hcp-gitops-promoter` has push access; posting check runs requires the TFC GitHub App to be installed on the repo, not push access)
-- [ ] Remove remaining Atlantis status checks from `main` branch required status checks (PR #83051 removes `atlantis-int/plan` and `atlantis-int/apply`; stage checks should also be removed when stage moves to TFC)
-- [ ] Optionally add `ci/prow/terraform-plan` to `main` branch required status checks if the speculative plan should be required before merge
 
 **Acceptance Criteria**:
 - [ ] TFC check runs appear on promotion PRs to environment branches
-- [ ] Speculative plan check runs appear on PRs to `main` (when terraform files are changed)
 
 ---
 
-## Phase 6: Update Documentation
+## Phase 7: Update Documentation
 
 **Summary**: Update promotions.md and prepare design docs for the gcp-hcp repo.
 
@@ -310,53 +333,63 @@ This phase is **deferred from the initial integration rollout** but **required b
   - Add a "Terraform Cloud Integration" section describing:
     - TFC workspaces track environment branches
     - Promotion merges trigger TFC plan/apply
-    - TFC apply status gates promotion to next environment (when Phase 4 is implemented)
+    - TFC apply status gates promotion to next environment (when Phase 5 is implemented)
     - Speculative plans on PRs via Prow
 - [ ] Update `CLAUDE.md` if any workflow guidance changes
 
-### gcp-hcp (after validation)
-- [ ] Move finalized design docs to proper locations:
-  - Design decision -> `design-decisions/automation/tfc-gitops-promoter-progressive-delivery.md`
-  - Implementation plan -> `implementation-plans/gcp-985-tfc-progressive-delivery.md`
-- [ ] Update `design-decisions/INDEX.md` with new entry in Automation section
+### gcp-hcp
+- [ ] Update design docs and INDEX.md as needed
 
 **Acceptance Criteria**:
 - [ ] `docs/promotions.md` accurately describes the TFC integration
-- [ ] Design docs are in the gcp-hcp repo following conventions
-- [ ] INDEX.md updated
+- [ ] Design docs in gcp-hcp are up to date
 
 ---
 
 ## PR Sequence
 
+### Workstream A: Speculative Plans (GCP-1006) -- start now
+
 | # | Phase | PR | Repo | Applied By | Depends On |
 |---|-------|-----|------|------------|------------|
-| 1 | Module branch support | infra-platform PR | infra-platform | Module maintainer | -- |
-| 2 | Workspace branch config | gcp-hcp-infra PR | gcp-hcp-infra | TFC meta workspace | Phase 1 |
-| 3a | Speculative plan script | gcp-hcp-infra PR | gcp-hcp-infra | Prow merge | Phase 2 |
-| 3b | Speculative plan CI config | openshift/release PR | openshift/release | Prow config merge | Phase 3a |
-| 4 | Promoter TFC gating | gcp-hcp-infra PR | gcp-hcp-infra | ArgoCD sync | Phase 2 |
-| 5 | Branch protection | openshift/release PR | openshift/release | Prow config merge | Phases 2, 3 |
-| 6a | Promotions doc update | gcp-hcp-infra PR | gcp-hcp-infra | N/A | Phases 2, 3 |
-| 6b | Design docs to gcp-hcp | gcp-hcp PR | gcp-hcp | N/A | Phase 6a |
+| 1a | Speculative plan script | gcp-hcp-infra PR | gcp-hcp-infra | Prow merge | -- |
+| 1b | Speculative plan CI config | openshift/release PR | openshift/release | Prow config merge | Phase 1a |
+| 2 | Branch protection (main) | openshift/release PR | openshift/release | Prow config merge | Phase 1 |
 
-Phases 3, 4, and 5 can proceed in parallel once Phase 2 is complete.
+### Workstream B: Progressive Delivery (GCP-985) -- blocked until all workspaces ported
+
+| # | Phase | PR | Repo | Applied By | Depends On |
+|---|-------|-----|------|------------|------------|
+| 3 | Module branch support | infra-platform PR | infra-platform | Module maintainer | -- |
+| 4 | Workspace branch config | gcp-hcp-infra PR | gcp-hcp-infra | TFC meta workspace | Phase 3 |
+| 5 | Promoter TFC gating | gcp-hcp-infra PR | gcp-hcp-infra | ArgoCD sync | Phase 4 |
+| 6 | Branch protection (env) | openshift/release PR | openshift/release | Prow config merge | Phase 4 |
+| 7 | Documentation updates | gcp-hcp-infra + gcp-hcp PRs | both | N/A | Phases 4, 5 |
+
+Phases 5 and 6 can proceed in parallel once Phase 4 is complete.
 
 ---
 
 ## Key Risks and Mitigations
 
+### Workstream A (Speculative Plans)
+
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
-| Upstream `workspaces/tfe` module does not support `vcs_branch` | Blocks Phase 2 | Medium | Simple passthrough to `tfe_workspace.vcs_repo.branch` -- small PR to add |
-| Hydrated environment branches missing terraform content | TFC init fails | Low | Hydration already copies all required dirs -- verify with `terraform init -backend=false` on an env branch (see Pending Validation in design doc) |
-| Dual-triggered runs during branch cutover | State corruption | Medium | Follow the cutover procedure in Phase 2: disable auto-apply, drain queued runs, switch branch, verify, re-enable |
 | Speculative plans show unexpected drift | Confusing PR feedback | Medium | Expected with `refresh: false` -- document that PR plans are previews, not exact state comparisons |
-| TFC and Atlantis both triggering during migration | Double applies | Low | Atlantis is scoped to `main` -- environment branches are not in its trigger scope |
-| State backend mismatch (GCS vs TFC cloud) | Init failures | Low | GCP-532 cutover migrates backends; if done first, no issue. If not, WIF SA has GCS access |
 | Prow job cannot reach TFC API | Plan job fails | Low | `build06` has outbound internet -- verify with test curl to `app.terraform.io` |
 | `tfcloud-ci-secret` token lacks speculative plan permissions | Plan job auth failure | Low | Token already used for `terraform validate` which requires TFC API access -- verify `Plan runs` permission (see Pending Validation in design doc) |
-| Terraform changes promoted without terraform running | Silent infrastructure drift | Medium | Phase 4 (TFC apply gate) mitigates this; required before stage/production. Integration uses manual verification initially |
+
+### Workstream B (Progressive Delivery)
+
+| Risk | Impact | Likelihood | Mitigation |
+|------|--------|------------|------------|
+| Upstream `workspaces/tfe` module does not support `vcs_branch` | Blocks Phase 4 | Medium | Simple passthrough to `tfe_workspace.vcs_repo.branch` -- small PR to add |
+| Hydrated environment branches missing terraform content | TFC init fails | Low | Hydration already copies all required dirs -- verify with `terraform init -backend=false` on an env branch (see Pending Validation in design doc) |
+| Dual-triggered runs during branch cutover | State corruption | Medium | Follow the cutover procedure in Phase 4: disable auto-apply, drain queued runs, switch branch, verify, re-enable |
+| TFC and Atlantis both triggering during migration | Double applies | Low | Atlantis is scoped to `main` -- environment branches are not in its trigger scope |
+| State backend mismatch (GCS vs TFC cloud) | Init failures | Low | GCP-532 cutover migrates backends; if done first, no issue. If not, WIF SA has GCS access |
+| Terraform changes promoted without terraform running | Silent infrastructure drift | Medium | Phase 5 (TFC apply gate) mitigates this; required before stage/production. Integration uses manual verification initially |
 
 ---
 

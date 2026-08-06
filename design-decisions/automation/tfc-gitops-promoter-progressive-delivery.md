@@ -106,9 +106,21 @@ Two separate trust boundaries are involved:
 * **TFC apply status as promoter gate**: Deferred from initial integration rollout but required before stage/production. The promoter already gates on `argocd-health`, but this alone does not guarantee terraform ran. For terraform-bearing promotions, a `tfc-apply` commit status gate is necessary to prevent silent promotion without terraform execution. See Phase 4 in the implementation plan.
 * **Terraform module git sources**: Migrating terraform module references from relative paths to `git::` sources pointing at `dry_sha` would eliminate file copying for modules, metadata, workflows, and dashboards. This is tracked separately in `docs/promotions.md`.
 
+## JIRA Tracking
+
+This design covers two independent workstreams, tracked as separate stories under the same epic:
+
+| Story | Scope | Prerequisite |
+|---|---|---|
+| [GCP-1006](https://redhat.atlassian.net/browse/GCP-1006) | Prow presubmit for speculative plans on PRs | None -- works against existing workspaces on `main` |
+| [GCP-985](https://redhat.atlassian.net/browse/GCP-985) | Progressive delivery -- TFC workspaces track environment branches | All workspaces ported to TFC |
+
+GCP-1006 was split from GCP-985 because speculative plans are independent of which branch workspaces track. The Prow job can run immediately against the current integration workspaces while the progressive delivery branch migration is blocked until all workspaces are ported.
+
 ## References
 
-* [GCP-985](https://redhat.atlassian.net/browse/GCP-985) -- JIRA story
+* [GCP-985](https://redhat.atlassian.net/browse/GCP-985) -- Progressive delivery (workspace branch tracking)
+* [GCP-1006](https://redhat.atlassian.net/browse/GCP-1006) -- Prow speculative plans on PRs
 * [GCP-532](https://redhat.atlassian.net/browse/GCP-532) -- Parent epic (Terraform Cloud Evaluation & Plan)
 * `gcp-532-atlantis-to-tfc-cutover.md` -- TFC cutover implementation plan
 * `hcp-terraform-workload-identity-federation.md` -- TFC WIF design decision
