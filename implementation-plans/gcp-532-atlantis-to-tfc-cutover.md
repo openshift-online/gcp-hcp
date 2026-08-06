@@ -306,6 +306,7 @@ Validate that TFC can manage the same infrastructure as Atlantis with the same o
   2. Set `auto_apply = true` in the workspace definition (`hcp-terraform/gcp-hcp-int/main.tf`) so TFC auto-applies on merge to main, matching Atlantis behavior
   3. Merge the `auto_apply` change — TFC applies it via the meta workspace
   4. Verify the next merge-to-main triggers an automatic apply (no manual confirmation needed in TFC UI)
+- [ ] **Update Prow required status checks**: Remove Atlantis status checks (`atlantis-int/plan`, `atlantis-int/apply`) from the required checks on the `main` branch in [`openshift/release`](https://github.com/openshift/release/blob/main/core-services/prow/02_config/openshift-online/gcp-hcp-infra/_prowconfig.yaml). Without this, PRs to `gcp-hcp-infra` will be blocked because the removed Atlantis integration projects no longer report these statuses. Open a PR against `openshift/release` to update the Prow config. See [GCP-951](https://redhat.atlassian.net/browse/GCP-951).
 
 ### Acceptance Criteria
 
@@ -314,6 +315,7 @@ Validate that TFC can manage the same infrastructure as Atlantis with the same o
 - [ ] Cross-project IAM operations work from region and MC workspaces
 - [ ] No "API has not been used in project" errors during plans or applies
 - [ ] Each validated workspace has `auto_apply = true` and its Atlantis autoplan entry removed
+- [ ] Prow required status checks updated to remove Atlantis checks for the cutover environment
 
 ---
 
@@ -389,6 +391,7 @@ Disable Atlantis and remove its infrastructure after TFC is validated in integra
 - [ ] Remove Atlantis Helm chart (`helm/charts/atlantis-stack/`)
 - [ ] Remove Atlantis SA and IAM bindings (`atlantis.tf` files in global/region/MC/commons modules)
 - [ ] Remove `atlantis-{env}.yaml` files
+- [ ] Remove all Atlantis required status checks from Prow config in [`openshift/release`](https://github.com/openshift/release/blob/main/core-services/prow/02_config/openshift-online/gcp-hcp-infra/_prowconfig.yaml) (per-environment checks should already be removed during Story 5/7/8 cutover; verify none remain)
 - [ ] Update mintmaker agent (`agent/mintmaker/tools/atlantis.py` → TFC equivalent)
 - [ ] Remove `enable_tfc` variable gates — TFC IAM becomes the only IAM
 
@@ -396,6 +399,7 @@ Disable Atlantis and remove its infrastructure after TFC is validated in integra
 
 - [ ] No Atlantis pods running in any environment
 - [ ] All `atlantis.tf` and `atlantis-iam.tf` files removed
+- [ ] No Atlantis-related Prow required status checks remain in `openshift/release`
 - [ ] All infrastructure changes flow through TFC
 
 ---
@@ -427,6 +431,7 @@ Stories 2 and 3 can run in parallel (both depend only on Story 1).
 | TFC workspace created without state sees zero resources and tries to create everything | Seed state from GCS via the State Versions API **before** the first plan. See [State Management](#3-state-management) |
 | Fork PRs do not trigger TFC speculative plans | Contributors must push branches to the upstream repo, not open PRs from forks. Document in team onboarding |
 | Incomplete trigger prefixes miss shared module changes | Include shared module paths (`terraform/modules/{type}/`) in workspace trigger prefixes alongside config-specific paths |
+| Atlantis required status checks block PRs after cutover | Prow config in `openshift/release` defines `atlantis-{env}/plan` and `atlantis-{env}/apply` as required checks on `main`. After removing Atlantis projects, these checks never report, blocking all merges. Update Prow config per environment as part of the cutover (Story 5). PR against [`openshift/release`](https://github.com/openshift/release/blob/main/core-services/prow/02_config/openshift-online/gcp-hcp-infra/_prowconfig.yaml) |
 
 ## CI Workspaces (Deferred)
 
@@ -443,9 +448,9 @@ PagerDuty uses a PagerDuty API key — no GCP IAM needed. Migrated to TFC as a s
 
 ---
 
-## GCP-534 Migration Findings
+## Migration Findings
 
-The first workspace migration (`gcp-hcp-global-integration`, [GCP-534](https://redhat.atlassian.net/browse/GCP-534), [PR #1070](https://github.com/openshift-online/gcp-hcp-infra/pull/1070)) uncovered several undocumented requirements. These findings have been integrated into the stories above and are summarized here for reference.
+Workspace migrations uncovered several undocumented requirements. The first batch came from `gcp-hcp-global-integration` ([GCP-534](https://redhat.atlassian.net/browse/GCP-534), [PR #1070](https://github.com/openshift-online/gcp-hcp-infra/pull/1070)). Finding #6 was discovered during the region/MC integration cutover ([GCP-951](https://redhat.atlassian.net/browse/GCP-951)). These findings have been integrated into the stories above and are summarized here for reference.
 
 | # | Finding | Impact | Resolution | Reference |
 |---|---------|--------|------------|-----------|
@@ -454,3 +459,4 @@ The first workspace migration (`gcp-hcp-global-integration`, [GCP-534](https://r
 | 3 | TFC does not run speculative plans on fork PRs | Contributors from forks get no plan feedback | Push branches to upstream repo | [Workflow Fit](#1-workflow-fit) |
 | 4 | Workspaces created with `auto_apply = false` need explicit enablement after cutover | Merges to main do not auto-apply until flag is set | Enable `auto_apply = true` per workspace after validation | Story 5, [GCP-951](https://redhat.atlassian.net/browse/GCP-951) |
 | 5 | Trigger prefixes missing shared module paths | Changes to shared modules do not trigger plans in dependent workspaces | Add `terraform/modules/{type}/` to trigger prefixes | Story 4 |
+| 6 | Prow required status checks reference Atlantis projects that no longer exist after cutover | PRs blocked from merging because `atlantis-{env}/plan` and `atlantis-{env}/apply` never report | Update Prow config in `openshift/release` to remove Atlantis checks per environment | Story 5, [GCP-951](https://redhat.atlassian.net/browse/GCP-951) |
