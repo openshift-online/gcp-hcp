@@ -69,6 +69,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [ai-centric-sdlc](automation/ai-centric-sdlc.md) | AI-centric SDLC with multi-tool support and required human review |
 | [agent-autonomy-levels](automation/agent-autonomy-levels.md) | Three-stage approach for agent-driven remediation with increasing autonomy levels |
 | [go-controllers-runtime](automation/go-controllers-runtime.md) | Go controllers replacing config-based adapters for cluster lifecycle management |
+| [tfc-gitops-promoter-progressive-delivery](automation/tfc-gitops-promoter-progressive-delivery.md) | TFC workspaces track GitOps Promoter environment branches for progressive terraform delivery |
 
 ## Governance
 
