@@ -16,7 +16,7 @@ Two independent workstreams under [GCP-532](https://redhat.atlassian.net/browse/
 
 ### Current Architecture
 
-```
+```text
 Developer -> PR to main -> merge -> hydration pipeline -> environment/-next branches
                                                              |
                                                    gitops-promoter creates PR
@@ -31,9 +31,9 @@ Developer -> PR to main -> merge -> hydration pipeline -> environment/-next bran
 
 ### Target Architecture
 
-```
+```text
 Developer -> PR to main -----> Prow: speculative terraform plan (refresh=false)
-                |                    posts plan output to PR
+                |                    posts check status + link to Prow logs
                 v
              merge to main
                 |
@@ -111,9 +111,9 @@ Key characteristics:
      cd terraform/config/<working_directory_path>
      TF_TOKEN_app_terraform_io=$(cat /etc/terraform-cloud/token) \
      terraform init -input=false
-     terraform plan -refresh=false -input=false
+     terraform plan -refresh=false -input=false -detailed-exitcode
      ```
-  4. Exit with the worst exit code across all workspace plans (0 = clean, 1 = error, 2 = diff)
+  4. Map exit codes per workspace: 0 = no changes, 1 = error, 2 = changes detected (success). Aggregate: return 1 if any workspace errored, otherwise return 0 (both "no changes" and "changes detected" are successful outcomes for a presubmit)
 - [ ] Add a `Makefile` target `terraform-plan-speculative` that wraps the script
 - [ ] Test locally with a sample PR diff
 
@@ -138,11 +138,20 @@ Key characteristics:
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global credential.helper '!f() {
             if [ "$1" = "get" ]; then
-              read -r line
-              case "$line" in
-                *host=github.com*) echo username=x-access-token; echo "password=$(cat /etc/github-private/oauth)" ;;
-                *) exit 1 ;;
-              esac
+              host="" proto=""
+              while IFS= read -r line; do
+                [ -z "$line" ] && break
+                case "$line" in
+                  host=*) host="${line#host=}" ;;
+                  protocol=*) proto="${line#protocol=}" ;;
+                esac
+              done
+              if [ "$proto" = "https" ] && [ "$host" = "github.com" ]; then
+                echo "username=x-access-token"
+                echo "password=$(cat /etc/github-private/oauth)"
+              else
+                exit 1
+              fi
             fi
           }; f'
           cat > "$HOME/.terraformrc" <<TFRC
@@ -182,7 +191,7 @@ Key characteristics:
 - **Workspace discovery**: The script uses a static mapping from changed file paths to workspace names. Dynamic discovery via TFC API (list workspaces, match by `working_directory`) is a future enhancement to avoid config drift.
 - **Which workspaces**: Only integration workspaces -- stage/production plans require separate credentials and are a future enhancement.
 - **Credential helper scoping**: The Git credential helper is scoped to `github.com` only. It rejects credential requests for other hosts to prevent a malicious Terraform module source from exfiltrating the GitHub token.
-- **Why CLI over TFC Runs API**: CLI remote execution is simpler (no tarball upload, no polling for run completion, no plan output parsing). TFC handles configuration version creation and execution automatically. The API approach (`POST /api/v2/runs` with `plan_only: true`, `refresh: false`) is documented as a fallback if CLI limitations are hit.
+- **Why CLI over TFC Runs API**: CLI remote execution is simpler (no tarball upload, no polling for run completion, no plan output parsing). TFC handles configuration version creation and execution automatically. The API approach (`POST /api/v2/runs` with `plan-only: true`, `refresh: false`) is documented as a fallback if CLI limitations are hit.
 
 ## Phase 2: Update Branch Protection for Speculative Plans
 
@@ -194,7 +203,7 @@ Key characteristics:
 
 **Tasks**:
 - [ ] Remove remaining Atlantis status checks from `main` branch required status checks (PR #83051 removes `atlantis-int/plan` and `atlantis-int/apply`; stage checks should also be removed when stage moves to TFC)
-- [ ] Optionally add `ci/prow/terraform-plan` to `main` branch required status checks if the speculative plan should be required before merge
+- [ ] Do **not** add `ci/prow/terraform-plan` as an unconditional required context -- the job uses `run_if_changed` and only runs when terraform paths are modified. Prow handles the "skip" case automatically by not reporting the context for unmatched PRs. Adding it as required would block non-terraform PRs.
 
 **Acceptance Criteria**:
 - [ ] Speculative plan check runs appear on PRs to `main` (when terraform files are changed)
@@ -256,14 +265,17 @@ This workstream is **blocked until all workspaces are ported to TFC**. It cannot
 
 ### Branch Cutover Procedure
 
-The `vcs_branch` change must be applied safely to avoid dual-triggering (runs from both `main` and the environment branch targeting the same state):
+The `vcs_branch` change must be applied atomically to avoid dual-triggering (runs from both `main` and the environment branch targeting the same state). Disabling auto-apply alone does not prevent VCS-triggered runs from queuing.
 
-1. **Disable auto-apply** on all three workspaces via TFC UI or API
-2. **Drain queued runs**: wait for any in-progress `main`-triggered runs to complete; cancel any queued `main`-triggered runs that have not started
-3. **Apply the `vcs_branch` change** via the meta workspace (this switches TFC to track the environment branch)
-4. **Verify**: confirm TFC shows the environment branch as the tracked branch; confirm no `main`-triggered run can apply
-5. **Re-enable auto-apply** on all three workspaces
-6. **Trigger a test run**: push a trivial change through the promotion pipeline to verify end-to-end flow
+1. **Freeze merges to `main`** for terraform paths (coordinate with team to pause terraform PRs during cutover)
+2. **Disable auto-apply** on all three workspaces via TFC UI or API
+3. **Lock all three workspaces** via TFC UI or API -- this holds any new VCS-triggered runs in `pending` state
+4. **Cancel/discard queued runs**: cancel any in-progress `main`-triggered runs; discard any queued or pending `main`-triggered runs
+5. **Apply the `vcs_branch` change** via the meta workspace (this switches TFC to track the environment branch)
+6. **Verify**: confirm TFC shows the environment branch as the tracked branch and the expected commit; confirm no `main`-triggered run exists in a runnable state
+7. **Unlock workspaces and re-enable auto-apply** on all three workspaces
+8. **Trigger a test run**: push a trivial change through the promotion pipeline to verify end-to-end flow
+9. **Unfreeze merges to `main`**
 
 **Acceptance Criteria**:
 - [ ] TFC workspaces show the environment branch as the tracked branch in the TFC UI
@@ -286,12 +298,11 @@ The `vcs_branch` change must be applied safely to avoid dual-triggering (runs fr
 **Depends on**: Phase 4
 
 **Tasks**:
-- [ ] Determine the exact GitHub check run name that TFC posts on environment branches (e.g., `hashicorp-cloud/plan:gcp-hcp-global-integration` or similar)
-- [ ] Add a `WebRequestCommitStatus` or native commit status key for TFC apply in the promoter configuration:
-  - **Option A**: If TFC posts a native GitHub commit status, add the status context name to `activeCommitStatuses` in the PromotionStrategy
-  - **Option B**: If TFC posts a GitHub check run (not a commit status), create a `WebRequestCommitStatus` that polls the GitHub Checks API for the check run status
-- [ ] For global promoter: update `kustomize/gitops-promoter/config-global.yaml` to add the TFC status key
-- [ ] For sector promoter: update `helm/charts/gitops-promoter-config-region/values.yaml` to add the TFC status key and update `templates/promotion-strategy.yaml`
+- [ ] Do **not** rely on TFC's native GitHub check runs as the apply-success signal -- those checks report speculative plan results and may remain passing even after an apply fails
+- [ ] Instead, create a `WebRequestCommitStatus` in the promoter configuration that queries the TFC Runs API (`GET /api/v2/workspaces/:id/runs`) for the exact VCS commit SHA, requiring run status `applied` and apply status `finished`
+- [ ] Alternatively, publish a dedicated `tfc-apply` commit status from post-apply automation (e.g., a TFC run task or notification webhook) and wire that into `activeCommitStatuses`
+- [ ] For global promoter: update `kustomize/gitops-promoter/config-global.yaml` to add the TFC apply status key
+- [ ] For sector promoter: update `helm/charts/gitops-promoter-config-region/values.yaml` to add the TFC apply status key and update `templates/promotion-strategy.yaml`
 
 **Acceptance Criteria**:
 - [ ] Promoter gates promotion on TFC apply success

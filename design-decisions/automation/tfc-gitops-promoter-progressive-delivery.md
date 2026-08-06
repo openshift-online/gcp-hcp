@@ -58,7 +58,7 @@ TFC workspaces that manage infrastructure must track GitOps Promoter environment
 * The upstream `workspaces/tfe` module may need a `vcs_branch` parameter if it does not already support one
 * Speculative plans against `main` code (not yet promoted) may show drift from the environment's actual current state -- this is expected and acceptable since they serve as a "what would happen" preview, not an exact state comparison
 * Adding a new environment branch requires both the promoter config update AND the TFC workspace branch update -- two-place coordination
-* The branch cutover requires a controlled procedure: disable auto-apply, drain/cancel queued `main` runs, switch `vcs_branch`, verify no `main`-triggered run can apply, then re-enable auto-apply (see implementation plan Phase 2 for the detailed procedure)
+* The branch cutover requires a controlled procedure: freeze merges, lock workspaces, cancel/discard queued `main` runs, switch `vcs_branch`, verify no `main`-triggered run can apply, then unlock and re-enable auto-apply (see implementation plan Phase 4 for the detailed procedure)
 
 ## Cross-Cutting Concerns
 
@@ -67,6 +67,7 @@ TFC workspaces that manage infrastructure must track GitOps Promoter environment
 Two separate trust boundaries are involved:
 
 * **Prow -> TFC (API token)**: `tfcloud-ci-secret` is a TFC team or user API token that authenticates Prow CI to HCP Terraform for creating speculative plans. This token must have `Plan runs` and `Read workspace` permissions on the target workspaces. It cannot trigger applies on VCS-connected workspaces (VCS merge is the only apply path). Token ownership, rotation, and revocation follow the existing CI secret management procedures documented in `secrets/inventory.yaml`.
+* **Speculative plan trust model**: HCP Terraform speculative plans execute remotely with access to workspace variables and state. The `Plan runs` permission is not a confidentiality boundary -- it is security-equivalent to `Write`. This is acceptable because the Prow presubmit runs in a trusted CI context: only organization members can open PRs that trigger the job (the repo is not open to untrusted contributors), and `run_if_changed` further limits which PRs trigger plans. If the repository's contributor model changes to allow untrusted PRs, the speculative plan job must be restricted to trusted Prow pipelines or use dedicated plan-only workspaces with scrubbed variables.
 * **TFC -> GCP (WIF)**: During plan/apply execution, TFC uses Workload Identity Federation to authenticate to GCP. The WIF pool in the TFC access project issues short-lived credentials scoped to the workspace's plan or apply SA. No static GCP credentials are involved.
 * Environment branches are push-protected to the `gcp-hcp-gitops-promoter` GitHub App, preventing unauthorized terraform applies. The TFC API token cannot trigger applies on VCS-connected workspaces -- only VCS merges can.
 
