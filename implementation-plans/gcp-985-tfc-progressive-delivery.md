@@ -204,9 +204,12 @@ Key characteristics:
 **Tasks**:
 - [ ] Remove remaining Atlantis status checks from `main` branch required status checks (PR #83051 removes `atlantis-int/plan` and `atlantis-int/apply`; stage checks should also be removed when stage moves to TFC)
 - [ ] Do **not** add `ci/prow/terraform-plan` as an unconditional required context -- the job uses `run_if_changed` and only runs when terraform paths are modified. Prow handles the "skip" case automatically by not reporting the context for unmatched PRs. Adding it as required would block non-terraform PRs.
+- [ ] Add `ci/prow/terraform-plan` to Tide's `required-if-present-contexts` for `main` so it is enforced when the job runs but does not block non-terraform PRs
 
 **Acceptance Criteria**:
 - [ ] Speculative plan check runs appear on PRs to `main` (when terraform files are changed)
+- [ ] PRs that do not modify terraform paths merge without waiting for `ci/prow/terraform-plan`
+- [ ] PRs that modify terraform paths require a passing `ci/prow/terraform-plan` before merge
 
 ---
 

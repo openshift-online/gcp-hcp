@@ -49,7 +49,7 @@ TFC workspaces that manage infrastructure must track GitOps Promoter environment
 * Terraform changes flow through the same promotion pipeline as ArgoCD changes -- unified progressive delivery for all infrastructure changes
 * TFC auto-triggers plan/apply when promoter merges to active branches -- no custom orchestration needed
 * Speculative plans on PRs give reviewers terraform plan output before merge, replacing the visibility Atlantis provided
-* `refresh: false` on PR plans eliminates state contention with running promotions
+* Speculative (plan-only) runs do not lock state or apply infrastructure, so PR plans run concurrently with in-flight promotions without contention. `refresh: false` further avoids stale-state noise from drift between `main` and the promoted environment
 * TFC's native GitHub check integration provides plan/apply status directly on promotion PRs
 
 ### Negative
@@ -66,10 +66,10 @@ TFC workspaces that manage infrastructure must track GitOps Promoter environment
 
 Two separate trust boundaries are involved:
 
-* **Prow -> TFC (API token)**: `tfcloud-ci-secret` is a TFC team or user API token that authenticates Prow CI to HCP Terraform for creating speculative plans. This token must have `Plan runs` and `Read workspace` permissions on the target workspaces. It cannot trigger applies on VCS-connected workspaces (VCS merge is the only apply path). Token ownership, rotation, and revocation follow the existing CI secret management procedures documented in `secrets/inventory.yaml`.
-* **Speculative plan trust model**: HCP Terraform speculative plans execute remotely with access to workspace variables and state. The `Plan runs` permission is not a confidentiality boundary -- it is security-equivalent to `Write`. This is acceptable because the Prow presubmit runs in a trusted CI context: only organization members can open PRs that trigger the job (the repo is not open to untrusted contributors), and `run_if_changed` further limits which PRs trigger plans. If the repository's contributor model changes to allow untrusted PRs, the speculative plan job must be restricted to trusted Prow pipelines or use dedicated plan-only workspaces with scrubbed variables.
+* **Prow -> TFC (API token)**: `tfcloud-ci-secret` is a TFC team or user API token that authenticates Prow CI to HCP Terraform for creating speculative plans. This token must have `Plan runs` and `Read workspace` permissions on the target workspaces. `tfcloud-ci-secret` cannot trigger applies on VCS-connected workspaces (VCS merge is the only apply path for this token). Other principals with `Apply runs` permission can manually queue and apply runs through the TFC UI or API -- access to those principals is governed by TFC organization and team settings. Token ownership, rotation, and revocation follow the existing CI secret management procedures documented in `secrets/inventory.yaml`.
+* **Speculative plan trust model**: HCP Terraform speculative plans execute remotely with access to workspace variables and state. The `Plan runs` permission is not a confidentiality boundary -- it is security-equivalent to `Write`. Prow runs speculative plans from a forked repo on behalf of the PR author, using its own `tfcloud-ci-secret` credential. The TFC organization admin must enable "Allow speculative plans on pull requests from forks" for this to work. The access control mechanism for which fork PRs can trigger speculative plans (e.g., Prow `run_if_changed` path filtering, org membership checks, or explicit allow-lists) is a pending design decision that must be resolved before rollout. `run_if_changed` limits which PRs trigger plans to those modifying terraform paths. If the repository's contributor model changes to allow untrusted PRs, the speculative plan job must be restricted to trusted Prow pipelines or use dedicated plan-only workspaces with scrubbed variables.
 * **TFC -> GCP (WIF)**: During plan/apply execution, TFC uses Workload Identity Federation to authenticate to GCP. The WIF pool in the TFC access project issues short-lived credentials scoped to the workspace's plan or apply SA. No static GCP credentials are involved.
-* Environment branches are push-protected to the `gcp-hcp-gitops-promoter` GitHub App, preventing unauthorized terraform applies. The TFC API token cannot trigger applies on VCS-connected workspaces -- only VCS merges can.
+* Environment branches are push-protected to the `gcp-hcp-gitops-promoter` GitHub App, preventing unauthorized terraform applies. `tfcloud-ci-secret` cannot trigger applies on VCS-connected workspaces -- only VCS merges can.
 
 ### Reliability
 
@@ -83,7 +83,7 @@ Two separate trust boundaries are involved:
 
 ### Operability
 
-* Adding a new workspace: specify `vcs_branch` in addition to existing parameters (`working_directory`, `github_repo_org`, `github_repo_name`)
+* Adding a new workspace: specify `vcs_branch` and `trigger_prefixes` (for shared terraform directories outside `working_directory`) in addition to existing parameters (`working_directory`, `github_repo_org`, `github_repo_name`)
 * Adding a new environment: create environment branches (documented in `docs/promotions.md`), add workspace definitions with the branch, update Prow config for speculative plans if needed
 * Debugging failed applies: TFC UI provides detailed plan/apply logs; run history shows the exact commit that triggered the run
 
@@ -100,6 +100,7 @@ Two separate trust boundaries are involved:
 
 * **Hydration content completeness**: The hydration workflows (`.github/workflows/hydrate-global.yaml`, `hydrate-sectors.yaml`) copy `terraform/config/`, `terraform/modules/`, `terraform/metadata/`, `terraform/workflows/`, and `terraform/dashboards/` to environment branches. Requires executable verification before Phase 2: checkout an environment branch and run `terraform init -backend=false` in each `working_directory` path to confirm all module sources resolve. Command: `git checkout environment/global-integration && cd terraform/config/global/integration/main/us-central1 && terraform init -backend=false`
 * **TFC API token permissions**: Verify that `tfcloud-ci-secret` has `Plan runs` permission on the `gcp-hcp-integration` project workspaces (required for CLI remote speculative plans on VCS-connected workspaces). Test: `curl -s -H "Authorization: Bearer $(cat /etc/terraform-cloud/token)" https://app.terraform.io/api/v2/organizations/hp-platform-engineering/workspaces`
+* **Fork speculative plan access control**: Prow runs speculative plans from a forked repo using its own credential. The TFC org admin must enable "Allow speculative plans on pull requests from forks". The mechanism for controlling which fork PRs can trigger plans (org membership, Prow job guards, explicit allow-lists) must be defined before rollout to prevent untrusted contributors from accessing workspace variables and state via speculative plans
 
 ### Future Considerations
 
