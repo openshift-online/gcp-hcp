@@ -42,6 +42,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [zero-operator-access](identity/zero-operator-access.md) | Layered model restricting human and AI agent access to production resources |
 | [gecko-api-aggregation](identity/gecko-api-aggregation.md) | Delegate gecko internal API authn/authz to GKE kube-apiserver via API aggregation |
 | [secret-management-strategy](identity/secret-management-strategy.md) | Platform secret management: Workload Identity first, Bitwarden + Secret Manager + ESO for mandatory secrets |
+| [cedar-public-api-authorization](identity/cedar-public-api-authorization.md) | Cedar-based authorization for gecko public API with ConfigMap roles and in-process evaluation |
 
 ## Observability
 
