@@ -70,11 +70,13 @@ For existing infrastructure currently managed by Atlantis (global, region, MC), 
 
 **State seeding process** (per workspace, discovered during [GCP-534](https://redhat.atlassian.net/browse/GCP-534)):
 
-1. Lock the TFC workspace (API or UI)
-2. Download the current state from GCS (`gsutil cp gs://{bucket}/{workspace}.tfstate .`)
-3. Upload the state to TFC via the [State Versions API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/state-versions): base64-encode the state JSON, compute its MD5 hash, POST to `/workspaces/{id}/state-versions`
-4. Verify the state in the TFC UI (resource count matches expectations)
-5. Unlock the workspace
+1. Freeze Atlantis for the workspace (disable the autoplan entry in `atlantis-{env}.yaml` or drain in-flight operations) to prevent state changes during the migration window
+2. Lock the TFC workspace (API or UI)
+3. Download the current state from GCS (`gsutil cp gs://{bucket}/{workspace}.tfstate .`)
+4. Upload the state to TFC via the [State Versions API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/state-versions): base64-encode the state JSON, compute its MD5 hash, POST to `/workspaces/{id}/state-versions`
+5. Verify the state in the TFC UI (resource count matches expectations)
+6. Unlock the workspace
+7. Securely delete the downloaded `.tfstate` file from the operator's workstation (it may contain sensitive resource attributes)
 
 After seeding, TFC manages state natively and the GCS state bucket is no longer used for that workspace.
 
@@ -274,7 +276,7 @@ Create TFC workspaces mirroring the Atlantis projects in `atlantis-integration.y
     default_labels        = local.common_labels
   }
   ```
-  This redirects GCP API activation checks to the global project, avoiding bootstrap issues with non-existent target projects (see [API Activation](#api-activation-and-the-user_project_override-pattern)). The `global_project_id` local is derived from metadata because provider blocks cannot reference data sources. Both `google` and `google-beta` provider blocks must be updated, including any aliased providers. See [PR #1114](https://github.com/openshift-online/gcp-hcp-infra/pull/1114) for reference.
+  This redirects GCP API activation checks to the global project, avoiding bootstrap issues with non-existent target projects (see [API Activation](#api-activation-and-the-user_project_override-pattern) above). The `global_project_id` local is derived from metadata because provider blocks cannot reference data sources. Both `google` and `google-beta` provider blocks must be updated, including any aliased providers. See [PR #1114](https://github.com/openshift-online/gcp-hcp-infra/pull/1114) for reference.
 - [ ] **State seeding** (per workspace, for workspaces with existing Atlantis-managed infrastructure):
   1. Freeze Atlantis for the workspace: disable the autoplan entry in `atlantis-{env}.yaml` (or drain/cancel in-flight Atlantis operations) to prevent state changes during the migration window
   2. Lock the TFC workspace via API
