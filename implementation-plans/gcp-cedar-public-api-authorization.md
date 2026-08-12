@@ -108,7 +108,7 @@ Roles are defined in a ConfigMap loaded at deployment time. They are **not** API
 
 Both constraints apply whether the caller is `service-admin` or a `CustomRole`-bearing principal with `rolebinding.*` permissions.
 
-Similarly, the CustomRole validator (Story 3) rejects `CustomRole` definitions that include infrastructure permissions (`cluster.*`, `nodepool.*`) — custom roles are limited to access-management permissions within the namespace. This prevents a service-admin from creating a `CustomRole` that grants `cluster-admin`-equivalent access and then binding it to themselves or others.
+Similarly, the CustomRole validator (Story 3) enforces an infrastructure permission allow-list: **read-only** infrastructure permissions (`cluster.list`, `cluster.get`, `nodepool.list`, `nodepool.get`) are allowed in a `CustomRole`; **write/delete** infrastructure permissions (`cluster.create`, `cluster.update`, `cluster.delete`, `nodepool.create`, `nodepool.update`, `nodepool.delete`) are rejected. This prevents a service-admin from creating a `CustomRole` that grants `cluster-admin`-equivalent write access while still enabling the primary ABAC use case: attribute-scoped read access (e.g., view clusters in a specific region).
 
 ### ConfigMap Format
 
@@ -404,7 +404,8 @@ Condition validation uses Cedar AST inspection (not string matching) to reject c
 Required test coverage (Story 3):
 - A principal bound to a `CustomRole` with `rolebinding.*` is rejected when trying to bind an infrastructure roleRef (e.g., `cluster-admin`)
 - A principal bound to a `CustomRole` with `rolebinding.*` is rejected when self-granting any role
-- A `CustomRole` definition that includes infrastructure permissions (`cluster.*`, `nodepool.*`) is rejected at creation time by the CustomRole validator
+- A `CustomRole` definition that includes infrastructure write/delete permissions (`cluster.create`, `cluster.update`, `cluster.delete`, `nodepool.create`, `nodepool.update`, `nodepool.delete`) is rejected at creation time by the CustomRole validator
+- A `CustomRole` definition with infrastructure read-only permissions (`cluster.list`, `cluster.get`, `nodepool.list`, `nodepool.get`) is accepted (primary ABAC use case)
 
 ---
 
