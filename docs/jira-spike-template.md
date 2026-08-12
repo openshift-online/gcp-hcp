@@ -90,13 +90,13 @@ Examples:
 
 **Success Criteria**: Decision documented — WIF feasible (and follow-up implementation story created) or infeasible (and key rotation approach confirmed with rationale).
 
-**Findings Documentation Format**: Comment on this ticket + entry in `docs/architecture-decisions/` if WIF is selected.
+**Findings Documentation Format**: Comment on this ticket + entry in `docs/architecture-decisions/` documenting the decision and rationale for the chosen approach.
 
 **Follow-up Actions**:
 - [ ] Create implementation story for chosen authentication approach
-- [ ] Update `docs/architecture-decisions/` with decision record
+- [ ] Add decision record to `docs/architecture-decisions/`
 
 **Acceptance Criteria**:
-- [ ] Findings documented in this ticket (comment) and ADR if applicable
+- [ ] Findings documented in this ticket (comment) and in `docs/architecture-decisions/`
 - [ ] Decision recorded: WIF vs. key rotation, with rationale
 - [ ] Follow-up story created for implementation approach
