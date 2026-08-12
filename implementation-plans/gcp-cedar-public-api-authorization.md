@@ -101,6 +101,13 @@ Roles are defined in a ConfigMap loaded at deployment time. They are **not** API
 
 **Separation of concerns**: Access management (platform-admin, service-admin) is fully separated from infrastructure management (cluster-admin, cluster-viewer). No single role conflates both. A full operator needs multiple bindings.
 
+**Grant constraints for `service-admin`**: Although `service-admin` holds `rolebinding.*` permissions, the RoleBinding validator enforces the following restrictions to prevent privilege escalation:
+
+- A `service-admin` may only create RoleBindings whose `roleRef` is a namespace-scoped access-management role (i.e., `service-admin` or a user-defined `CustomRole`). Referencing infrastructure roles (`cluster-admin`, `cluster-viewer`) is rejected.
+- A `service-admin` may not bind any role to their own subject via a RoleBinding they create (self-grant is rejected).
+
+Similarly, the CustomRole validator (Story 3) rejects `CustomRole` definitions that include infrastructure permissions (`cluster.*`, `nodepool.*`) — custom roles are limited to access-management permissions within the namespace.
+
 ### ConfigMap Format
 
 ```yaml
@@ -246,7 +253,7 @@ when { principal in resource };
 
 The `when { principal in resource }` condition is what enforces scoping: the entity graph places users `in` their bound roles, roles `in` their namespace/platform, and resources `in` their namespace. Cedar's transitive `in` operator handles the rest.
 
-In addition to `permit` policies, the policy set includes platform-level `forbid` policies for any actions that must be universally denied regardless of role bindings. Because Cedar evaluates `forbid` before `permit`, these platform restrictions cannot be overridden by any user-defined `permit` policy.
+In addition to `permit` policies, the policy set includes platform-level `forbid` policies for any actions that must be universally denied regardless of role bindings. A matching `forbid` overrides any matching `permit` — Cedar evaluates all applicable policies and a single matching `forbid` produces a Deny regardless of how many `permit` policies also match.
 
 ---
 
@@ -331,7 +338,7 @@ HTTP Request
 When a list request has no namespace in the URL (e.g., `GET /clusters`), the authz middleware:
 
 1. Detects the cross-namespace list (namespaced resource, no namespace param, GET method)
-2. Pre-computes the authorized namespace set from the user's cached RoleBindings
+2. Pre-computes the authorized namespace set from the user's RoleBindings **whose role grants the requested action's permission** — namespaces where the user only holds unrelated roles (e.g., service-admin for a cluster list request) are excluded
 3. Injects the set into the request context
 4. The handler reads authorized namespaces from context and sets `ListOptions.Namespaces`
 5. The storage layer filters at the database level: `WHERE namespace IN UNNEST(...)` (Spanner) or `WHERE namespace = ANY($N)` (Postgres)
