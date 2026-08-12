@@ -21,20 +21,22 @@ This implements the architecture decided in [cedar-public-api-authorization](../
 | Namespace lifecycle | Implicit (no Namespace resource needed) |
 | Storage | Same Spanner database as Clusters/NodePools |
 | Entity cache | Cache until dirty — invalidate on RoleBinding/PlatformRoleBinding writes |
-| Auth disable flag | Existing `--disable-auth` covers both private and public APIs |
+| Auth disable flag | Existing `--disable-auth` covers both private and public APIs; startup rejects `--disable-auth` combined with a non-loopback bind address |
 | Cross-namespace list | Namespace-filter via `ListOptions.Namespaces` in storage layer (database-level filtering) |
 
 ---
 
 ## Service Enablement
 
-When a customer enables the GCP HCP service via Google Cloud Marketplace:
+When a customer enables or disables the GCP HCP service via Google Cloud Marketplace:
 
-1. Marketplace sends a Pub/Sub event to a known topic
+**Enable event**: The Marketplace Handler fans out a namespace-level `ServiceAdmin` binding to all regions:
+
+1. Marketplace sends a Pub/Sub `enable` event to a known topic
 2. A Marketplace Handler reacts to the event
-3. The handler adds the customer's Google identity as `ServiceAdmin` in the corresponding Gecko project namespace — **for each region**
+3. The handler creates the customer's Google identity as `ServiceAdmin` in the corresponding Gecko project namespace — **for each region**
 
-```
+```json
 POST /api/v1/namespaces/<project_id>/rolebindings
 {
     "subject": "customer@example.com",
@@ -42,7 +44,13 @@ POST /api/v1/namespaces/<project_id>/rolebindings
 }
 ```
 
-Each region hosts an independent Gecko instance with its own Spanner database. The Marketplace Handler must fan out the ServiceAdmin binding to all regions. Namespace-level bindings (cluster-admin, cluster-viewer) are regional — created in the region where the clusters live. Async replication via Pub/Sub + Spanner Change Streams is a future upgrade path.
+**Disable event**: The Marketplace Handler revokes the `ServiceAdmin` binding in all regions:
+
+1. Marketplace sends a Pub/Sub `disable` event
+2. The handler deletes the customer's `service-admin` RoleBinding from every active region
+3. The per-user entity cache is invalidated in each region so subsequent requests immediately receive 403
+
+Each region hosts an independent Gecko instance with its own Spanner database. Namespace-level bindings (cluster-admin, cluster-viewer) are regional — created in the region where the clusters live. Async replication via Pub/Sub + Spanner Change Streams is a future upgrade path.
 
 ---
 
@@ -207,7 +215,7 @@ The schema is documentation only — it is not enforced at runtime. The Go code 
 
 ## Cedar Policy Generation
 
-Each role in the ConfigMap is translated into a Cedar `permit` policy at startup. Permission names map to Cedar actions via PascalCase conversion (e.g., `cluster.create` -> `CreateCluster`).
+Each role in the ConfigMap is translated into a Cedar `permit` policy at startup. Permission names map to Cedar actions via the explicit permission-to-action table in the [Granular Permissions](#granular-permissions) section above (e.g., `cluster.create` -> `CreateCluster`). Unknown permission names are rejected at startup.
 
 For a namespace-scoped role:
 
@@ -238,6 +246,8 @@ when { principal in resource };
 
 The `when { principal in resource }` condition is what enforces scoping: the entity graph places users `in` their bound roles, roles `in` their namespace/platform, and resources `in` their namespace. Cedar's transitive `in` operator handles the rest.
 
+In addition to `permit` policies, the policy set includes platform-level `forbid` policies for any actions that must be universally denied regardless of role bindings. Because Cedar evaluates `forbid` before `permit`, these platform restrictions cannot be overridden by any user-defined `permit` policy.
+
 ---
 
 ## API Resources
@@ -254,8 +264,14 @@ There is no `Role` API resource. Built-in roles are defined in the ConfigMap and
 
 ## Authorization Flow
 
-```
+Health probes (`/healthz`, `/readyz`) are registered outside the middleware chain and bypass both authentication and authorization.
+
+**ESPv2 trust boundary**: `platform-api-server` binds its public API listener to loopback (`127.0.0.1`) so that only the ESPv2 sidecar can reach it. ESPv2 validates the JWT (issuer, audience, expiry, signature) before injecting `X-Endpoint-API-UserInfo` and strips any pre-existing value from inbound requests, preventing header forgery by direct callers.
+
+```text
 HTTP Request
+  |
+  +- /healthz, /readyz -> bypass (no authn/authz)
   |
   +- 1. AuthN Middleware
   |     - Read X-Endpoint-API-UserInfo header (base64 JWT claims from ESPv2)
@@ -352,7 +368,9 @@ spec:
   condition: 'resource.region == "us-east1"'
 ```
 
-Generated Cedar policy is **namespace-pinned**:
+The `condition` field is a **Cedar expression body** (not a full `when` clause). The policy generator wraps it inside a `when { ... }` block alongside the mandatory namespace constraints. Storing a bare expression body avoids invalid nested `when` syntax during generation.
+
+Generated Cedar policy is **namespace-pinned**, restricting both the principal and the resource to the namespace:
 
 ```cedar
 permit (
@@ -362,6 +380,7 @@ permit (
 )
 when {
     principal in Namespace::"project-a" &&
+    resource in Namespace::"project-a" &&
     resource.region == "us-east1"
 };
 ```
@@ -374,7 +393,7 @@ Condition validation uses Cedar AST inspection (not string matching) to reject c
 
 Each region runs an independent Gecko instance with its own Spanner database. The authorization data strategy has two tiers:
 
-**Tier 1 (Baseline)**: The Marketplace Handler fans out platform-level bindings (ServiceAdmin) to all regions at service enablement time. Namespace-level bindings (cluster-admin, cluster-viewer) are regional — created in the region where the clusters live.
+**Tier 1 (Baseline)**: The Marketplace Handler fans out namespace-level `ServiceAdmin` bindings to all regions at service enablement time (and revokes them on disable). Namespace-level bindings for infrastructure roles (cluster-admin, cluster-viewer) are regional — created in the region where the clusters live.
 
 **Tier 2 (Future, when needed)**: Async replication of bindings across regions via Pub/Sub. Local Gecko instances publish binding mutations to a global Pub/Sub topic. Regional instances subscribe and replay mutations into their local Spanner. The existing Spanner Change Stream broadcaster can serve as the source of replication events.
 
@@ -384,7 +403,7 @@ Triggers for Tier 2: ServiceAdmins needing bindings to apply globally, or custom
 
 ## File Structure
 
-```
+```text
 platform-api/
   api/private/v1/
     rolebinding_types.go                   # RoleBinding type (namespaced)
