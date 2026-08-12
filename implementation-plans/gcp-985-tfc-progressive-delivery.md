@@ -65,20 +65,19 @@ Developer -> PR to main -----> (speculative terraform plan, tracked separately u
 
 ---
 
-## Phase 3: Extend Upstream Workspaces Module for Branch Support
+## Phase 3: Verify Upstream Workspaces Module Branch Support
 
-**Summary**: Verify or add `vcs_branch` parameter to the upstream `workspaces/tfe` module.
+**Summary**: The upstream `workspaces/tfe` module (`terraform-tfe-workspaces` in `infra-platform`) already supports a `branch` field on the workspace object type -- no module change is needed. This phase is now a verification/version-bump step rather than a development task.
 
 **Repo**: `infra-platform` (upstream module at `app.terraform.io/hp-platform-engineering/workspaces/tfe`)
 
 **Tasks**:
-- [ ] Check if `workspaces/tfe` module (v0.0.11) already supports a `vcs_branch` parameter in its workspace object type
-- [ ] If not: add `vcs_branch` (optional string, defaults to null) to the workspace object, passing it through to `tfe_workspace.vcs_repo.branch`
-- [ ] Publish new module version
-- [ ] Test: create a workspace with `vcs_branch = "test-branch"` and verify TFC tracks that branch
+- [x] ~~Add `vcs_branch` parameter~~ -- confirmed the module's `workspaces` variable already has `branch = optional(string, null)`, passed through to `tfe_workspace.vcs_repo.branch` ([`variables.tf#L47`](https://github.com/openshift-online/infra-platform/blob/main/hcp-terraform/modules/terraform-tfe-workspaces/variables.tf))
+- [ ] Confirm `gcp-hcp-infra` is pinned to a module version that includes the `branch` field; bump if needed
+- [ ] Test: create a workspace with `branch = "test-branch"` and verify TFC tracks that branch
 
 **Acceptance Criteria**:
-- [ ] Workspace objects accept a `vcs_branch` parameter
+- [ ] Workspace objects accept a `branch` parameter (already true -- verify version pin)
 - [ ] When set, TFC workspace is configured to track the specified branch
 - [ ] When unset, TFC defaults to the repository's default branch (backwards compatible)
 
@@ -94,14 +93,14 @@ Developer -> PR to main -----> (speculative terraform plan, tracked separately u
 **Depends on**: Phase 3, all workspaces ported to TFC
 
 **Tasks**:
-- [ ] Bump `workspaces/tfe` module version to the version with `vcs_branch` support
-- [ ] Add `vcs_branch` to each workspace definition:
+- [ ] Confirm `gcp-hcp-infra`'s pinned `workspaces/tfe` module version includes `branch` support (see Phase 3)
+- [ ] Add `branch` to each workspace definition:
 
   ```hcl
   gcp-hcp-global-integration = {
     auto_apply        = true
     working_directory = "terraform/config/global/integration/main/us-central1"
-    vcs_branch        = "environment/global-integration"
+    branch            = "environment/global-integration"
     trigger_prefixes  = ["terraform/metadata/", "terraform/dashboards/global/", "terraform/modules/global/"]
     github_repo_org   = "openshift-online"
     github_repo_name  = "gcp-hcp-infra"
@@ -114,19 +113,22 @@ Developer -> PR to main -----> (speculative terraform plan, tracked separately u
 - [ ] Verify `auto_apply = true` so promotion merges automatically apply without manual confirmation
 - [ ] Run `terraform plan` on the meta workspace to preview the changes
 
-### Branch Cutover Procedure
+**Note on scope**: The cutover procedure below is only needed for the initial migration of **already-provisioned** workspaces from `main` to an environment branch. New workspaces set `branch` at creation time and never track `main`, so they don't need this procedure. Similarly, workspaces don't normally need a `branch` update when a new environment is added (a new branch is created and new workspaces are provisioned against it directly) -- a `branch` update is only needed for cases like reassigning an existing region from one sector to another.
 
-The `vcs_branch` change must be applied atomically to avoid dual-triggering (runs from both `main` and the environment branch targeting the same state). Locking a workspace is the hard gate: a locked workspace rejects all new runs (VCS-triggered or otherwise), so locking first eliminates the window where a merge to `main` could queue a run during cutover.
+### Branch Cutover Procedure (Existing Workspaces Only)
 
-1. **Lock all three workspaces** via TFC UI or API -- this rejects any new VCS-triggered runs immediately, no race window
-2. **Disable auto-apply** on all three workspaces -- prevents any existing queued run from auto-applying if it was accepted before the lock
-3. **Wait for in-flight runs to finish**: let any currently `planning` or `applying` runs reach a terminal state naturally rather than cancelling mid-apply
-4. **Discard any remaining queued/pending runs** that were accepted before the lock took effect
-5. **Apply the `vcs_branch` change** via the meta workspace (this switches TFC to track the environment branch)
-6. **Verify**: confirm TFC shows the environment branch as the tracked branch and the expected commit; confirm no `main`-triggered run exists in a runnable state
-7. **Unlock workspaces and re-enable auto-apply** on all three workspaces
-8. **Trigger a test run**: push a trivial change through the promotion pipeline to verify end-to-end flow
-9. **Unfreeze merges to `main`** (if a merge freeze was communicated to the team)
+The `branch` change must be applied atomically to avoid dual-triggering (runs from both `main` and the environment branch targeting the same state). Locking a workspace is the hard gate: a locked workspace rejects all new runs (VCS-triggered or otherwise), so locking first eliminates the window where a merge to `main` could queue a run during cutover.
+
+1. **Freeze merges to `main`** for the affected paths (and pause the hydration pipeline) so no new commits can queue a `main`-triggered run during cutover
+2. **Disable auto-apply** on all three workspaces -- prevents any run accepted just before the lock from auto-applying
+3. **Lock all three workspaces** via TFC UI or API -- this rejects any new VCS-triggered runs immediately, closing the race window
+4. **Cancel or wait out in-flight runs**: cancel any currently `planning` run; let an `applying` run reach a terminal state naturally rather than cancelling mid-apply
+5. **Discard any remaining queued/pending runs** that were accepted before the lock took effect
+6. **Apply the `branch` change** via the meta workspace (this switches TFC to track the environment branch)
+7. **Verify**: confirm TFC shows the environment branch as the tracked branch and the expected commit; confirm no `main`-triggered run exists in a runnable state
+8. **Unlock workspaces and re-enable auto-apply** on all three workspaces
+9. **Trigger a test run**: push a trivial change through the promotion pipeline to verify end-to-end flow
+10. **Unfreeze merges to `main`** and resume the hydration pipeline
 
 **Acceptance Criteria**:
 - [ ] TFC workspaces show the environment branch as the tracked branch in the TFC UI
@@ -225,7 +227,7 @@ Phases 5 and 6 can proceed in parallel once Phase 4 is complete.
 
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|------------|------------|
-| Upstream `workspaces/tfe` module does not support `vcs_branch` | Blocks Phase 4 | Medium | Simple passthrough to `tfe_workspace.vcs_repo.branch` -- small PR to add |
+| `gcp-hcp-infra` pinned to a module version predating `branch` support | Blocks Phase 4 | Low | Module already supports `branch` (confirmed, see Phase 3) -- only a version bump is needed if pinned to an older release |
 | Hydrated environment branches missing terraform content | TFC init fails | Low | Hydration already copies all required dirs -- verify with `terraform init -backend=false` on an env branch before Phase 4 |
 | Dual-triggered runs during branch cutover | State corruption | Medium | Follow the cutover procedure in Phase 4: disable auto-apply, drain queued runs, switch branch, verify, re-enable |
 | TFC and Atlantis both triggering during migration | Double applies | Low | Atlantis is scoped to `main` -- environment branches are not in its trigger scope |
