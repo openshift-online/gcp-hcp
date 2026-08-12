@@ -80,15 +80,20 @@ After seeding, TFC manages state natively and the GCS state bucket is no longer 
 
 ### API Activation and the `user_project_override` Pattern
 
-GCP checks API activation on the calling service account's home project (the "quota project") for cross-project API calls. Under Atlantis, the SA lives in the target project where all required APIs are already enabled. Under TFC, the plan/apply SAs live in a **separate access project** (`gcp-hcp-{env_abbrev}-tfc-access`), which is bootstrapped with only WIF-related APIs (IAM, STS, IAM Credentials). Without mitigation, any API call to a target project fails with `"<API> has not been used in project <access-project-id> before or it is disabled"`.
+TFC authenticates via Workload Identity Federation (WIF) through a dedicated access project (`gcp-hcp-{env_abbrev}-tfc-access`). WIF authentication causes GCP to check API activation against the WIF pool's project (the access project), which only has identity-related APIs enabled (IAM, STS, IAM Credentials). Without mitigation, any cross-project API call fails with `"<API> has not been used in project <access-project-id> before or it is disabled"`.
 
-**Do not** enable all required APIs on the access project — that would create an operational burden since the access workspace requires PAM-gated manual applies, and every new API added to any module would require repeating that process.
+This was not a problem with Atlantis because Atlantis uses GKE Workload Identity (native SA auth), not WIF. With native SA auth, GCP checks API activation against the target project (the project in the resource URL), where the APIs are already enabled via `google_project_service` resources in each module.
 
-**Solution**: Set `user_project_override = true` and `billing_project = "<target-project-id>"` in each workspace's `google` and `google-beta` provider blocks. This redirects API activation and quota checks to the target project, which already enables its own APIs. This works because TFC SAs already have `roles/serviceusage.serviceUsageAdmin` on target projects (granted in Story 2).
+**Do not** enable all required APIs on the access project -- that would create an operational burden since the access workspace requires PAM-gated manual applies, and every new API added to any module would require repeating that process.
 
-Reference: [GCP Quota project overview](https://cloud.google.com/docs/quotas/quota-project) | [PR #1073](https://github.com/openshift-online/gcp-hcp-infra/pull/1073) | [GCP-990](https://redhat.atlassian.net/browse/GCP-990)
+**Solution**: Set `user_project_override = true` and `billing_project` pointing to the **global** project (e.g., `gcp-hcp-int-global`) in each workspace's `google` and `google-beta` provider blocks. The global project is used instead of the target project for two reasons:
 
-Precedent: `terraform/config/org/main.tf` in `gcp-hcp-infra` already uses this pattern.
+1. **Bootstrap chicken-and-egg**: During fresh region/MC provisioning, the target project does not exist yet when the first `terraform plan` runs. Pointing `billing_project` at a non-existent project would fail immediately.
+2. **IAM propagation delay**: Even after the target project is created, TFC SAs need `serviceUsageConsumer` on it to use it as a billing project. Granting this role and waiting for IAM propagation adds complexity and fragility to the bootstrap flow.
+
+The global project avoids both issues: it always exists and TFC SAs already have `serviceUsageConsumer` on it. The trade-off is that the global project must have all APIs enabled that region/MC modules call for quota attribution. Ten APIs were added to the global module's `activated_apis` in [PR #1114](https://github.com/openshift-online/gcp-hcp-infra/pull/1114): `aiplatform`, `endpoints`, `eventarc`, `eventarcpublishing`, `gkeconnect`, `privilegedaccessmanager`, `pubsub`, `run`, `sqladmin`, and `workflows`. These API enablements do not create resources or incur cost.
+
+Reference: [GCP Quota project overview](https://cloud.google.com/docs/quotas/quota-project) | [PR #1073](https://github.com/openshift-online/gcp-hcp-infra/pull/1073) | [PR #1114](https://github.com/openshift-online/gcp-hcp-infra/pull/1114) | [GCP-990](https://redhat.atlassian.net/browse/GCP-990)
 
 ### 4. Integration Points
 
@@ -257,15 +262,19 @@ Create TFC workspaces mirroring the Atlantis projects in `atlantis-integration.y
 - [ ] Create `hcp-terraform/gcp-hcp-int/cloud.tf` pointing at meta workspace
 - [ ] No `tfe_variable_set` or `tfe_variable` resources needed — module handles variable sets via `apply_to_all_workspaces`
 - [ ] Open PR, merge to main (meta workspace applies)
-- [ ] **Provider configuration** for each migrated workspace config — update `google` and `google-beta` provider blocks **before** state seeding and the first speculative plan:
+- [ ] **Provider configuration** for each migrated workspace config -- update `google` and `google-beta` provider blocks **before** state seeding and the first speculative plan:
   ```hcl
+  locals {
+    global_project_id = "gcp-hcp-${local.env_config.abbreviation}-global"
+  }
+
   provider "google" {
-    billing_project       = "<target-project-id>"
+    billing_project       = local.global_project_id
     user_project_override = true
     default_labels        = local.common_labels
   }
   ```
-  This redirects GCP API activation checks to the target project (see [API Activation](#api-activation-and-the-user_project_override-pattern) below). Same pattern as `terraform/config/org/main.tf`. See [PR #1073](https://github.com/openshift-online/gcp-hcp-infra/pull/1073) for reference. Both `google` and `google-beta` provider blocks must be updated, including any aliased providers.
+  This redirects GCP API activation checks to the global project, avoiding bootstrap issues with non-existent target projects (see [API Activation](#api-activation-and-the-user_project_override-pattern)). The `global_project_id` local is derived from metadata because provider blocks cannot reference data sources. Both `google` and `google-beta` provider blocks must be updated, including any aliased providers. See [PR #1114](https://github.com/openshift-online/gcp-hcp-infra/pull/1114) for reference.
 - [ ] **State seeding** (per workspace, for workspaces with existing Atlantis-managed infrastructure):
   1. Freeze Atlantis for the workspace: disable the autoplan entry in `atlantis-{env}.yaml` (or drain/cancel in-flight Atlantis operations) to prevent state changes during the migration window
   2. Lock the TFC workspace via API
@@ -429,7 +438,7 @@ Stories 2 and 3 can run in parallel (both depend only on Story 1).
 | Atlantis and TFC both triggering on same PR | Disable Atlantis autoplan for workspaces that TFC manages before enabling TFC |
 | Module upstream breakage | Pin to specific module version in TFC private registry; test upgrades in integration first |
 | Plan SA needs more than viewer for certain plans | If `terraform plan` fails with viewer-only, add specific read roles to plan SA — or use `use_apply_role_for_plan` ([infra-platform#119](https://github.com/openshift-online/infra-platform/pull/119)) to fall back to unified roles |
-| GCP API activation fails on access project (quota project mismatch) | Set `user_project_override = true` and `billing_project` in provider blocks to redirect activation checks to the target project. See [API Activation](#api-activation-and-the-user_project_override-pattern) |
+| GCP API activation fails on access project (quota project mismatch) | Set `user_project_override = true` and `billing_project` in provider blocks to redirect activation checks to the global project. Global is used instead of the target project to avoid bootstrap chicken-and-egg issues. See [API Activation](#api-activation-and-the-user_project_override-pattern) |
 | TFC workspace created without state sees zero resources and tries to create everything | Seed state from GCS via the State Versions API **before** the first plan. See [State Management](#3-state-management) |
 | Fork PRs do not trigger TFC speculative plans | Contributors must push branches to the upstream repo, not open PRs from forks. Document in team onboarding |
 | Incomplete trigger prefixes miss shared module changes | Include shared module paths (`terraform/modules/{type}/`) in workspace trigger prefixes alongside config-specific paths |
@@ -457,7 +466,7 @@ Workspace migrations uncovered several undocumented requirements. The first batc
 | # | Finding | Impact | Resolution | Reference |
 |---|---------|--------|------------|-----------|
 | 1 | TFC remote execution ignores `backend "gcs"` blocks — workspace starts with empty state | TFC sees zero resources, attempts to create all infrastructure from scratch | Seed state from GCS via State Versions API before first plan | [State Management](#3-state-management), Story 4 |
-| 2 | GCP API activation checks hit the SA's home project (access project), which lacks target-project APIs | Plans fail with "API has not been used in project" errors | Set `user_project_override = true` + `billing_project` in provider blocks | [API Activation](#api-activation-and-the-user_project_override-pattern), [GCP-990](https://redhat.atlassian.net/browse/GCP-990), [PR #1073](https://github.com/openshift-online/gcp-hcp-infra/pull/1073) |
+| 2 | WIF authentication checks API activation against the access project (WIF pool's project), which lacks target-project APIs | Plans fail with "API has not been used in project" errors | Set `user_project_override = true` + `billing_project` pointing to global project (not target, to avoid bootstrap chicken-and-egg). 10 APIs added to global module in [PR #1114](https://github.com/openshift-online/gcp-hcp-infra/pull/1114) | [API Activation](#api-activation-and-the-user_project_override-pattern), [GCP-990](https://redhat.atlassian.net/browse/GCP-990), [PR #1073](https://github.com/openshift-online/gcp-hcp-infra/pull/1073), [PR #1114](https://github.com/openshift-online/gcp-hcp-infra/pull/1114) |
 | 3 | TFC does not run speculative plans on fork PRs | Contributors from forks get no plan feedback | Push branches to upstream repo | [Workflow Fit](#1-workflow-fit) |
 | 4 | Workspaces created with `auto_apply = false` need explicit enablement after cutover | Merges to main do not auto-apply until flag is set | Enable `auto_apply = true` per workspace after validation | Story 5, [GCP-951](https://redhat.atlassian.net/browse/GCP-951) |
 | 5 | Trigger prefixes missing shared module paths | Changes to shared modules do not trigger plans in dependent workspaces | Add `terraform/modules/{type}/` to trigger prefixes | Story 4 |
