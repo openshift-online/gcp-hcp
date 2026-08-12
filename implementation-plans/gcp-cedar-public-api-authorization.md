@@ -101,12 +101,14 @@ Roles are defined in a ConfigMap loaded at deployment time. They are **not** API
 
 **Separation of concerns**: Access management (platform-admin, service-admin) is fully separated from infrastructure management (cluster-admin, cluster-viewer). No single role conflates both. A full operator needs multiple bindings.
 
-**Grant constraints for `service-admin`**: Although `service-admin` holds `rolebinding.*` permissions, the RoleBinding validator enforces the following restrictions to prevent privilege escalation:
+**Grant constraints for any principal with `rolebinding.*`**: These restrictions apply to every principal whose effective permissions include `rolebinding.*` — whether they hold `service-admin` directly or hold a user-defined `CustomRole` that grants `rolebinding.*`. The RoleBinding validator enforces:
 
-- A `service-admin` may only create RoleBindings whose `roleRef` is a namespace-scoped access-management role (i.e., `service-admin` or a user-defined `CustomRole`). Referencing infrastructure roles (`cluster-admin`, `cluster-viewer`) is rejected.
-- A `service-admin` may not bind any role to their own subject via a RoleBinding they create (self-grant is rejected).
+- `roleRef` must reference a namespace-scoped access-management role. Infrastructure roles (`cluster-admin`, `cluster-viewer`) are explicitly rejected as valid `roleRef` values in a `RoleBinding`, regardless of the caller's role. The validator implements this by categorizing roles at config load time into **access-management roles** (those whose permissions are drawn exclusively from `{rolebinding,customrole}.*`) and **infrastructure roles** (those with `{cluster,nodepool}.*` permissions), then rejecting any `roleRef` that resolves to an infrastructure role.
+- Self-grant is rejected: a principal may not create or update a `RoleBinding` whose `subject` matches the caller's own identity.
 
-Similarly, the CustomRole validator (Story 3) rejects `CustomRole` definitions that include infrastructure permissions (`cluster.*`, `nodepool.*`) — custom roles are limited to access-management permissions within the namespace.
+Both constraints apply whether the caller is `service-admin` or a `CustomRole`-bearing principal with `rolebinding.*` permissions.
+
+Similarly, the CustomRole validator (Story 3) rejects `CustomRole` definitions that include infrastructure permissions (`cluster.*`, `nodepool.*`) — custom roles are limited to access-management permissions within the namespace. This prevents a service-admin from creating a `CustomRole` that grants `cluster-admin`-equivalent access and then binding it to themselves or others.
 
 ### ConfigMap Format
 
@@ -393,6 +395,16 @@ when {
 ```
 
 Condition validation uses Cedar AST inspection (not string matching) to reject cross-namespace escalation and enforce an attribute allow-list.
+
+**Grant constraint propagation through CustomRole**: A `CustomRole` may include `rolebinding.*` permissions, making a principal bound to that role a de-facto grant manager. The same RoleBinding grant constraints that apply to `service-admin` apply to any such principal:
+
+- The RoleBinding validator rejects `roleRef` values that resolve to infrastructure roles (`cluster-admin`, `cluster-viewer`), regardless of whether the caller's grant authority comes from the built-in `service-admin` or from a `CustomRole`.
+- Self-grant rejection applies equally.
+
+Required test coverage (Story 3):
+- A principal bound to a `CustomRole` with `rolebinding.*` is rejected when trying to bind an infrastructure roleRef (e.g., `cluster-admin`)
+- A principal bound to a `CustomRole` with `rolebinding.*` is rejected when self-granting any role
+- A `CustomRole` definition that includes infrastructure permissions (`cluster.*`, `nodepool.*`) is rejected at creation time by the CustomRole validator
 
 ---
 
