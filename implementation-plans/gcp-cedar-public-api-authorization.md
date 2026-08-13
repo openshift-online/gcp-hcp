@@ -16,11 +16,11 @@ This implements the architecture decided in [cedar-public-api-authorization](../
 |---|---|
 | User identity source | `X-Endpoint-API-UserInfo` header (base64 JWT claims injected by ESPv2 sidecar) |
 | Principal key | Email claim (e.g., `User::"alice@example.com"`) |
-| Role definition source | ConfigMap loaded at deployment time (not an API resource) |
+| Role definition source | Database (system roles seeded by role-seeder controller via private API; user-defined roles created via public API) |
 | Cedar dependency | `platform-api` module only (via `github.com/cedar-policy/cedar-go`) |
 | Namespace lifecycle | Implicit (no Namespace resource needed) |
 | Storage | Same Spanner database as Clusters/NodePools |
-| Entity cache | Cache until dirty — invalidate on RoleBinding/PlatformRoleBinding writes |
+| Entity cache | Cache until dirty — invalidate on RoleBinding/PlatformRoleBinding writes and on Role mutations |
 | Auth disable flag | Existing `--disable-auth` covers both private and public APIs; startup rejects `--disable-auth` combined with a non-loopback bind address |
 | Cross-namespace list | Namespace-filter via `ListOptions.Namespaces` in storage layer (database-level filtering) |
 
@@ -80,37 +80,42 @@ Every API operation maps to a single granular permission. Permissions follow the
 | `platformrolebinding.get` | `GetPlatformRoleBinding` | Platform |
 | `platformrolebinding.update` | `UpdatePlatformRoleBinding` | Platform |
 | `platformrolebinding.delete` | `DeletePlatformRoleBinding` | Platform |
-| `customrole.create` | `CreateCustomRole` | Namespace |
-| `customrole.list` | `ListCustomRoles` | Namespace |
-| `customrole.get` | `GetCustomRole` | Namespace |
-| `customrole.update` | `UpdateCustomRole` | Namespace |
-| `customrole.delete` | `DeleteCustomRole` | Namespace |
+| `role.create` | `CreateRole` | Namespace |
+| `role.list` | `ListRoles` | Namespace |
+| `role.get` | `GetRole` | Namespace |
+| `role.update` | `UpdateRole` | Namespace |
+| `role.delete` | `DeleteRole` | Namespace |
 
 ---
 
-## Built-in Roles
+## Roles
 
-Roles are defined in a ConfigMap loaded at deployment time. They are **not** API resources — they cannot be created, modified, or deleted via the API. The ConfigMap is versioned in Git alongside the Helm chart.
+Roles are API resources stored in the database. Each role has a `system` flag:
 
-| Role | Scope | Permissions |
-|---|---|---|
-| `platform-admin` | Platform | `platformrolebinding.*` |
-| `service-admin` | Namespace | `rolebinding.*`, `customrole.*` |
-| `cluster-admin` | Namespace | `cluster.*`, `nodepool.*` |
-| `cluster-viewer` | Namespace | `cluster.list`, `cluster.get`, `nodepool.list`, `nodepool.get` |
+- **System roles** (`system: true`): Seeded by the role-seeder controller from a ConfigMap via the private API. Immutable via the public API — mutations are rejected with 403. The ConfigMap is versioned in Git alongside the Helm chart and reviewed via PR.
+- **User-defined roles** (`system: false`): Created by service-admins via the public API within a namespace. Support Cedar conditions for attribute-based access control (e.g., region-scoped read access).
+
+| Role | Scope | Permissions | System |
+|---|---|---|---|
+| `platform-admin` | Platform | `platformrolebinding.*` | `true` |
+| `service-admin` | Namespace | `rolebinding.*`, `role.*` | `true` |
+| `cluster-admin` | Namespace | `cluster.*`, `nodepool.*` | `true` |
+| `cluster-viewer` | Namespace | `cluster.list`, `cluster.get`, `nodepool.list`, `nodepool.get` | `true` |
 
 **Separation of concerns**: Access management (platform-admin, service-admin) is fully separated from infrastructure management (cluster-admin, cluster-viewer). No single role conflates both. A full operator needs multiple bindings.
 
-**Grant constraints for any principal with `rolebinding.*`**: These restrictions apply to every principal whose effective permissions include `rolebinding.*` — whether they hold `service-admin` directly or hold a user-defined `CustomRole` that grants `rolebinding.*`. The RoleBinding validator enforces:
+**Grant constraints for any principal with `rolebinding.*`**: These restrictions apply to every principal whose effective permissions include `rolebinding.*` — whether they hold `service-admin` directly or hold a user-defined role (a `Role` with `system: false`) that grants `rolebinding.*`. The RoleBinding validator enforces:
 
-- `roleRef` must reference a namespace-scoped access-management role. Infrastructure roles (`cluster-admin`, `cluster-viewer`) are explicitly rejected as valid `roleRef` values in a `RoleBinding`, regardless of the caller's role. The validator implements this by categorizing roles at config load time into **access-management roles** (those whose permissions are drawn exclusively from `{rolebinding,customrole}.*`) and **infrastructure roles** (those with `{cluster,nodepool}.*` permissions), then rejecting any `roleRef` that resolves to an infrastructure role.
+- `roleRef` must reference a namespace-scoped access-management role. Infrastructure roles (`cluster-admin`, `cluster-viewer`) are explicitly rejected as valid `roleRef` values in a `RoleBinding`, regardless of the caller's role. The validator implements this by categorizing roles at policy generation time into **access-management roles** (those whose permissions are drawn exclusively from `{rolebinding,role}.*`) and **infrastructure roles** (those with `{cluster,nodepool}.*` permissions), then rejecting any `roleRef` that resolves to an infrastructure role.
 - Self-grant is rejected: a principal may not create or update a `RoleBinding` whose `subject` matches the caller's own identity.
 
-Both constraints apply whether the caller is `service-admin` or a `CustomRole`-bearing principal with `rolebinding.*` permissions.
+Both constraints apply whether the caller is `service-admin` or a user-defined-role-bearing principal with `rolebinding.*` permissions.
 
-Similarly, the CustomRole validator (Story 3) enforces an infrastructure permission allow-list: **read-only** infrastructure permissions (`cluster.list`, `cluster.get`, `nodepool.list`, `nodepool.get`) are allowed in a `CustomRole`; **write/delete** infrastructure permissions (`cluster.create`, `cluster.update`, `cluster.delete`, `nodepool.create`, `nodepool.update`, `nodepool.delete`) are rejected. This prevents a service-admin from creating a `CustomRole` that grants `cluster-admin`-equivalent write access while still enabling the primary ABAC use case: attribute-scoped read access (e.g., view clusters in a specific region).
+Similarly, the Role validator enforces an infrastructure permission allow-list: **read-only** infrastructure permissions (`cluster.list`, `cluster.get`, `nodepool.list`, `nodepool.get`) are allowed in a user-defined role; **write/delete** infrastructure permissions (`cluster.create`, `cluster.update`, `cluster.delete`, `nodepool.create`, `nodepool.update`, `nodepool.delete`) are rejected. This prevents a service-admin from creating a user-defined role that grants `cluster-admin`-equivalent write access while still enabling the primary ABAC use case: attribute-scoped read access (e.g., view clusters in a specific region).
 
-### ConfigMap Format
+### Seed Config Format
+
+The role-seeder controller reads its desired state from a ConfigMap. This ConfigMap is the **seed** — the database is the authoritative source of truth after reconciliation.
 
 ```yaml
 apiVersion: v1
@@ -123,6 +128,7 @@ data:
     roles:
       - name: cluster-viewer
         scope: namespace
+        system: true
         permissions:
           - cluster.list
           - cluster.get
@@ -130,6 +136,7 @@ data:
           - nodepool.get
       - name: cluster-admin
         scope: namespace
+        system: true
         permissions:
           - cluster.create
           - cluster.list
@@ -143,19 +150,21 @@ data:
           - nodepool.delete
       - name: service-admin
         scope: namespace
+        system: true
         permissions:
           - rolebinding.create
           - rolebinding.list
           - rolebinding.get
           - rolebinding.update
           - rolebinding.delete
-          - customrole.create
-          - customrole.list
-          - customrole.get
-          - customrole.update
-          - customrole.delete
+          - role.create
+          - role.list
+          - role.get
+          - role.update
+          - role.delete
       - name: platform-admin
         scope: platform
+        system: true
         permissions:
           - platformrolebinding.create
           - platformrolebinding.list
@@ -170,7 +179,25 @@ data:
         roleRef: platform-admin
 ```
 
-On startup, the server reads the ConfigMap, generates Cedar policies from the role definitions, and upserts bootstrap bindings into the store (idempotent).
+### Role-Seeder Controller
+
+The role-seeder is a Go controller in the gecko controller image, using `controller-runtime`, that reconciles the `gecko-authz-config` ConfigMap into Role and PlatformRoleBinding resources via the private API.
+
+**Authentication**: Kubernetes ServiceAccount with projected SA tokens (auto-rotated, short-lived, audience-bound). No manual credential management.
+
+**Authorization**: A `ClusterRole` granting CRUD on `roles` and `platformrolebindings` in the gecko API group, bound to the controller's ServiceAccount.
+
+**Reconciliation behavior**:
+
+1. Watches the `gecko-authz-config` ConfigMap in its namespace
+2. On change (or on startup), parses `roles.yaml` and `bootstrap.yaml`
+3. For each role in `roles.yaml`: creates the Role if missing, updates if the spec differs, deletes if removed from the ConfigMap. Only touches roles with `system: true`.
+4. For each binding in `bootstrap.yaml`: creates the PlatformRoleBinding if missing (idempotent). Does not delete bootstrap bindings on removal from the ConfigMap (safety measure — explicit deletion via kubectl is required).
+5. User-defined roles (`system: false`) are never touched by the controller.
+
+**Startup sequence**: No ordering dependency with `platform-api-server`. The controller reconciles asynchronously. Until reconciliation completes on a fresh deployment, all public API requests receive 403 — this is correct default-deny behavior. The reconciliation window is seconds, not minutes.
+
+**Failure mode**: If the private API is unavailable (kube-apiserver down), the controller retries via its standard reconcile loop with exponential backoff. Existing roles in the database continue to function — the policy set is already loaded in `platform-api-server` from the previous startup.
 
 ---
 
@@ -210,11 +237,11 @@ namespace Gecko {
   action UpdatePlatformRoleBinding appliesTo { principal: [User, PlatformRole], resource: Platform };
   action DeletePlatformRoleBinding appliesTo { principal: [User, PlatformRole], resource: Platform };
 
-  action CreateCustomRole appliesTo { principal: [User, NamespaceRole], resource: Namespace };
-  action ListCustomRoles  appliesTo { principal: [User, NamespaceRole], resource: Namespace };
-  action GetCustomRole    appliesTo { principal: [User, NamespaceRole], resource: Namespace };
-  action UpdateCustomRole appliesTo { principal: [User, NamespaceRole], resource: Namespace };
-  action DeleteCustomRole appliesTo { principal: [User, NamespaceRole], resource: Namespace };
+  action CreateRole appliesTo { principal: [User, NamespaceRole], resource: Namespace };
+  action ListRoles  appliesTo { principal: [User, NamespaceRole], resource: Namespace };
+  action GetRole    appliesTo { principal: [User, NamespaceRole], resource: Namespace };
+  action UpdateRole appliesTo { principal: [User, NamespaceRole], resource: Namespace };
+  action DeleteRole appliesTo { principal: [User, NamespaceRole], resource: Namespace };
 }
 ```
 
@@ -224,12 +251,14 @@ The schema is documentation only — it is not enforced at runtime. The Go code 
 
 ## Cedar Policy Generation
 
-Each role in the ConfigMap is translated into a Cedar `permit` policy at startup. Permission names map to Cedar actions via the explicit permission-to-action table in the [Granular Permissions](#granular-permissions) section above (e.g., `cluster.create` -> `CreateCluster`). Unknown permission names are rejected at startup.
+Each role in the database is translated into a Cedar `permit` policy. The policy set is built at startup from all roles in the database and rebuilt on Role resource changes (hot-reload). Permission names map to Cedar actions via the explicit permission-to-action table in the [Granular Permissions](#granular-permissions) section above (e.g., `cluster.create` -> `CreateCluster`). Unknown permission names are rejected at policy generation time.
+
+**Hot-reload**: `platform-api-server` watches its own Role resources via the ResourceStore (or Spanner Change Stream) and regenerates the Cedar policy set on create, update, or delete. This is necessary for both system role updates (deployed via the role-seeder controller) and user-defined role changes (created via the public API). The policy set swap is atomic — the old set continues serving requests until the new one is fully built.
 
 For a namespace-scoped role:
 
 ```cedar
-// Built-in role: cluster-viewer
+// System role: cluster-viewer
 permit (
     principal,
     action in [Action::"ListClusters", Action::"GetCluster",
@@ -242,7 +271,7 @@ when { principal in resource };
 For a platform-scoped role:
 
 ```cedar
-// Built-in role: platform-admin
+// System role: platform-admin
 permit (
     principal,
     action in [Action::"CreatePlatformRoleBinding", Action::"ListPlatformRoleBindings",
@@ -263,11 +292,14 @@ In addition to `permit` policies, the policy set includes platform-level `forbid
 
 | Resource | Scope | Purpose |
 |---|---|---|
+| `Role` | Namespace or Platform | Defines a set of permissions. Scope is per-role (most system roles are namespace-scoped; `platform-admin` is platform-scoped). System roles (`system: true`) are seeded by the role-seeder controller and immutable via the public API. User-defined roles (`system: false`) are created by service-admins within a namespace. |
 | `RoleBinding` | Namespaced | Binds a user email to a role within a namespace |
 | `PlatformRoleBinding` | Cluster-scoped | Binds a user email to a platform-scoped role |
-| `CustomRole` | Namespaced (future) | User-defined role with Cedar conditions |
 
-There is no `Role` API resource. Built-in roles are defined in the ConfigMap and are not exposed as API objects.
+**Dual API surface for Roles**:
+
+- **Private API** (kube-apiserver, kube RBAC): Full CRUD on all roles — used by the role-seeder controller and SRE tooling (`kubectl`).
+- **Public API** (Cedar-authorized): Read-only for system roles (`system: true`). Full CRUD for user-defined roles (`system: false`) within the caller's authorized namespaces, requiring `role.*` permissions. Mutations to system roles return 403.
 
 ---
 
@@ -332,6 +364,12 @@ HTTP Request
 | GET | `/platformrolebindings/{name}` | `GetPlatformRoleBinding` | Pre-filter |
 | PUT/PATCH | `/platformrolebindings/{name}` | `UpdatePlatformRoleBinding` | Pre-filter |
 | DELETE | `/platformrolebindings/{name}` | `DeletePlatformRoleBinding` | Pre-filter |
+| GET | `/namespaces/{ns}/roles` | `ListRoles` | Pre-filter |
+| POST | `/namespaces/{ns}/roles` | `CreateRole` | Pre-filter |
+| GET | `/namespaces/{ns}/roles/{name}` | `GetRole` | Pre-filter |
+| PUT/PATCH | `/namespaces/{ns}/roles/{name}` | `UpdateRole` | Pre-filter |
+| DELETE | `/namespaces/{ns}/roles/{name}` | `DeleteRole` | Pre-filter |
+| GET | `/roles` | `ListRoles` | **Namespace-filter** |
 
 ---
 
@@ -356,21 +394,23 @@ The entity graph (user -> roles -> namespaces) is cached in memory and invalidat
 - **Cache key**: user email
 - **Population**: on first authorization check for a user, query RoleBindings and PlatformRoleBindings, build the entity graph, cache it
 - **Invalidation**: per-subject. When a binding is written, only the affected user's cache entry is evicted. If the subject changes during an update, both old and new subjects are invalidated.
+- **Role changes**: When a Role is created, updated, or deleted, regenerate the Cedar policy set. On update/delete, invalidate all users bound to the affected role (query RoleBindings by roleRef). Role changes are infrequent, so the broader invalidation is acceptable.
 - **Multi-instance**: Spanner Change Streams provide cross-instance invalidation — the notification payload includes the affected subject.
 
 ---
 
-## Custom Roles (Future)
+## User-Defined Roles
 
-Service-admins will be able to create namespace-scoped custom roles with Cedar conditions:
+Service-admins can create namespace-scoped user-defined roles with Cedar conditions:
 
 ```yaml
 apiVersion: gcp.managed.openshift.io/v1
-kind: CustomRole
+kind: Role
 metadata:
   name: us-east-cluster-viewer
   namespace: project-a
 spec:
+  system: false
   permissions:
     - cluster.list
     - cluster.get
@@ -396,16 +436,17 @@ when {
 
 Condition validation uses Cedar AST inspection (not string matching) to reject cross-namespace escalation and enforce an attribute allow-list.
 
-**Grant constraint propagation through CustomRole**: A `CustomRole` may include `rolebinding.*` permissions, making a principal bound to that role a de-facto grant manager. The same RoleBinding grant constraints that apply to `service-admin` apply to any such principal:
+**Grant constraint propagation through user-defined roles**: A user-defined role may include `rolebinding.*` permissions, making a principal bound to that role a de-facto grant manager. The same RoleBinding grant constraints that apply to `service-admin` apply to any such principal:
 
-- The RoleBinding validator rejects `roleRef` values that resolve to infrastructure roles (`cluster-admin`, `cluster-viewer`), regardless of whether the caller's grant authority comes from the built-in `service-admin` or from a `CustomRole`.
+- The RoleBinding validator rejects `roleRef` values that resolve to infrastructure roles (`cluster-admin`, `cluster-viewer`), regardless of whether the caller's grant authority comes from the built-in `service-admin` or from a user-defined role.
 - Self-grant rejection applies equally.
 
-Required test coverage (Story 3):
-- A principal bound to a `CustomRole` with `rolebinding.*` is rejected when trying to bind an infrastructure roleRef (e.g., `cluster-admin`)
-- A principal bound to a `CustomRole` with `rolebinding.*` is rejected when self-granting any role
-- A `CustomRole` definition that includes infrastructure write/delete permissions (`cluster.create`, `cluster.update`, `cluster.delete`, `nodepool.create`, `nodepool.update`, `nodepool.delete`) is rejected at creation time by the CustomRole validator
-- A `CustomRole` definition with infrastructure read-only permissions (`cluster.list`, `cluster.get`, `nodepool.list`, `nodepool.get`) is accepted (primary ABAC use case)
+Required test coverage:
+- A principal bound to a user-defined role with `rolebinding.*` is rejected when trying to bind an infrastructure roleRef (e.g., `cluster-admin`)
+- A principal bound to a user-defined role with `rolebinding.*` is rejected when self-granting any role
+- A user-defined role that includes infrastructure write/delete permissions (`cluster.create`, `cluster.update`, `cluster.delete`, `nodepool.create`, `nodepool.update`, `nodepool.delete`) is rejected at creation time by the Role validator
+- A user-defined role with infrastructure read-only permissions (`cluster.list`, `cluster.get`, `nodepool.list`, `nodepool.get`) is accepted (primary ABAC use case)
+- Mutations to system roles (`system: true`) via the public API return 403
 
 ---
 
@@ -413,11 +454,11 @@ Required test coverage (Story 3):
 
 Each region runs an independent Gecko instance with its own Spanner database. The authorization data strategy has two tiers:
 
-**Tier 1 (Baseline)**: The Marketplace Handler fans out namespace-level `ServiceAdmin` bindings to all regions at service enablement time (and revokes them on disable). Namespace-level bindings for infrastructure roles (cluster-admin, cluster-viewer) are regional — created in the region where the clusters live.
+**Tier 1 (Baseline)**: The Marketplace Handler fans out namespace-level `ServiceAdmin` bindings to all regions at service enablement time (and revokes them on disable). The role-seeder controller runs in each region and reconciles system roles independently. Namespace-level bindings for infrastructure roles (cluster-admin, cluster-viewer) are regional — created in the region where the clusters live.
 
 **Tier 2 (Future, when needed)**: Async replication of bindings across regions via Pub/Sub. Local Gecko instances publish binding mutations to a global Pub/Sub topic. Regional instances subscribe and replay mutations into their local Spanner. The existing Spanner Change Stream broadcaster can serve as the source of replication events.
 
-Triggers for Tier 2: ServiceAdmins needing bindings to apply globally, or custom roles requiring cross-region consistency.
+Triggers for Tier 2: ServiceAdmins needing bindings to apply globally, or user-defined roles requiring cross-region consistency.
 
 ---
 
@@ -426,37 +467,40 @@ Triggers for Tier 2: ServiceAdmins needing bindings to apply globally, or custom
 ```text
 platform-api/
   api/private/v1/
-    rolebinding_types.go                   # RoleBinding type (namespaced)
-    platformrolebinding_types.go           # PlatformRoleBinding type (cluster-scoped)
-    customrole_types.go                    # CustomRole type (namespaced, future)
+    role_types.go                            # Role type (both scopes, system flag)
+    rolebinding_types.go                     # RoleBinding type (namespaced)
+    platformrolebinding_types.go             # PlatformRoleBinding type (cluster-scoped)
   api/public/v1/
-    zz_generated.rolebinding_types.go      # (generated by orlop-gen)
+    zz_generated.role_types.go               # (generated by orlop-gen)
+    zz_generated.rolebinding_types.go        # (generated by orlop-gen)
     zz_generated.platformrolebinding_types.go
-    zz_generated.customrole_types.go       # (future)
-    zz_generated.conversion.go             # (regenerated)
-    zz_generated.schemas.go                # (regenerated)
+    zz_generated.conversion.go               # (regenerated)
+    zz_generated.schemas.go                  # (regenerated)
   pkg/
     authn/
-      middleware.go                        # X-Endpoint-API-UserInfo extraction
+      middleware.go                          # X-Endpoint-API-UserInfo extraction
       middleware_test.go
     authz/
-      authorizer.go                        # Cedar PolicySet + Authorize()
-      config.go                            # ConfigMap parsing (roles, bootstrap)
-      entities.go                          # EntityGetter backed by RoleBinding stores
-      cache.go                             # Entity cache with dirty invalidation
-      middleware.go                        # HTTP authz middleware
-      policygen.go                         # Cedar policy generation from role definitions
-      bootstrap.go                         # Bootstrap loader for initial bindings
-      validator.go                         # RoleRef validation
+      authorizer.go                          # Cedar PolicySet + Authorize()
+      entities.go                            # EntityGetter backed by RoleBinding stores
+      cache.go                               # Entity cache with dirty invalidation
+      middleware.go                           # HTTP authz middleware
+      policygen.go                           # Cedar policy generation from role definitions
+      reload.go                              # Policy set hot-reload on Role changes
+      validator.go                           # RoleRef + Role validation
       authorizer_test.go
-      config_test.go
       middleware_test.go
       entities_test.go
       cache_test.go
       policygen_test.go
-      bootstrap_test.go
+      reload_test.go
+      validator_test.go
   cmd/platform-api-server/
-    main.go                                # Wire authn/authz middleware, load config
+    main.go                                  # Wire authn/authz middleware, load roles from DB
+controllers/
+  role-seeder/
+    controller.go                            # Reconciles ConfigMap -> Role + PlatformRoleBinding
+    controller_test.go
 deploy/
-  gecko-authz-config.yaml                  # ConfigMap with built-in roles and bootstrap
+  gecko-authz-config.yaml                    # Seed config for role-seeder controller
 ```
