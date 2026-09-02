@@ -47,32 +47,7 @@ This implements the architecture decided in [cross-region-resource-replication](
 
 ---
 
-## Leadership Configuration
-
-Each regional deployment receives both its own region and the configured leader region.
-
-```yaml
-replication:
-  region: us-east1
-  leaderRegion: us-east1
-```
-
-Follower example:
-
-```yaml
-replication:
-  region: europe-west1
-  leaderRegion: us-east1
-```
-
-Mode should be derived from `region == leaderRegion` rather than independently configured where possible:
-
-```go
-mode := "follower"
-if cfg.Region == cfg.LeaderRegion {
-    mode = "leader"
-}
-```
+## Configuration
 
 ### Startup Flags
 
@@ -86,7 +61,7 @@ if cfg.Region == cfg.LeaderRegion {
 | `--replicate` | `REPL_RESOURCE_TYPES` | (required) | Comma-separated resource types to replicate, for example `roles.gcp.managed.openshift.io,rolebindings.gcp.managed.openshift.io` |
 | `--resync-interval` | `REPL_RESYNC_INTERVAL` | `30m` | Leader interval for periodic resource resync and inventory publishing |
 
-The `PUBSUB_EMULATOR_HOST` environment variable is supported for local development with the Pub/Sub emulator.
+Mode is derived from `region == leaderRegion` at startup. The `PUBSUB_EMULATOR_HOST` environment variable is supported for local development with the Pub/Sub emulator.
 
 ---
 
