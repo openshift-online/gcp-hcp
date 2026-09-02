@@ -86,3 +86,4 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [platform-api](governance/platform-api.md) | Platform API server as single source of truth for CLM API definition |
 | [gecko-graduation](governance/gecko-graduation.md) | Graduate Platform API experiment to dedicated gecko repository |
 | [kube-applier-gcp-graduation](governance/kube-applier-gcp-graduation.md) | Graduate kube-applier-gcp experiment to dedicated repository |
+| [gcp-marketplace-integration](governance/gcp-marketplace-integration.md) | GCP Marketplace SaaS integration with Pub/Sub event-driven provisioning |
