@@ -12,7 +12,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [gke-fleet-management](infrastructure/gke-fleet-management.md) | GKE Fleet for cluster bootstrap without external network access |
 | [shared-node-pools](infrastructure/shared-node-pools.md) | Shared node pool architecture for management cluster control plane components |
 | [hosted-cluster-upgrade-policy](infrastructure/hosted-cluster-upgrade-policy.md) | Mandatory platform-managed control plane upgrades with customer timing controls |
-| [cross-region-resource-replication](infrastructure/cross-region-resource-replication.md) | Generic Pub/Sub-based cross-region replication for API resources with annotation-based scope control |
+| [cross-region-resource-replication](infrastructure/cross-region-resource-replication.md) | Single-leader Pub/Sub replication for API resources with read-only follower mirrors |
 
 ## Networking
 
