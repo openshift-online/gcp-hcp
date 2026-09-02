@@ -648,7 +648,7 @@ Same as Role validation. PlatformRoles are only created via the private API (Hel
 
 ### Leader-Only Writes
 
-Role and RoleBinding writes are accepted only in the configured leader region. Follower regions keep read-only mirrors of leader state and reject direct public API write attempts, even when the caller is otherwise authorized. The CLI routes Role and RoleBinding operations to the leader by default. See the [cross-region replication plan](gcp-cross-region-resource-replication.md#public-api-read-only-enforcement) for details.
+Role and RoleBinding writes are accepted only in the configured leader region. Follower regions keep read-only mirrors of leader state and reject direct public API write attempts, even when the caller is otherwise authorized. The CLI routes Role and RoleBinding operations to the leader by default. During a leader outage, Cedar authorization in follower regions continues to evaluate from local mirror data — existing authorization grants remain in effect, but no new Roles or RoleBindings can be created, updated, or deleted until a new leader is promoted. See the [cross-region replication plan](gcp-cross-region-resource-replication.md#public-api-read-only-enforcement) for details.
 
 ### ValidatorDeps
 

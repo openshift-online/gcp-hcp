@@ -96,11 +96,11 @@ The CLI routes requests to the configured leader region.
 
 ### Behavior
 
-1. Discover the current leader region and endpoint from environment metadata, a regional discovery endpoint, or static service configuration.
+1. Discover the current leader region and endpoint from the metadata service. The metadata service provides the CLI with regional configuration including the current leader region and its API endpoint.
 2. Send reads and writes to the leader endpoint.
 3. If the user explicitly forces a follower endpoint, surface the follower's read-only rejection.
 4. Do not rely on server-side redirects for writes.
-5. Cache leader discovery only briefly, and invalidate it when a read-only rejection indicates stale routing information.
+5. Cache the metadata service response briefly, and invalidate it when a read-only rejection indicates stale routing information (the leader may have changed since the last discovery).
 
 ### Follower Rejection Response
 
@@ -223,7 +223,7 @@ type ObjectRef struct {
 | `RESYNC_REQUEST` | Follower asks the leader to immediately republish current state |
 | `INVENTORY` | Leader publishes the complete desired object set for one resource kind |
 
-For large datasets, `INVENTORY` can be split into chunked events. Followers must prune only after a complete inventory has been received and validated.
+For large datasets, `INVENTORY` can be split into chunked events. Chunked inventories share the same `SyncID` value. Each chunk includes `ChunkIndex` (zero-based) and `ChunkCount` (total number of chunks), or alternatively a `Final` flag on the last chunk. Followers must assemble all chunks for a given `SyncID` and resource kind before pruning, and must discard incomplete chunk sets after a timeout. The full chunk envelope schema, assembly algorithm, and error handling are deferred to future work — the initial authorization use case is expected to fit within a single `INVENTORY` message.
 
 ---
 
@@ -259,7 +259,7 @@ On follower reconcile:
 
 1. The publisher is not registered.
 2. No local watch event is published.
-3. Any attempt by a follower to publish is an error and should increment `replication_events_rejected_total{reason="follower_publish"}`.
+3. Any attempt by a follower to publish a data event (`CREATE_OR_UPDATE`, `DELETE`, `INVENTORY`) is an error and should increment `replication_events_rejected_total{reason="follower_publish"}`.
 
 Failed publishes are requeued after a short delay, for example 5 seconds.
 
@@ -275,6 +275,8 @@ The resync repairs missed create/update events. The inventory allows followers t
 ### Resync Request Handling
 
 When a follower starts or detects drift, it publishes a `RESYNC_REQUEST`. Only the configured leader responds by triggering an immediate resync and inventory publish. Followers do not respond to `RESYNC_REQUEST` events.
+
+**Follower publish path**: `RESYNC_REQUEST` is a control-plane signal, not a data event. Followers publish it directly through a standalone Pub/Sub client, independent of the controller-runtime Publisher reconcilers (which are not registered in followers). The `replication_events_rejected_total{reason="follower_publish"}` metric applies only to data events (`CREATE_OR_UPDATE`, `DELETE`, `INVENTORY`), not to `RESYNC_REQUEST`.
 
 ---
 
@@ -381,20 +383,20 @@ This replaces the prior replicated-object lease and refresh-deadline garbage col
 ## Pub/Sub Topology
 
 ```text
-Leader Region (Publisher)  --publish-->  Pub/Sub Topic
+Leader Region (Publisher)  --publish-->  Pub/Sub Topic  <--RESYNC_REQUEST--  Followers
                                              |
-                                  +----------+----------+
-                                  v                     v
-                           Subscription A         Subscription B
-                           Follower A             Follower B
-                           Receiver applies       Receiver applies
-                           leader events          leader events
+                          +------------------+------------------+
+                          v                  v                  v
+                   Subscription L      Subscription A     Subscription B
+                   Leader                Follower A         Follower B
+                   Receiver handles      Receiver applies   Receiver applies
+                   RESYNC_REQUEST only   leader events      leader events
 ```
 
 Each region has:
 
-* A **Receiver** that subscribes to the topic via a region-specific subscription.
-* A **Publisher** that is active only when `region == leaderRegion`.
+* A **Receiver** that subscribes to the topic via a region-specific subscription. The leader's Receiver processes only `RESYNC_REQUEST` events (its own data events are skipped via the origin-region check). Follower Receivers process `CREATE_OR_UPDATE`, `DELETE`, and `INVENTORY` events from the leader.
+* A **Publisher** that is active only when `region == leaderRegion`. Followers do not register Publisher reconcilers but can publish `RESYNC_REQUEST` control-plane signals directly through a standalone Pub/Sub client (see [Resync Request Handling](#resync-request-handling)).
 
 The shared topic name and per-region subscription names are configured through Helm values and startup flags.
 
@@ -466,7 +468,7 @@ Leadership changes are manual. Automatic cross-region leader election is intenti
 ### Failover Procedure
 
 1. Declare leader outage or planned failover.
-2. Fence the old leader or confirm it cannot accept writes.
+2. Fence the old leader or confirm it cannot accept writes. **RPO note**: any writes accepted by the old leader but not yet published to Pub/Sub, or published but not yet delivered to follower subscriptions, are at risk of loss. The data loss window is bounded by the target follower's replication lag at the moment of failover. Check `replication_lag_seconds` and `replication_last_leader_event_timestamp` on the target follower before proceeding.
 3. Select the target follower region.
 4. Check the target follower's last applied leader event and replication lag.
 5. Update GitOps/Argo/Helm config so `leaderRegion` points to the target region.
@@ -575,6 +577,7 @@ The initial use case for cross-region replication is authorization Roles and Rol
 * **PlatformRoles are NOT replicated**: They are system-defined and deployed identically to all regions via Helm.
 * **Cedar hot-reload interaction**: When the receiver creates, updates, or deletes a mirrored Role or RoleBinding in the local database, the Cedar authorizer's watch mechanism detects the change and triggers policy rebuild and cache invalidation.
 * **Marketplace integration**: The Marketplace controller creates the initial `service-admin` RoleBinding through the leader. The replication controller propagates it to follower regions.
+* **Leader outage behavior**: During a leader outage, follower regions continue to evaluate Cedar authorization decisions from their local mirror data. Authorization remains available but may become stale — no new Roles or RoleBindings can be created, updated, or deleted until a new leader is promoted. Existing authorization grants remain in effect. The staleness window is bounded by the time between the leader outage and the next successful failover.
 
 ---
 

@@ -50,7 +50,7 @@ The design intentionally trades independent regional write authority for a simpl
 * A leader outage makes writes unavailable until operators manually promote another region.
 * Cross-region write latency increases for users far from the leader.
 * Follower reads can lag behind the leader because replication is asynchronous.
-* Failover has an RPO bounded by replication lag: writes accepted by the failed leader but not yet replicated to the promoted follower may be lost.
+* Failover has an RPO bounded by replication lag: writes accepted by the failed leader but not yet published to Pub/Sub, or published but not yet delivered to the promoted follower's subscription, may be lost. Operators should check the target follower's replication lag metrics before promotion to understand the data loss window.
 * Failover has an RTO bounded by detection, fencing, GitOps/Argo/Helm rollout, and validation time.
 * GitOps rollout skew can create split-brain risk if more than one region accepts writes; fencing and alerts are required.
 * Pub/Sub remains at-least-once and unordered, so receivers must be idempotent and reject stale or non-leader events.
