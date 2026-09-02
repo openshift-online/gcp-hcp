@@ -6,7 +6,7 @@ Migrate infrastructure automation from self-hosted Atlantis to HCP Terraform Clo
 
 Integration environment first, then stage. Production does not have Atlantis today, so TFC will be the first automation there.
 
-**Status (2026-08-21)**: Stories 1–5 are complete for integration — `terraform/atlantis-integration.yaml` no longer lists `global`, `region`, or `management-cluster` projects, all three run on TFC with `auto_apply = true` (validated in [GCP-951](https://redhat.atlassian.net/browse/GCP-951), now Closed). Region/MC onboarding automation (Story 6 script work) shipped under [GCP-535](https://redhat.atlassian.net/browse/GCP-535). `hypershift-ci` and `platform-ci` migrated to `gcp-hcp-ci` on TFC via [GCP-1093](https://redhat.atlassian.net/browse/GCP-1093) (complete 2026-08-21); `pagerduty` migrated to the new `gcp-hcp-tooling` TFC project via [GCP-1094](https://redhat.atlassian.net/browse/GCP-1094) (complete 2026-08-24). 1 Atlantis project remains unmigrated (`service`), which was not in the epic's original scope; see [Remaining Atlantis Projects](#remaining-atlantis-projects-not-yet-migrated) for its target TFC project and tracking ticket ([GCP-1092](https://redhat.atlassian.net/browse/GCP-1092)). Also remaining: Story 6 doc finalization ([GCP-952](https://redhat.atlassian.net/browse/GCP-952)), Story 7/8 stage and production rollout ([GCP-953](https://redhat.atlassian.net/browse/GCP-953)), Story 9 decommission ([GCP-954](https://redhat.atlassian.net/browse/GCP-954)).
+**Status (2026-09-01)**: Stories 1–5 are complete for integration — `terraform/atlantis-integration.yaml` no longer lists `global`, `region`, or `management-cluster` projects, all three run on TFC with `auto_apply = true` (validated in [GCP-951](https://redhat.atlassian.net/browse/GCP-951), now Closed). Region/MC onboarding automation (Story 6 script work) shipped under [GCP-535](https://redhat.atlassian.net/browse/GCP-535). All post-epic Atlantis integration projects have also migrated: `hypershift-ci` and `platform-ci` to `gcp-hcp-ci` via [GCP-1093](https://redhat.atlassian.net/browse/GCP-1093) (2026-08-21); `pagerduty` to the new `gcp-hcp-tooling` TFC project via [GCP-1094](https://redhat.atlassian.net/browse/GCP-1094) (2026-08-24); and `service` via [GCP-1092](https://redhat.atlassian.net/browse/GCP-1092) (now Closed) — **not** into a dedicated `gcp-hcp-service` project as originally planned, but as a workspace inside the existing `gcp-hcp-integration` TFC project (reusing `gcp-hcp-int-tfc-access`; see [Atlantis Project Migrations](#atlantis-project-migrations-post-epic)). `terraform/atlantis-integration.yaml` now lists no projects — **no Atlantis integration projects remain**. Separately, `commons` and `commons-dev` — never on Atlantis, previously SRE-manual-applied — are now fully TFC-native in a dedicated `gcp-hcp-commons` TFC project with `auto_apply = true` via [GCP-1111](https://redhat.atlassian.net/browse/GCP-1111) (see [Commons Migration](#commons--commons-dev-migration-to-tfc-gcp-1111--complete)). Also remaining: Story 6 doc finalization ([GCP-952](https://redhat.atlassian.net/browse/GCP-952)), Story 7/8 stage and production rollout ([GCP-953](https://redhat.atlassian.net/browse/GCP-953)), Story 9 decommission ([GCP-954](https://redhat.atlassian.net/browse/GCP-954)), and migrating the org-level Terraform config to TFC ([GCP-1112](https://redhat.atlassian.net/browse/GCP-1112), New — gated on a security review; see [Remaining Scope](#remaining-scope-org-level-terraform-config-gcp-1112--not-started)).
 
 **Epic**: [GCP-532](https://redhat.atlassian.net/browse/GCP-532) - Terraform Cloud Evaluation & Plan
 
@@ -211,12 +211,14 @@ Split IAM creation from workspace creation — IAM propagation delay (~60s) mean
 
 ## Story 3: Commons Cross-Project Grants (Integration) — ✅ Complete
 
+> **Partly superseded by [Commons + commons-dev Migration to TFC (GCP-1111)](#commons--commons-dev-migration-to-tfc-gcp-1111--complete).** This story granted the *integration* TFC plan/apply SAs (`gcp-hcp-int-tfc-access`) access to commons resources so integration workspaces could read commons state — that is still in place (the `terraform/modules/commons/tfc-iam.tf` grants below). What has changed is how commons *itself* is managed: it is no longer an SRE-manual-applied module. As of GCP-1111, `commons` and `commons-dev` are fully TFC-native (dedicated `gcp-hcp-commons` TFC project, `auto_apply = true`), so these grants now apply via the `gcp-hcp-commons` TFC workspace rather than a manual SRE `terraform apply`.
+
 ### Summary
 
 Grant the apply SA access to commons resources: Terraform state bucket, GAR repo, and project-creator SA impersonation.
 
 **Repo**: `gcp-hcp-infra`
-**Applied by**: SRE manual apply (commons module is not managed by Atlantis)
+**Applied by**: Originally SRE manual apply (commons was not managed by Atlantis or TFC at the time); now applied by the `gcp-hcp-commons` TFC workspace, since commons is TFC-native as of [GCP-1111](https://redhat.atlassian.net/browse/GCP-1111)
 **Depends on**: Story 1 (SAs must exist)
 
 ### Tasks
@@ -279,16 +281,8 @@ Create TFC workspaces mirroring the Atlantis projects in `atlantis-integration.y
   }
   ```
   This redirects GCP API activation checks to the global project, avoiding bootstrap issues with non-existent target projects (see [API Activation](#api-activation-and-the-user_project_override-pattern) above). The `global_project_id` local is derived from metadata because provider blocks cannot reference data sources. Both `google` and `google-beta` provider blocks must be updated, including any aliased providers. See [PR #1114](https://github.com/openshift-online/gcp-hcp-infra/pull/1114) for reference.
-- [x] **State seeding** (per workspace, for workspaces with existing Atlantis-managed infrastructure):
-  1. Freeze Atlantis for the workspace: disable the autoplan entry in `atlantis-{env}.yaml` (or drain/cancel in-flight Atlantis operations) to prevent state changes during the migration window
-  2. Lock the TFC workspace via API
-  3. Download the current state from GCS: `gsutil cp gs://{state-bucket}/{workspace}.tfstate .`
-  4. Base64-encode the state JSON and compute its MD5 hash
-  5. Upload to TFC via the [State Versions API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs/state-versions): `POST /workspaces/{id}/state-versions` with `data.type = "state-versions"`, `data.attributes.serial` (matching the state file's serial), `data.attributes.md5`, and either the base64-encoded `data.attributes.state` or the hosted-upload-url flow
-  6. Poll until `status = "finalized"` and verify in TFC UI that resource count matches the GCS state — do not proceed while still `pending`
-  7. Unlock the workspace
-  8. Run a speculative plan — it should show no changes (or only expected drift)
-  > **Important**: Atlantis must remain frozen from step 1 through the end of verification (step 8). An Atlantis apply between state download and TFC upload would leave TFC with a stale snapshot.
+- [x] **State seeding** (per workspace, for workspaces with existing Atlantis-managed infrastructure): follow the [State Management](#3-state-management) procedure (freeze Atlantis → lock workspace → download GCS state → upload via State Versions API preserving serial/MD5 → verify resource count → unlock → securely delete the local `.tfstate`), then run a speculative plan and confirm it shows no changes (or only expected drift).
+  > **Important**: Atlantis must remain frozen from the initial freeze through the end of plan verification. An Atlantis apply between state download and TFC upload would leave TFC with a stale snapshot.
 
 ### Acceptance Criteria
 
@@ -440,7 +434,7 @@ Stories 2 and 3 can run in parallel (both depend only on Story 1).
 |---|---|
 | IAM propagation delay on new SA roles | Split SA creation (Story 1) from workspace creation (Story 4); allow ~60s between apply and first workspace run |
 | State file locking during parallel Atlantis + TFC | Freeze Atlantis for the workspace before downloading GCS state for seeding; keep frozen through upload, verification, and cutover. Only one system should apply at a time |
-| Commons module requires SRE manual apply | Coordinate with SRE; include in phase sequencing |
+| ~~Commons module requires SRE manual apply~~ (resolved) | No longer applicable — `commons` and `commons-dev` are TFC-native with `auto_apply = true` as of [GCP-1111](https://redhat.atlassian.net/browse/GCP-1111). Cross-project grants that were previously SRE-applied now apply via the `gcp-hcp-commons` TFC workspace. See [Commons Migration](#commons--commons-dev-migration-to-tfc-gcp-1111--complete) |
 | Atlantis and TFC both triggering on same PR | Disable Atlantis autoplan for workspaces that TFC manages before enabling TFC |
 | Module upstream breakage | Pin to specific module version in TFC private registry; test upgrades in integration first |
 | Plan SA needs more than viewer for certain plans | If `terraform plan` fails with viewer-only, add specific read roles to plan SA — or use `use_apply_role_for_plan` ([infra-platform#119](https://github.com/openshift-online/infra-platform/pull/119)) to fall back to unified roles |
@@ -450,33 +444,107 @@ Stories 2 and 3 can run in parallel (both depend only on Story 1).
 | Incomplete trigger prefixes miss shared module changes | Include shared module paths (`terraform/modules/{type}/`) in workspace trigger prefixes alongside config-specific paths |
 | Atlantis required status checks block PRs after cutover | Prow config in `openshift/release` defines `atlantis-{env}/plan` and `atlantis-{env}/apply` as required checks on `main`. After removing Atlantis projects, these checks never report, blocking all merges. Update Prow config per environment as part of the cutover (Story 5). PR against [`openshift/release`](https://github.com/openshift/release/blob/main/core-services/prow/02_config/openshift-online/gcp-hcp-infra/_prowconfig.yaml) |
 
-## Remaining Atlantis Projects (Not Yet Migrated)
+## Atlantis Project Migrations (Post-Epic)
 
-`terraform/atlantis-integration.yaml` still lists 1 project beyond global/region/MC (`service`). None of the post-epic Atlantis projects were in the epic's original scope — `hypershift-ci` was listed but explicitly deferred ("planned separately after environment workspaces are validated," a milestone completed via GCP-951) and has since migrated (see [Migrated](#migrated) below); `platform-ci`, `service`, and `pagerduty` were added to Atlantis after the epic was written and were never scoped at all. The one remaining has been ticketed with a target TFC project:
+All Atlantis projects beyond the original epic scope (`global`/`region`/`management-cluster`) have now migrated to TFC. `terraform/atlantis-integration.yaml` no longer lists any of them — **no Atlantis integration projects remain**. None of these were in the epic's original scope: `hypershift-ci` was listed but explicitly deferred ("planned separately after environment workspaces are validated," a milestone completed via GCP-951); `platform-ci`, `service`, and `pagerduty` were added to Atlantis after the epic was written and were never scoped at all.
 
-| Project | Target TFC Project | Notes | Ticket |
-|---|---|---|---|
-| `service` | `gcp-hcp-service` (new, dedicated) | Needs its own access-project bootstrap (Story-1 equivalent). It is also the one remaining live `backend = "gcs"` consumer of `global`'s state that Finding #9 could not switch to `backend = "remote"`; because `service` is still Atlantis-managed, its read stays on the frozen GCS snapshot until this migration, so the backend cutover must happen as part of it (see Finding #9 for the stale-output risk) | [GCP-1092](https://redhat.atlassian.net/browse/GCP-1092) |
+`service` is the notable correction here. It was **not** migrated into a new, dedicated `gcp-hcp-service` TFC project as this section previously described. The dedicated-project approach shipped first ([PR #1450](https://github.com/openshift-online/gcp-hcp-infra/pull/1450), with follow-ups [#1459](https://github.com/openshift-online/gcp-hcp-infra/pull/1459)/[#1461](https://github.com/openshift-online/gcp-hcp-infra/pull/1461)) but was then reworked ([PR #1474](https://github.com/openshift-online/gcp-hcp-infra/pull/1474)) into a **workspace inside the existing `gcp-hcp-integration` TFC project** (`gcp-hcp-service-integration`), reusing the `gcp-hcp-int-tfc-access` identity — the same pattern as `global`/`region`/`management-cluster`. As part of the rework, `hcp-terraform/gcp-hcp-service/` and `terraform/config/tfc-access/service/` were deleted, the `service` entry was removed from `tfc_service_accounts` in `terraform/config/commons/main.tf` (integration already had project-creator impersonation), and the dedicated `gcp-hcp-service-tfc-access` and `gcp-hcp-service` projects were decommissioned ([infra-platform#178](https://github.com/openshift-online/infra-platform/pull/178)). `terraform/config/service/integration/main.tf` now points `tfc_plan_sa_email`/`tfc_apply_sa_email` at `hcp-tf-default-{plan,apply}@gcp-hcp-int-tfc-access`. [GCP-1092](https://redhat.atlassian.net/browse/GCP-1092) is **Closed**.
 
-`gcp-hcp-service` does not exist yet; `gcp-hcp-tooling` now exists (created for `pagerduty` under [GCP-1094](https://redhat.atlassian.net/browse/GCP-1094)).
+`service` was also the last live `backend = "gcs"` consumer of `global`'s state flagged by [Migration Finding #9](#migration-findings); its migration closed that out. Verified on `main`: `terraform/config/service/integration/main.tf`'s `data.terraform_remote_state.global` now reads `gcp-hcp-global-integration` via `backend = "remote"` (no `backend "gcs"` remains), and `gcp-hcp-service-integration` is registered in the `gcp-hcp-global-integration` workspace's `remote_state_consumer_workspaces` (`hcp-terraform/gcp-hcp-integration/main.tf`). No `backend = "gcs"` consumers of `global` remain.
+
+`gcp-hcp-tooling` now exists (created for `pagerduty` under [GCP-1094](https://redhat.atlassian.net/browse/GCP-1094)). The `gcp-hcp-service` TFC project and its `gcp-hcp-service-tfc-access` project no longer exist (created, then decommissioned per the rework above).
 
 ### Migrated
 
-| Project | TFC Project | Migrated | PRs |
+| Project | TFC Project / Workspace | Migrated | PRs |
 |---|---|---|---|
 | `hypershift-ci` | `gcp-hcp-ci` | 2026-08-21 ([GCP-1093](https://redhat.atlassian.net/browse/GCP-1093)) | [#1391](https://github.com/openshift-online/gcp-hcp-infra/pull/1391), [#1411](https://github.com/openshift-online/gcp-hcp-infra/pull/1411) |
 | `platform-ci` | `gcp-hcp-ci` | 2026-08-21 ([GCP-1093](https://redhat.atlassian.net/browse/GCP-1093)) | [#1391](https://github.com/openshift-online/gcp-hcp-infra/pull/1391), [#1411](https://github.com/openshift-online/gcp-hcp-infra/pull/1411) |
 | `pagerduty` | `gcp-hcp-tooling` | 2026-08-24 ([GCP-1094](https://redhat.atlassian.net/browse/GCP-1094)) | [#1434](https://github.com/openshift-online/gcp-hcp-infra/pull/1434), [#1442](https://github.com/openshift-online/gcp-hcp-infra/pull/1442) |
+| `service` | `gcp-hcp-integration` (workspace `gcp-hcp-service-integration`) | [GCP-1092](https://redhat.atlassian.net/browse/GCP-1092) (Closed) | [#1450](https://github.com/openshift-online/gcp-hcp-infra/pull/1450), [#1459](https://github.com/openshift-online/gcp-hcp-infra/pull/1459), [#1461](https://github.com/openshift-online/gcp-hcp-infra/pull/1461), [#1474](https://github.com/openshift-online/gcp-hcp-infra/pull/1474) |
 
 `gcp-hcp-ci` already existed as a TFC project (access project `gcp-hcp-ci-tfc-access` bootstrapped). It now hosts `hypershift-ci` and `platform-ci` as persistent workspaces alongside Jim's ephemeral e2e workspaces. Both use the `gcp-dynamic-creds` access-project pattern (plan/apply SAs shared across the project via `apply_to_all_workspaces`), read `global` via `backend = "remote"` (added as remote-state consumers on `gcp-hcp-global-integration`, resolving the Finding #9 stale-snapshot risk), and were removed from Atlantis in the same change that switched the backend. State was seeded from GCS, validated as a no-op refresh plan, and `auto_apply` enabled. See Migration Finding #11 for the brownfield first-run detail.
+
+> **Follow-up ([PR #1495](https://github.com/openshift-online/gcp-hcp-infra/pull/1495))**: two pre-existing `platform-ci` bugs in `commons` (introduced by [PR #1462](https://github.com/openshift-online/gcp-hcp-infra/pull/1462)'s onboarding) surfaced while reconciling commons state after this migration and were fixed: (1) the `platform-ci.gcp-hcp.devshift.net` zone delegation had guessed, wrong name servers (`ns-cloud-d1..d4`) — corrected to the actual `ns-cloud-e1..e4` from the workspace outputs; (2) `platform-ci` was wrongly included in six commons `for_each` loops granting `atlantis@{env}`/`e2e-deployer@{env}` roles, causing perpetual plan drift for non-existent SAs (platform-ci only ever referenced `atlantis@global`, never a local `atlantis@platform-ci`) — fixed with `&& k != "platform-ci"` exclusions mirroring the existing `dev` exclusion. Collateral to GCP-1093; no bearing on the CI migration itself, but required before commons state could be considered reconciled.
 
 `gcp-hcp-tooling` is a **new** TFC project created for `pagerduty` as the home for non-environment-scoped tooling configs. Unlike the CI workspaces, `pagerduty` manages no `google` resources and reads no remote state, so there is no `backend "gcs"` to `backend "remote"` switch and no consumer grant. It still required a **full** access-project bootstrap: a dedicated `gcp-hcp-tooling-tfc-access` project with its own `gcp-dynamic-creds` WIF pool, provider, and plan/apply SAs. The existing CI/integration identities could not be reused because each access project's WIF provider is attribute-scoped to a single TFC project and its variable set attaches only to that project's workspaces. `terraform/config/pagerduty/providers.tf` reads the PagerDuty API token from the `pagerduty-apikey-gcp-hcp-eng` secret in `gcp-hcp-int-global` inside the provider block, so the read runs at plan time; both the plan and apply SAs were granted cross-project access to that one secret with `roles/secretmanager.secretAccessor` **and** `roles/secretmanager.viewer` (see Finding #12). State was seeded from GCS and validated as a no-op `refresh=true` plan before `auto_apply` was enabled, and Atlantis stayed the sole owner until the cutover PR ([#1442](https://github.com/openshift-online/gcp-hcp-infra/pull/1442)) removed it.
 
 ---
 
+## Commons + commons-dev Migration to TFC (GCP-1111) — ✅ Complete
+
+### Summary
+
+`commons` and `commons-dev` were the last "never-automated" Terraform configs in the epic — never on Atlantis, always applied by hand by an SRE. [GCP-1111](https://redhat.atlassian.net/browse/GCP-1111) migrated both onto TFC with a dedicated `gcp-hcp-commons` TFC project and its own WIF-based access-project bootstrap, ending the manual-apply workflow. Both workspaces now run with `auto_apply = true` like every other TFC-managed config.
+
+This supersedes the "commons is SRE-manual-applied" framing in [Story 3](#story-3-commons-cross-project-grants-integration--complete) and the (now-resolved) "Commons module requires SRE manual apply" risk.
+
+**Repo**: `gcp-hcp-infra`
+**TFC project**: `gcp-hcp-commons` (new)
+**Access project**: `gcp-hcp-commons-tfc-access` (new, `terraform/config/tfc-access/commons/`)
+**Scope**: `commons` (main: DNS delegation, GAR, mintmaker agent, Konflux WIF) and `commons-dev` (developer-shared DNS/state bucket). Migrating `stage` (`global-stage`, `region-stage`) off GCS was explicitly out of scope.
+
+### Access-project pattern
+
+Same `gcp-dynamic-creds` WIF pattern as `ci`/`tooling`/`integration`: `terraform/config/tfc-access/commons/` creates a dedicated `gcp-hcp-commons-tfc-access` GCP project and calls the `gcp-dynamic-creds` module (WIF pool, OIDC provider, plan/apply SAs, variable set with `apply_to_all_workspaces = true`). The old `terraform/modules/commons/tfc.tf` (a direct-WIF `tfc-pool`/`tfc-oidc`/`tfc-automation` setup) was **deleted** and replaced by this access-project pattern; its outputs (`tfc_service_account_email`, `tfc_wif_provider_name`) and the `tfc_organization_name` variable were removed. `terraform/modules/commons/tfc-iam.tf` (the [Story 3](#story-3-commons-cross-project-grants-integration--complete) grants for the existing int/ci consumer SAs) was kept — it is unrelated and unaffected.
+
+> Note: the earlier "commons provisions a WIF trust root that every other TFC workspace authenticates through, so migrating it creates bootstrap circularity" concern (raised during GCP-1094) was **incorrect** — no such resources exist. Commons migrated normally with the standard access-project pattern.
+
+### Derived IAM role set (`tfc-access/commons/commons-iam.tf`)
+
+Granted to both `hcp-tf-default-plan` and `hcp-tf-default-apply` (unified plan=apply convention):
+
+- **Project-level** on `gcp-hcp-commons` + `gcp-hcp-commons-dev`: `roles/viewer`, `serviceusage.serviceUsageAdmin`, `resourcemanager.projectIamAdmin`, `iam.serviceAccountAdmin`, `iam.workloadIdentityPoolAdmin`, `artifactregistry.admin`, `storage.admin`, `dns.admin`, `secretmanager.admin`, `aiplatform.admin`, `cloudscheduler.admin`, `compute.networkAdmin`, `networksecurity.admin`, `networkservices.admin`
+- **Folder-level**: `resourcemanager.folderIamAdmin` on the top-level GCP HCP folder (`405445313657`) — needed for cloud-custodian's folder bindings
+- **Cross-project, resource-scoped**: `artifactregistry.admin` on `gcp-hcp-int-global`'s `diagnose-agent` repo; `storage.objectViewer` on `gcp-hcp-stg-global-terraform-state` (commons reads `global_stage` remote state via a direct cross-project GCS read — stage isn't on TFC); `iam.serviceAccountUser` on the `mintmaker-agent` SA specifically (needed to `actAs` it when deploying the Vertex AI Reasoning Engine that runs as it)
+
+The role set was derived **iteratively** from real first-runs — the stage-state GCS grant (#1542) and the mintmaker `actAs` grant (#1549) only surfaced when the WIF identity first touched real infrastructure, after the "complete" list was already written. This matches the service-integration (GCP-1092) experience: expect 2–3 rounds of narrowly-scoped follow-up grants after the initial role list.
+
+### PR breakdown (8 PRs)
+
+| PR | Purpose |
+|---|---|
+| [#1498](https://github.com/openshift-online/gcp-hcp-infra/pull/1498) | Foundational: `tfc-access/commons/` access-project bootstrap; `hcp-terraform/gcp-hcp-commons/` meta workspace (both `gcp-hcp-commons` and `gcp-hcp-commons-dev`); removed `backend "gcs"` and added `cloud.tf` + `user_project_override`/`billing_project` to both configs; flipped commons's own `global_integration` read to `backend = "remote"` (left `global_stage` on GCS); deleted `modules/commons/tfc.tf`. Consumer flips were reverted out of this PR (chicken-and-egg — see gotchas) |
+| [#1532](https://github.com/openshift-online/gcp-hcp-infra/pull/1532) | Re-added `gcp-hcp-commons` as a `remote_state_consumer_workspaces` entry on `gcp-hcp-global-integration` (authorizes commons's own `global_integration` read; reverted out of #1498 for the same chicken-and-egg reason) |
+| [#1535](https://github.com/openshift-online/gcp-hcp-infra/pull/1535) | Attempted to flip both workspaces to remote execution by removing `execution_mode = "local"` — did **not** actually change execution mode (see #1541) |
+| [#1538](https://github.com/openshift-online/gcp-hcp-infra/pull/1538) | Redid the reverted consumer flips: `global-integration`, `region-int-main-us-central1`, `region-int-main-us-south1` switched `data.terraform_remote_state.commons` from `backend = "gcs"` to `backend = "remote"`. Deliberately sequenced to merge **before** #1535 (CodeRabbit feedback) |
+| [#1541](https://github.com/openshift-online/gcp-hcp-infra/pull/1541) | Root-caused #1535: omitting `execution_mode` does not default to `"remote"`; it falls back to the TFC project's own default, which was also `"local"`. Set `execution_mode = "remote"` **explicitly** on both workspaces |
+| [#1542](https://github.com/openshift-online/gcp-hcp-infra/pull/1542) | First real remote run 403'd reading `gs://gcp-hcp-stg-global-terraform-state`; added `roles/storage.objectViewer` on that bucket to both SAs (SRE local apply against `tfc-access/commons`, which is `execution_mode="local"` by design) |
+| [#1549](https://github.com/openshift-online/gcp-hcp-infra/pull/1549) | Next real-run failure: no permission to `actAs` `mintmaker-agent@gcp-hcp-commons`; added `roles/iam.serviceAccountUser` scoped to that SA |
+| [#1556](https://github.com/openshift-online/gcp-hcp-infra/pull/1556) | Flipped `auto_apply = true` on both `gcp-hcp-commons` and `gcp-hcp-commons-dev` after clean first real runs — completes the migration |
+
+### Operational work (not PRs)
+
+- **State seeding** via `terraform state push` directly into both new workspaces (simpler than the raw State Versions API used elsewhere, since both were `execution_mode="local"` at seed time).
+- **`terraform import`** of a pre-existing `google_artifact_registry_repository.gcp_hcp_images` in `commons-dev` that existed in GCP but not in the seeded state (`409: the repository already exists`).
+- **Reconciled `commons-dev` brownfield drift** (Konflux WIF pool/provider, `konflux-push` SA, AR repo, label updates) in one apply — pre-existing drift, surfaced by finally running a real plan against it.
+
+### Gotchas (recurring — carry into future brownfield migrations)
+
+- **`execution_mode` must be set explicitly, never by omission** ([Migration Finding #13](#migration-findings) covers the mechanism and the "local blocks first-run auto-apply" rule). It bit twice on commons specifically: (1) `tfc-access/commons` auto-created as `execution_mode="remote"` (org default) instead of the `"local"` its siblings use, which broke the `file("${path.module}/../../metadata/...")` reads all `tfc-access/*` configs rely on (remote execution uploads only the working directory, not the whole repo); fixed by pinning the live workspace to `"local"`. (2) #1535 removed the explicit `"local"` expecting a `"remote"` default and instead inherited the project default (`"local"`) — nothing changed until #1541 set it explicitly.
+- **Cross-workspace consumer authorization must be sequenced around producer creation.** Bundling "create `gcp-hcp-commons`" and "flip consumers to read it via `backend = "remote"`" in one PR (#1498) made every speculative plan fail (the workspace doesn't exist yet at review time). The producer must exist before consumers can be authorized against it (#1532) and before consumers can flip their reads (#1538). This is the [Finding #7](#migration-findings) consumer-grant requirement applied to a producer that is itself being created in the same change.
+
+### Known follow-ups (not blocking)
+
+- **Mintmaker Vertex AI Reasoning Engine update timeouts**: `google_vertex_ai_reasoning_engine.agent` shows drift on nearly every plan (non-deterministic `source_code_spec`) and its update operation appears to hit a timeout under TFC remote execution. Pre-existing, unrelated to the migration; owned by Jim. Expect periodic "Apply errored" notifications on `gcp-hcp-commons` until fixed. Worth its own ticket.
+- **Temporary personal IAM grants** used to bootstrap `tfc-access/commons` and reconcile `commons-dev` drift are now redundant (the WIF identity handles everything end-to-end) but revocation was deferred.
+- **`commons-dev` drift discipline**: its brownfield drift reconciliation was a one-time catch-up, not a structural fix. Consider whether it needs the same `auto_apply` cadence discipline as `commons` or a periodic drift-detection job so it doesn't silently drift again.
+
+---
+
+## Remaining Scope: Org-Level Terraform Config (GCP-1112) — 🔲 Not started
+
+[GCP-1112](https://redhat.atlassian.net/browse/GCP-1112) — "Migrate org-level Terraform config to TFC" — **Status: New. Nothing has been implemented.**
+
+`terraform/config/org` (org `428383927003`) manages the `org-admin-jit` PAM entitlement and the `custom.allowedPolicyMembers` org policy constraint. It is currently GCS-backed with manual-only applies (see its README).
+
+This is scoped **separately** from commons (GCP-1111) and the other migrations on purpose: a TFC identity applying this config would need org-admin-adjacent IAM (PAM entitlement admin, org policy admin), a materially higher blast radius than any per-project access identity used so far. Because of that, **an explicit security review is a blocking prerequisite** before any implementation. The migration approach (access-project shape, IAM scoping, guardrails) is deliberately not designed here and should not be until that review is complete.
+
+---
+
 ## Migration Findings
 
-Workspace migrations uncovered several undocumented requirements. The first batch came from `gcp-hcp-global-integration` ([GCP-534](https://redhat.atlassian.net/browse/GCP-534), [PR #1070](https://github.com/openshift-online/gcp-hcp-infra/pull/1070)). Finding #6 was discovered during the region/MC integration cutover ([GCP-951](https://redhat.atlassian.net/browse/GCP-951)). Findings 7-10 surfaced during the [GCP-535](https://redhat.atlassian.net/browse/GCP-535) region/MC onboarding automation work (us-west1 and us-south1 bootstrap, Aug 2026). Finding #11 surfaced during the [GCP-1093](https://redhat.atlassian.net/browse/GCP-1093) CI migration (hypershift-ci/platform-ci, brownfield projects with pre-existing state). Finding #12 surfaced during the [GCP-1094](https://redhat.atlassian.net/browse/GCP-1094) `pagerduty` migration (a workspace that reads a Secret Manager secret at plan time). These findings have been integrated into the stories above and are summarized here for reference.
+Workspace migrations uncovered several undocumented requirements. The first batch came from `gcp-hcp-global-integration` ([GCP-534](https://redhat.atlassian.net/browse/GCP-534), [PR #1070](https://github.com/openshift-online/gcp-hcp-infra/pull/1070)). Finding #6 was discovered during the region/MC integration cutover ([GCP-951](https://redhat.atlassian.net/browse/GCP-951)). Findings 7-10 surfaced during the [GCP-535](https://redhat.atlassian.net/browse/GCP-535) region/MC onboarding automation work (us-west1 and us-south1 bootstrap, Aug 2026). Finding #11 surfaced during the [GCP-1093](https://redhat.atlassian.net/browse/GCP-1093) CI migration (hypershift-ci/platform-ci, brownfield projects with pre-existing state). Finding #12 surfaced during the [GCP-1094](https://redhat.atlassian.net/browse/GCP-1094) `pagerduty` migration (a workspace that reads a Secret Manager secret at plan time). Finding #13 surfaced during the [GCP-1111](https://redhat.atlassian.net/browse/GCP-1111) commons migration (`execution_mode` must be set explicitly). These findings have been integrated into the stories above and are summarized here for reference.
 
 | # | Finding | Impact | Resolution | Reference |
 |---|---------|--------|------------|-----------|
@@ -492,5 +560,77 @@ Workspace migrations uncovered several undocumented requirements. The first batc
 | 10 | OPA deletion-approval lists are hand-maintained per teardown and silently go stale across `workspaces/tfe` module version bumps (e.g. `tfe_workspace_settings` added in v0.0.12) | A teardown's meta-workspace apply **stalls indefinitely** at `post_plan_awaiting_decision` instead of erroring — easy to miss, no alert | Manually add the missing deletion-approval entry per resource added by the module upgrade; no automated detection yet | [PR #1247](https://github.com/openshift-online/gcp-hcp-infra/pull/1247) |
 | 11 | Brownfield migration: on a pre-existing project the TFC plan/apply SA has no project permissions until `tfc.tf`'s grants apply, so the first plan's refresh calls `getIamPolicy` on the existing `google_project_iam_member.*` resources and 403s | The first plan/apply cannot complete — it errors during refresh before producing a plan | Run the first plan/apply with `refresh=false` (plans only the new `tfc.tf` grants, 0 changes/destroys to existing resources). Before applying, confirm the plan contains only those expected grants and reject any other add/change/destroy, since `refresh=false` suppresses state refresh and does not by itself prove the absence of drift. Apply once to grant the SAs, after which a normal `refresh=true` plan must be a clean no-op (the real validation gate before enabling `auto_apply`) | [GCP-1093](https://redhat.atlassian.net/browse/GCP-1093), [PR #1391](https://github.com/openshift-online/gcp-hcp-infra/pull/1391)/[#1411](https://github.com/openshift-online/gcp-hcp-infra/pull/1411) |
 | 12 | A provider that reads a Secret Manager secret via `data.google_secret_manager_secret_version` **inside the provider block** runs that read at plan time, and with no pinned `version` it resolves `"latest"`, which needs `secretmanager.versions.get` + `.list` (`roles/secretmanager.viewer`) on top of `.access` (`roles/secretmanager.secretAccessor`) | `secretAccessor` alone 403s at plan time on `secretmanager.versions.get`, so every plan fails before producing output even though the workspace manages no GCP resources | Grant both `roles/secretmanager.secretAccessor` and `roles/secretmanager.viewer` to the plan and apply SAs, scoped to the single secret (mirrors the working `e2e-gcp-deployer` accessor+viewer pattern) | [GCP-1094](https://redhat.atlassian.net/browse/GCP-1094), [PR #1434](https://github.com/openshift-online/gcp-hcp-infra/pull/1434)/[#1442](https://github.com/openshift-online/gcp-hcp-infra/pull/1442) |
+| 13 | Omitting `execution_mode` on a `workspaces/tfe` workspace does **not** default it to `"remote"` — it removes the override and falls back to the TFC project's own default execution mode (often `"local"`). Separately, `execution_mode="local"` is what actually blocks a brownfield workspace's first VCS run from auto-confirming its apply — the module hardcodes `tfe_workspace_run`'s `apply.manual_confirm = false` for any non-local workspace, so `auto_apply=false` alone is insufficient | A workspace silently stays `"local"` when `"remote"` was intended (no error, just no change); or a brownfield workspace auto-applies its very first run before state is seeded/validated | Set `execution_mode` **explicitly** on all new and transitioning workspaces; keep it `"local"` until state is seeded and a clean plan is validated, then set `"remote"` explicitly | [GCP-1111](https://redhat.atlassian.net/browse/GCP-1111), [PR #1535](https://github.com/openshift-online/gcp-hcp-infra/pull/1535)/[#1541](https://github.com/openshift-online/gcp-hcp-infra/pull/1541) |
 
 > **Resolved, no longer a concern**: an earlier IAM self-grant propagation race during greenfield bootstrap (`tfc_iam_ready` barrier not wired into all resources, [PR #1205](https://github.com/openshift-online/gcp-hcp-infra/pull/1205)/[#1216](https://github.com/openshift-online/gcp-hcp-infra/pull/1216)) was fixed upstream in the module. Sequential region-then-MC bootstrap via `infra.py` is validated working; concurrent bootstrap of multiple regions has not been tested.
+
+---
+
+## Migrating a New Config to TFC (Checklist)
+
+The generalized runbook for migrating any Terraform config to HCP Terraform, distilled from Stories 1–5 and every [Migration Finding](#migration-findings) above. Use it for stage/production rollout (Stories 7–8) and any new config. Each step notes the finding that produced it. Copy this list into the migration ticket and check items off there.
+
+> **Automation shortcut**: for **region/MC** configs, `scripts/infra.py new region|mc ...` ([GCP-535](https://redhat.atlassian.net/browse/GCP-535)) already generates the workspace entry in `hcp-terraform/gcp-hcp-{env}/main.tf` and the plan/apply SA cross-project IAM in the module's `tfc.tf`. The steps below are the full manual path for configs the generator does not cover (CI, tooling, service, commons, and future one-offs).
+
+### 1. Decide the topology
+
+- [ ] **Reuse an existing TFC project, or bootstrap a new dedicated one?**
+  - **Reuse** (workspace inside an existing project — e.g. `service` → `gcp-hcp-integration`, `hypershift-ci`/`platform-ci` → `gcp-hcp-ci`) when an existing access project's plan/apply SAs already have — or can be granted — the IAM the config needs, and the config belongs in that project's scope.
+  - **New dedicated project** (e.g. `pagerduty` → `gcp-hcp-tooling`, `commons` → `gcp-hcp-commons`) when the config needs a distinct identity or home. This requires a new access-project bootstrap. A dedicated identity is *required* whenever the config must be attribute-isolated: each access project's WIF provider is attribute-scoped to a single TFC project and its variable set attaches only to that project's workspaces, so identities cannot be shared across TFC projects.
+- [ ] **If new dedicated project**: bootstrap the access project (`terraform/config/tfc-access/<name>/`) following [Story 1](#story-1-bootstrap-access-project-integration--complete) — `gcp-dynamic-creds` module (WIF pool, OIDC provider, plan/apply SAs, variable set with `apply_to_all_workspaces = true`), applied locally (sanctioned local-apply exception for access projects). Pin the access workspace to `execution_mode = "local"` explicitly (Finding #13; also required for its `file("${path.module}/../../metadata/...")` reads to work — remote execution uploads only the working directory).
+
+### 2. IAM grants for the plan/apply SAs
+
+- [ ] Add a `tfc.tf` (in-module) or `<config>-iam.tf` (in the access-project config) granting **both** plan and apply SAs the role set the config needs (unified plan=apply, so permission gaps surface at plan time — [Story 2](#story-2-cross-project-iam-for-plan-and-apply-sas-integration--complete)).
+- [ ] Expect to derive the role set **iteratively** — plan for 2–3 rounds of narrowly-scoped follow-up grants after the first real runs (every migration so far needed them: service GCP-1092, commons GCP-1111). Prefer narrow, resource-scoped grants over broad catch-all roles.
+- [ ] If the provider reads a **Secret Manager secret at plan time** (inside a provider block, unpinned version → `"latest"`): grant **both** `roles/secretmanager.secretAccessor` **and** `roles/secretmanager.viewer`, scoped to the single secret (**Finding #12**).
+
+### 3. Config file changes
+
+- [ ] Create a **`cloud.tf`** with the standard block (**GCP-1141**, [PR #1490](https://github.com/openshift-online/gcp-hcp-infra/pull/1490)); the workspace `name` must exactly match the meta-workspace registration:
+  ```hcl
+  terraform {
+    cloud {
+      organization = "hp-platform-engineering"
+      workspaces {
+        name = "gcp-hcp-{workspace-name}"
+      }
+    }
+  }
+  ```
+- [ ] **Remove any stale `backend "gcs"` block** from `main.tf`. TFC ignores it when a `cloud` block is present, but leaving it invites accidental state migration and operator confusion (**GCP-1141**).
+- [ ] Add `user_project_override = true` and `billing_project = <global project>` to **both** `google` and `google-beta` provider blocks, including aliased providers (**Finding #2** / [API Activation](#api-activation-and-the-user_project_override-pattern)). Derive the global project ID from metadata (provider blocks cannot reference data sources).
+  - Caveat: **do not** add provider `default_labels` if the existing (Atlantis-era) resources were created without them — the label diff will break the `refresh=true` no-op validation gate (see `config/service/integration/main.tf`).
+- [ ] Switch every `data.terraform_remote_state.*` read of a **TFC-managed producer** from `backend = "gcs"` to `backend = "remote"` (**Findings #8/#9**). Never leave a consumer on `backend = "gcs"` after its producer is on TFC — its GCS snapshot is frozen and goes stale silently.
+
+### 4. Register the workspace (meta workspace)
+
+- [ ] Add the workspace to `hcp-terraform/<project>/main.tf` via the `workspaces/tfe` module.
+- [ ] Set **`execution_mode` explicitly** — never by omission (**Finding #13**). Use `"local"` for the seeding/validation phase, then flip to `"remote"` explicitly at cutover.
+- [ ] Set `auto_apply = false` initially (**Finding #4**). Note: for a brownfield workspace, `auto_apply = false` alone does **not** stop the first VCS run from auto-confirming — `execution_mode = "local"` is what actually blocks it (**Finding #13**).
+- [ ] Include shared module paths (`terraform/modules/{type}/`) in the workspace's trigger prefixes, not just the config path (**Finding #5**).
+- [ ] **Remote-state consumer grants** (**Finding #7**): if this workspace reads another workspace's state, add it to that producer's `remote_state_consumer_workspaces`. If this workspace produces state others read, authorize those consumers. **Sequence around producer creation**: a producer must exist before consumers can be authorized against it or flip their reads — do not bundle "create producer" and "flip consumers" in one PR (commons chicken-and-egg, PRs #1498 → #1532/#1538).
+
+### 5. State seeding (brownfield configs only)
+
+- [ ] **Freeze the source of truth** first: if Atlantis-managed, disable/remove the config's autoplan entry in `atlantis-{env}.yaml` and keep it frozen through validation ([State Management](#3-state-management)).
+- [ ] Seed state from GCS — either the [State Versions API](#3-state-management) (preserve serial + MD5 exactly), or `terraform state push` when the workspace is `execution_mode = "local"` (simpler; used for commons). Securely delete the downloaded `.tfstate` afterward.
+- [ ] `terraform import` any resources that exist in GCP but not in the seeded state (e.g. an out-of-band AR repo — commons-dev).
+
+### 6. Validation gate
+
+- [ ] **Brownfield first run**: run with `refresh=false` (the SAs have no project IAM until `tfc.tf` applies — **Finding #11**). Confirm the plan contains **only** the expected new `tfc.tf` grants; reject any other add/change/destroy (`refresh=false` suppresses drift detection, so this manual check is the safeguard). Apply once to grant the SAs.
+- [ ] Then a **`refresh=true` plan must be a clean no-op** — this is the real gate before enabling `auto_apply`.
+
+### 7. Cutover
+
+- [ ] Set `execution_mode = "remote"` **explicitly** (**Finding #13**).
+- [ ] Set `auto_apply = true`.
+- [ ] Remove the config from `atlantis-{env}.yaml` **in the same change as the backend switch** — leaving both active split-brains the state (Atlantis cannot read TFC remote state). For configs with remote-state consumers, this must also coincide with the consumers' `backend = "remote"` flip (**Finding #9**).
+- [ ] Update Prow **required status checks** in [`openshift/release`](https://github.com/openshift/release/blob/main/core-services/prow/02_config/openshift-online/gcp-hcp-infra/_prowconfig.yaml) to drop `atlantis-{env}/plan` and `atlantis-{env}/apply` for the environment, or PRs will be blocked (**Finding #6**).
+
+### 8. Cleanup & traceability
+
+- [ ] Verify `terraform init` against the real workspace reports **no state changes** (confirms `cloud.tf` workspace name and state parity — GCP-1141).
+- [ ] Remove transient migration/seeding comments; keep only the durable "why" (repo comment style).
+- [ ] Link the cleanup PR/commit to [GCP-1141](https://redhat.atlassian.net/browse/GCP-1141) (or its successor) for audit traceability.
