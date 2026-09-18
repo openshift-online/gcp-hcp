@@ -54,6 +54,10 @@ Setting Priority and Fix Version depends on whether the work is customer-facing 
 
 > **Note:** Fix Versions set on Features and Initiatives automatically cascade to child Epics via
 > Jira automation. Set the Fix Version at the Feature/Initiative level during Refinement.
+>
+> **When Fix Version changes:** Add a comment explaining why the scope/timeline changed. This
+> creates an audit trail for planning decisions and helps the team understand shifts in priority
+> or capacity.
 
 ---
 
