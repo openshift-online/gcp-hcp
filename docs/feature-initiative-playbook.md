@@ -43,6 +43,25 @@ Three roles should be named on every Feature and Initiative, per HP-wide guidanc
 > submit a request to the Jira Admin team to have them added. These fields are part of the
 > HP-wide ownership model introduced in May 2026.
 
+### Field Responsibilities
+
+Setting Priority and Fix Version depends on whether the work is customer-facing or engineering-led:
+
+| Field | Feature (customer-facing) | Initiative (internal/engineering) |
+|-------|---------------------------|-----------------------------------|
+| **Priority** | Product Manager | Architect |
+| **Fix Version** | Product Manager | Architect |
+
+> **Note:** Fix Versions set on Features and Initiatives automatically cascade to child Epics via
+> Jira automation. Set the Fix Version at the Feature/Initiative level during Refinement.
+>
+> **Setting Fix Version requires conversation about capacity and throughput** — discuss in Feature/Initiative
+> Refinement sessions or Slack. Don't set Fix Versions unilaterally without team awareness.
+>
+> **When Fix Version changes:** Always have a conversation before adding or removing items from a Fix Version.
+> Ensure mutual awareness of scope changes (Slack for PM visibility, or raise in refinement sessions).
+> Add a comment explaining the scope/timeline shift for the audit trail.
+
 ---
 
 ## Feature vs. Initiative
