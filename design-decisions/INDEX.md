@@ -50,6 +50,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | Decision | Summary |
 |----------|---------|
 | [observability-google-managed-prometheus](observability/observability-google-managed-prometheus.md) | Hybrid GMP architecture for HCP component metrics with regional data isolation |
+| [hypershift-gmp-native-monitoring](observability/hypershift-gmp-native-monitoring.md) | GMP-native monitoring resources in HyperShift via `--monitoring-api-group` flag (evolves the hybrid approach) |
 | [integrated-alerting-framework](observability/integrated-alerting-framework.md) | Cloud Monitoring routing to PagerDuty and Cloud Run diagnosis agent |
 | [data-lake-for-diagnostics-and-compliance](observability/data-lake-for-diagnostics-and-compliance.md) | Two-tier data lake: BigQuery for real-time data, Log Analytics for compliance |
 
