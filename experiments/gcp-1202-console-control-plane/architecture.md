@@ -304,10 +304,14 @@ Two consequences worth stating plainly:
    upstream `service.beta.openshift.io/serving-cert-secret-name` annotation on
    the console Service is therefore removed; nothing would act on it.
 
-> Reconciliation note: the repository's existing design decision records the
-> hosted-cluster API certificate as self-signed, while the PoC ran against a
-> cert-manager-issued wildcard. Both statements cannot describe the same target
-> state — see [open-questions.md](open-questions.md).
+> Note on the wildcard: self-signed is the HyperShift *default* for the hosted
+> cluster API certificate, which is what the repository's design decision
+> records. GCP HCP overrides it, supplying a Let's Encrypt-signed wildcard
+> `*.<domain>` from a cert-manager `ClusterIssuer` and wiring it in through
+> `apiServer.servingCerts.namedCertificates`. That wildcard already covered
+> `api.<domain>` and `oauth.<domain>`; console and downloads come along for free
+> because they reuse the same hostname pattern. See
+> [open-questions.md](open-questions.md) §5.
 
 ---
 

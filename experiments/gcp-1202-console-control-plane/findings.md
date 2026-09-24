@@ -50,7 +50,10 @@ terminal, monitoring via Thanos and Alertmanager, and dynamic plugin loading.
   OAuth client, applied by hand. A day-2 model where the customer supplies their
   own client now has a design and an ARO precedent, so this is no longer a
   blocker — but provisioning without *any* manual Google step remains unsolved,
-  because Google has no API for creating OAuth web clients. See
+  because Google has no API for creating OAuth web clients. It may also become
+  moot: if GCP HCP moves to the internal OpenShift OAuth server for
+  multiple/custom identity providers, the console delegates to `openshift-oauth`
+  and needs no Google client. Keep the bridge's auth pluggable. See
   [open-questions.md](open-questions.md) §1.
 - **Capability-aware payload stripping.** CVO payload removal of the guest
   console-operator works, but is GCP-gated with hardcoded manifest filenames
@@ -369,9 +372,11 @@ this needs its own ticket and is not tracked under any of the console Jiras.
    merges.
 6. **Router config hot-reload**, to remove the manual router restart after a
    Route change.
-7. **Reconcile the certificate story with the existing design decision**, which
-   records the hosted-cluster API certificate as self-signed while the PoC ran
-   against a cert-manager wildcard. See [open-questions.md](open-questions.md).
+7. **Nothing to reconcile on certificates.** Self-signed is the HyperShift
+   default; GCP HCP already supplies a Let's Encrypt wildcard that covers
+   `api.<domain>`, `oauth.<domain>` and now `console.<domain>`. Recorded in
+   [open-questions.md](open-questions.md) §5 only because the two statements can
+   look contradictory.
 
 The runtime path is proven and the engineering cost is bounded. The OIDC client
 model, previously the gating question, now has a day-2 design with an ARO

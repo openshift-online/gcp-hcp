@@ -31,7 +31,13 @@ For GCP HCP, the **`oidc` mode** is the primary path, using Google as the extern
 
 ### HyperShift Context
 
-On HyperShift hosted clusters, the integrated OAuth server is **not present by default**. This mode requires explicitly enabling the OAuth server in the HostedCluster configuration, which contradicts the GCP HCP design goal of using external OIDC. Therefore, this mode is **not used for GCP HCP**.
+On HyperShift hosted clusters, the integrated OAuth server is **not present by default**. Enabling it is an explicit HostedCluster configuration choice. The PoC did not use this mode, because GCP HCP currently targets external OIDC.
+
+**This is not settled, and it is the largest fork for console authentication.** There are parallel discussions about adopting the internal OpenShift OAuth server to support multiple and custom identity providers. If that happens, the console delegates login to `openshift-oauth` and never needs its own Google client — which removes the entire fleet-provisioning problem described below rather than solving it.
+
+It also fits the control-plane-side topology particularly well: in HyperShift the OAuth server already runs control-plane-side and is already exposed at `oauth.<domain>`, on the same router and the same wildcard certificate as the console would be. Both ends of the login flow would sit on the management cluster, with no guest dependency.
+
+Hence the spike's standing recommendation to keep the bridge's authentication **pluggable** rather than hard-wiring the OIDC path. Treat everything below as conditional on external OIDC remaining the model. See [`../open-questions.md`](../open-questions.md) §1.
 
 ## External OIDC (`oidc` mode)
 
