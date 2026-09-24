@@ -4,7 +4,10 @@ Ordered by severity, most blocking first.
 
 ## 1. GCP OIDC console client model
 
-**Status:** ⛔ **PRIMARY BLOCKER** for going beyond a spike.
+**Status:** Downgraded from blocker to a design with a shipped precedent. One
+product decision remains, and full zero-touch provisioning is still out of
+reach. See [The day-2 client model](#the-day-2-client-model) below, which
+supersedes the "leading candidates" further down this section.
 
 **The problem:** The console bridge is a confidential web application needing its own Google OAuth "Web application" client with a registered redirect URI. Google web-client creation is **not automatable** (no API, no gcloud, no Terraform) and Google **forbids wildcard redirect URIs**, so provisioning a per-hosted-cluster console client without a manual Google step is unresolved. Cluster creation must not require a manual Google step.
 
@@ -22,19 +25,164 @@ Ordered by severity, most blocking first.
 
 **Design constraint:** Any solution where Google sees a per-cluster URL is eliminated.
 
-**Leading candidates:**
+### The day-2 client model
 
-1. **State-based redirect broker** (recommended): One fleet-fixed Google redirect URI with the target cluster encoded in the OAuth `state` parameter. Adding clusters requires zero Google changes. Works for **private clusters** too, since Google never dials the redirect URI; it 302s the private-side browser. A private broker with a private redirect URI is reachable end-to-end. Needs **upstream bridge support** (bridge cannot target a separate broker today) plus new fleet auth infrastructure. Secret isolation ties to OCPSTRAT-2173 (the day-2 `hosted-cluster-sourced` annotation pattern).
+The framing above treats "Google must not see a per-cluster URL" as an absolute
+design constraint. It is not. It only holds if the Google client must be fully
+provisioned *before* the cluster exists.
 
-2. **Intermediate IdP with dynamic client registration** fronting Google. Larger architectural change but avoids the broker complexity.
+**A pre-existing Google client dissolves the circularity.** Redirect URIs are a
+mutable property of a Google OAuth client, and the client can be created before
+the cluster. So the client ID is known at cluster-creation time, and the only
+thing that depends on the cluster hostname — the redirect URI — is added later,
+directly on the client, never touching the HostedCluster.
+
+**Day 0 — set once by the platform at creation, in `HostedCluster.spec`:**
+
+| Field | Value |
+|---|---|
+| `oidcProviders[].issuer.audiences` | += console client ID |
+| `oidcProviders[].oidcClients[]` | console entry: same client ID, `clientSecret` name reference |
+| the referenced Secret | exists, empty, annotated `hypershift.openshift.io/hosted-cluster-sourced` |
+
+**Day 2 — customer, entirely outside the HostedCluster:**
+
+1. Add `https://console.<domain>/auth/callback` to the existing Google client.
+2. Create the real secret in the guest cluster's `openshift-config` namespace.
+
+No spec mutation after creation, and therefore no new day-2 platform API.
+
+#### Why both fields are required
+
+`issuer.audiences` and `oidcClients[].clientID` are independent. Nothing derives
+one from the other — confirmed in HyperShift
+(`control-plane-operator/controllers/hostedcontrolplane/kas/auth.go`, and the v2
+equivalent) and in standalone OpenShift
+(cluster-authentication-operator, `pkg/controllers/externaloidc/generation/kubeapiserver/generate.go`),
+which contain the identical loop over `issuer.Audiences` and never read client
+IDs. There is no shared library-go helper; two independent implementations that
+agree. The upstream API doc is explicit: *"at least one of the entries must
+match the 'aud' claim in the JWT token."*
+
+The official OpenShift external-auth documentation shows the same, listing each
+client ID in both places:
+
+```yaml
+issuer:
+  audiences: [console-test, oc-cli-test]
+oidcClients:
+- clientID: oc-cli-test
+  componentName: cli
+- clientID: console-test
+  clientSecret: { name: console-secret }
+  componentName: console
+```
+
+Note `clientSecret` appears only on the console entry — the CLI client is
+public, the console client confidential.
+
+#### Precedent: ARO HCP does exactly this
+
+ARO HCP's `externalAuths` resource carries the same client ID in both
+positions:
+
+```bicep
+issuer: { url: issuerURL, audiences: [ clientID ] }
+clients: [
+  { clientId: clientID, component: { name: 'console', authClientNamespace: 'openshift-console' }, type: 'Confidential' }
+  { clientId: clientID, component: { name: 'cli',     authClientNamespace: 'openshift-console' }, type: 'Public' }
+]
+```
+
+ARO also registers an **exact per-cluster redirect URI**, read off the created
+cluster, rather than a wildcard — even though Entra permits wildcards for
+org-only tenants. So the precedent transfers to Google despite Google's absolute
+prohibition: ARO never relied on wildcards either.
+
+The customer supplies the console client secret by hand, guest-side, into
+`openshift-config` under the name `<external_auth_name>-console-openshift-console`.
+
+#### Code changes required
+
+1. **Widen the `hosted-cluster-sourced` gate.** Today it is
+   `azureutil.IsAroHCPByHCP(hcp)` — Azure with managed identities — in
+   `control-plane-operator/hostedclusterconfigoperator/controllers/resources/resources.go`.
+   Still gated the same way on current upstream `main`. Pitch the widening as
+   wanting the **guest-sourced** property, not the **isolation** property: the
+   annotation's doc comment justifies itself with "sensitive data that can't
+   live on the control-plane", and in our topology the secret *must* reach the
+   control plane for the bridge to mount it. Our reason is access — a customer
+   can write to their own guest cluster but has no path to write a Secret into
+   the HostedCluster namespace on the management cluster. This may warrant a
+   distinct mode rather than reusing the ARO annotation verbatim.
+
+2. **Sync guest `openshift-config` → HCP namespace.** Does not exist; the
+   existing flow runs the other way (HCP namespace → guest). This is work for
+   the ported console-operator — see [operator-migration.md](operator-migration.md).
+
+3. **Stop the guest `Authentication` mirror from failing.** HCCO blindly copies
+   `hcp.Spec.Configuration.Authentication` into the guest `Authentication`
+   (`support/globalconfig/authentication.go`), and that write is rejected by the
+   CEL rule while nothing writes guest `status.oidcClients`. Either the ported
+   operator writes that status, or the console `oidcClients` entry is pruned
+   from the guest mirror when console placement is control-plane-side — the
+   guest has no console, so the entry is meaningless there. This pairs naturally
+   with the CVO payload strip.
+
+#### What this does not solve
+
+**Google still has no API for creating OAuth web clients.** Day 2 changes
+*when* the registration happens, not *who* does it. It converts an impossible
+ordering constraint into a documented customer runbook step.
+
+This demotes the **state-based redirect broker** from "the way to unblock this"
+to "the way to make it zero-touch". The broker is still the only option that
+removes the manual Google step entirely — one fleet-fixed redirect URI with the
+target cluster encoded in the OAuth `state` parameter, working for private
+clusters because Google never dials the redirect URI, it 302s the private-side
+browser. It still needs upstream bridge support and new fleet auth
+infrastructure. It is now an optimisation, not a prerequisite.
+
+An **intermediate IdP with dynamic client registration** fronting Google remains
+the other zero-touch option.
+
+#### Open product decision
+
+The day-2 model means the customer brings their own Google OAuth client — their
+Google project, their consent screen, their redirect URI, their secret. That is
+a product positioning decision, not a technical one, and it should be made
+explicitly rather than inherited from the implementation.
+
+Note it diverges from what GCP HCP does today:
+[implementation-plans/gcp-customer-authentication.md](../../implementation-plans/gcp-customer-authentication.md)
+has the CLI provisioning an OAuth client during infrastructure setup and passing
+`oauthClientId` into the cluster spec. The shape is the same — a client ID in
+the spec at creation — but the source changes from platform-minted to
+customer-supplied, and for the console client it has to, because Google will not
+let us mint it.
+
+#### How this lands in GCP HCP specifically
+
+- **Day-0 is the only safe option anyway.** gecko controllers continuously
+  reconcile the HostedCluster spec, so an out-of-band edit to
+  `spec.configuration` would be reverted. A day-2 spec change would have needed
+  new public-API surface plus a field-mutability decision, neither of which is
+  documented today. Setting both fields at creation avoids the question.
+- **Routing the secret through the guest is a feature, not a workaround.**
+  [design-decisions/identity/secret-management-strategy.md](../../design-decisions/identity/secret-management-strategy.md)
+  explicitly defers customer-facing secrets to a future decision, and there is
+  no documented path for a customer to supply a secret through the platform API.
+  Guest-side delivery means the platform API never holds the value.
 
 **Detailed analysis:** See `reference/console-auth-options.md` section 7.
 
 **Open work:**
 
-- Decide the client model (realistically option 1 or 2). Requires product, platform, and security input.
-- If option 1: design and build the broker (state signing/allowlist, per-connectivity-domain reachability for private clusters) and the upstream bridge change to target it.
-- Extend day-2 `hosted-cluster-sourced` secret-isolation honoring to GCP (currently ARO-HCP only).
+- Confirm the product decision that the customer brings their own Google OAuth client.
+- Widen the `hosted-cluster-sourced` gate to GCP, or add a distinct guest-sourced mode.
+- Build the guest → HCP namespace secret sync in the ported console-operator.
+- Resolve the guest `Authentication` mirror rejection (operator writes status, or prune the entry).
+- Optionally, pursue the redirect broker for zero-touch provisioning.
 - Confirm `ConsolePublicURL` → KAS (`kas/params.go:77`, `kas/config.go:151`) for the `oc-oidc` login command when the operator runs control-plane-side.
 
 ## 2. Data-plane-driven redeployment of a control-plane workload
