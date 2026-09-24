@@ -42,7 +42,16 @@ redirect URI and the client secret — are supplied day-2 by the customer, outsi
 the HostedCluster entirely. ARO HCP already ships exactly this shape, including
 exact per-cluster redirect URIs rather than wildcards. What remains is a product
 decision (the customer brings their own Google client) and three bounded code
-changes. Full design in [open-questions.md](open-questions.md) §1.
+changes.
+
+That whole line of reasoning presumes external OIDC. If GCP HCP adopts the
+**internal OpenShift OAuth server** to support multiple and custom identity
+providers — a live parallel discussion — the console delegates login to
+`openshift-oauth` and needs no Google client at all. That pairs naturally with
+this topology, since the OAuth server already runs control-plane-side and is
+already exposed at `oauth.<domain>` on the same router and the same certificate.
+Hence the recommendation to keep the bridge's auth pluggable rather than
+hard-wiring OIDC. Both paths in [open-questions.md](open-questions.md) §1.
 
 ## Why it is worth doing
 

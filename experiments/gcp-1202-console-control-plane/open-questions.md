@@ -9,6 +9,12 @@ product decision remains, and full zero-touch provisioning is still out of
 reach. See [The day-2 client model](#the-day-2-client-model) below, which
 supersedes the "leading candidates" further down this section.
 
+**And it may be moot.** The whole section presumes external OIDC. If GCP HCP
+adopts the internal OpenShift OAuth server for multiple/custom identity
+providers, the console delegates to `openshift-oauth` and needs no Google client
+at all — see
+[the integrated OAuth option](#the-option-that-removes-the-question-entirely-integrated-openshift-oauth).
+
 **The problem:** The console bridge is a confidential web application needing its own Google OAuth "Web application" client with a registered redirect URI. Google web-client creation is **not automatable** (no API, no gcloud, no Terraform) and Google **forbids wildcard redirect URIs**, so provisioning a per-hosted-cluster console client without a manual Google step is unresolved. Cluster creation must not require a manual Google step.
 
 **Critical detail:** This is **topology-independent**. It would equally affect a data-plane console under external OIDC, so it is not an argument against moving the console. The control-plane-side port surfaced a pre-existing gap that would block any GCP HCP console under external OIDC.
@@ -146,20 +152,49 @@ infrastructure. It is now an optimisation, not a prerequisite.
 An **intermediate IdP with dynamic client registration** fronting Google remains
 the other zero-touch option.
 
+#### The option that removes the question entirely: integrated OpenShift OAuth
+
+Everything above assumes the console authenticates the user directly against an
+external OIDC provider, so it needs its own confidential client at that
+provider. That assumption is not fixed.
+
+There are parallel discussions about adopting the **internal OpenShift OAuth
+server** to support multiple and custom identity providers. Under that model the
+console does not talk to Google at all — it delegates to `openshift-oauth`,
+which is the console's classic authentication path, and the Google client
+problem simply does not arise. No per-cluster client, no redirect-URI
+registration, no client secret to deliver, and none of the three code changes
+listed above are needed for auth purposes.
+
+This pairs unusually well with the control-plane-side console, because in
+HyperShift the OAuth server **already runs control-plane-side** and is already
+exposed at `oauth.<domain>` on the same router and the same wildcard
+certificate. Console and OAuth server would then both sit on our side of the
+boundary, with no guest dependency in the login path at all.
+
+This is why the spike's standing recommendation is to keep the bridge's auth
+**pluggable** rather than hard-wiring the OIDC flow. Which model wins is a
+broader identity decision for GCP HCP, well outside this spike — but it is the
+single largest fork in the road for this section, and the day-2 design above
+should be understood as the answer *conditional on external OIDC remaining the
+model*.
+
 #### Open product decision
 
-The day-2 model means the customer brings their own Google OAuth client — their
-Google project, their consent screen, their redirect URI, their secret. That is
-a product positioning decision, not a technical one, and it should be made
-explicitly rather than inherited from the implementation.
+If external OIDC does remain the model, the day-2 design means the customer
+brings their own Google OAuth client — their Google project, their consent
+screen, their redirect URI, their secret. That is a product positioning
+decision, not a technical one, and it should be made explicitly rather than
+inherited from the implementation.
 
-Note it diverges from what GCP HCP does today:
+This is a question specifically about the *console* client, and it does not
+necessarily follow what GCP HCP does for kube API access.
 [implementation-plans/gcp-customer-authentication.md](../../implementation-plans/gcp-customer-authentication.md)
-has the CLI provisioning an OAuth client during infrastructure setup and passing
-`oauthClientId` into the cluster spec. The shape is the same — a client ID in
-the spec at creation — but the source changes from platform-minted to
-customer-supplied, and for the console client it has to, because Google will not
-let us mint it.
+is largely concerned with kube API and CLI access, where the CLI provisions an
+OAuth client during infrastructure setup and passes `oauthClientId` into the
+cluster spec. The console can legitimately differ — and for the console client
+it has to, because Google will not let us mint a web-application client
+programmatically.
 
 #### How this lands in GCP HCP specifically
 
@@ -250,50 +285,41 @@ let us mint it.
 
 **Cross-reference:** See `findings.md` for the single-tenant design.
 
-## 5. Certificate model conflicts with an existing design decision
+## 5. Certificate model — resolved, recorded for clarity
 
-**Status:** Unresolved contradiction. Must be settled before any of this informs
-a design decision.
+**Status:** Not a conflict. Recorded because the surrounding documentation can
+read as one.
 
-**The conflict.** This spike's entire certificate story rests on the console
-reusing a cert-manager-issued wildcard `*.<domain>` — the same `external-api-cert`
-secret the API server uses for its named certificate. That is what the PoC
-deployed and what [architecture.md](architecture.md) §5 documents.
+The repository design decision
+[networking/customer-dns-zone-management.md](../../design-decisions/networking/customer-dns-zone-management.md)
+records the hosted-cluster API certificate as self-signed and uses that to
+conclude a DNS zone is not required for certificate issuance. The PoC ran
+against a cert-manager wildcard. Both are correct and describe different things:
 
-The repository's existing design decision says something different.
-[design-decisions/networking/customer-dns-zone-management.md](../../design-decisions/networking/customer-dns-zone-management.md)
-records the hosted-cluster API certificate as **self-signed, explicitly not
-ACME-based**, and uses that fact to conclude that a DNS zone is not required for
-certificate issuance.
+- **Self-signed is the HyperShift default.** That is what the design decision
+  describes.
+- **GCP HCP overrides it.** The deployment supplies a Let's Encrypt-signed
+  wildcard `*.<domain>` via a cert-manager `ClusterIssuer` (`public-issuer`),
+  wired into the hosted cluster through
+  `spec.configuration.apiServer.servingCerts.namedCertificates`. See
+  [manifests/hostedcluster/certificate.yaml](manifests/hostedcluster/certificate.yaml).
 
-Both statements cannot describe the same target state.
+That wildcard already covers `api.<domain>` and `oauth.<domain>`, and now covers
+`console.<domain>` and `downloads.<domain>` at no additional cost, purely because
+the console exposure reuses the same hostname pattern rather than inventing one
+under the guest ingress domain.
 
-**Why this matters more than it looks.** "Certificate management no longer
-depends on guest-side configuration" is one of the headline benefits claimed for
-moving the console — see [findings.md](findings.md). That benefit is real only
-if the API-adjacent certificate is publicly trusted, because a browser is the
-client. A self-signed API certificate is fine for `oc` with a supplied CA
-bundle; it is not fine for a console a customer administrator opens in Chrome.
+So the "simpler certificate management" benefit claimed in
+[findings.md](findings.md) holds, and holds for a concrete reason: the console
+inherits a publicly trusted certificate whose lifecycle is already owned by the
+management cluster, with no guest-side certificate configuration, no ACME
+challenge delegation, and no additional DNS zone.
 
-So this is not a documentation tidy-up. It determines:
-
-- whether the platform needs ACME infrastructure and therefore a public DNS zone
-  per hosted cluster, which is precisely what the existing decision concluded it
-  could avoid;
-- who owns certificate lifecycle and renewal;
-- whether the wildcard SAN list can be extended for custom console domains
-  (see [§3](#3-custom-dns-for-the-console));
-- whether the "simpler certificate management" benefit survives at all.
-
-**Possible resolutions.** Either the existing design decision is stale and the
-fleet already issues cert-manager wildcards for `api.<domain>` (in which case the
-decision record needs updating and the benefit stands), or the PoC used a
-non-production certificate arrangement (in which case the console needs its own
-publicly-trusted certificate story, and the claimed simplification shrinks).
-
-**Next step.** Confirm against the deployed fleet what actually serves
-`api.<domain>` today, then correct whichever document is wrong. This is a
-question of fact, not of design, and should be cheap to answer.
+Worth noting for a browser-facing component specifically: a self-signed API
+certificate is workable for `oc` with a supplied CA bundle, but would not be
+acceptable for a console a customer opens in a browser. The Let's Encrypt
+wildcard is what makes the control-plane-side console viable as a user-facing
+endpoint, so it is a dependency of this design rather than an incidental detail.
 
 ## 6. CVO console removal specifics
 
