@@ -203,11 +203,38 @@ Google imposes hard constraints on OAuth client creation:
 - **No wildcard redirect URIs** — each redirect URI must be an exact HTTPS match.
 - Client secret is shown **once** at creation.
 
-**Fleet Impact:** Creating a hosted cluster **must not require a manual Google step**. Any design where Google sees a per-cluster redirect URI violates this principle.
+**Fleet Impact:** Creating a hosted cluster **must not require a manual Google step**. Any design where Google *must be changed during* cluster creation violates this principle.
+
+Note the distinction, which matters: the constraint is on the *creation flow*, not on Google ever seeing a per-cluster redirect URI. A redirect URI is a mutable property of a Google client, so it can be added after the cluster exists without blocking creation. ARO HCP relies on exactly that — it registers an exact per-cluster callback derived from the created cluster's console URL, rather than a wildcard, even though Entra would permit wildcards for org-only tenants.
 
 ### Client Model Options
 
-The open question is how to provision console OIDC clients at scale without manual per-cluster setup. Detailed analysis of the options (state-based redirect broker, alternate IdP with dynamic registration, etc.) is outside the scope of this document. See [`../open-questions.md`](../open-questions.md) for the unresolved fleet-provisioning question.
+Two shapes, and they answer different questions.
+
+**Day-2 customer-supplied client (designed, with an ARO precedent).** The customer brings a Google client that pre-exists the cluster, so its client ID can be set in `HostedCluster.spec` at creation — in both `issuer.audiences` and `oidcClients[]`. After the cluster exists, the customer adds the redirect URI to that client and creates the client secret guest-side. Nothing mutates the HostedCluster after creation. This removes the ordering impossibility but keeps one manual Google step, moved out of the creation path and owned by the customer.
+
+**Zero-touch provisioning (unbuilt).** A state-based redirect broker — one fleet-fixed Google redirect URI with the target cluster encoded in the OAuth `state` parameter — or an intermediate IdP supporting dynamic client registration. Either removes the manual Google step entirely. Both need new fleet auth infrastructure, and the broker additionally needs upstream bridge support it does not have today.
+
+Full design, code changes and the open product decision: [`../open-questions.md`](../open-questions.md) §1.
+
+### Both Fields Are Required
+
+`issuer.audiences` and `oidcClients[].clientID` are independent; neither is derived from the other. The KAS authenticator's audience list is built solely from `issuer.audiences`, in HyperShift and in standalone OpenShift alike (two independent implementations with identical logic; no shared library-go helper). A client ID listed only under `oidcClients` will not be accepted as a token audience.
+
+The official OpenShift external-auth documentation reflects this, listing each client ID twice:
+
+```yaml
+issuer:
+  audiences: [console-test, oc-cli-test]
+oidcClients:
+- clientID: oc-cli-test
+  componentName: cli
+- clientID: console-test
+  clientSecret: { name: console-secret }
+  componentName: console
+```
+
+`clientSecret` appears only on the console entry — the CLI client is public, the console client confidential.
 
 ## Observed Symptom: Benign Login-Role Metric Error
 

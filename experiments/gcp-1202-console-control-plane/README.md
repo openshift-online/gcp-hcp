@@ -28,13 +28,21 @@ in this spike. Closing that gap means making the upstream console-operator
 dual-kube-API capable — a medium-heavy mechanical refactor, scoped in
 [operator-migration.md](operator-migration.md).
 
-**The blocker for going beyond a spike** is not the operator. It is the GCP OIDC
-console client model: the bridge needs its own Google OAuth web-application
-client with a registered redirect URI, Google forbids wildcard redirects, and
-web-client creation is not automatable. That problem is topology-independent —
-it would equally affect a data-plane console under external OIDC — but it must
-be solved before any of this ships. See
-[open-questions.md](open-questions.md).
+**The GCP OIDC console client model** was the other thing holding this back: the
+bridge needs its own Google OAuth web-application client with a registered
+redirect URI, Google forbids wildcard redirects, and web-client creation is not
+automatable. That problem is topology-independent — it would equally affect a
+data-plane console under external OIDC.
+
+It now has a design with a shipped precedent. Because a Google client's redirect
+URI is mutable and the client can pre-exist the cluster, the client ID goes into
+`HostedCluster.spec` at creation (in both `issuer.audiences` and
+`oidcClients[]`), and the two things that depend on the cluster hostname — the
+redirect URI and the client secret — are supplied day-2 by the customer, outside
+the HostedCluster entirely. ARO HCP already ships exactly this shape, including
+exact per-cluster redirect URIs rather than wildcards. What remains is a product
+decision (the customer brings their own Google client) and three bounded code
+changes. Full design in [open-questions.md](open-questions.md) §1.
 
 ## Why it is worth doing
 
