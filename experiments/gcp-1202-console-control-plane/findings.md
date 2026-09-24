@@ -46,9 +46,12 @@ terminal, monitoring via Thanos and Alertmanager, and dynamic plugin loading.
 - **Guest-side config reconciliation.** The operator normally reconciles guest
   ConsolePlugin CRs, generates `console-config`, and writes status. All of that
   was bypassed with static bridge flags.
-- **Dynamic OIDC client provisioning.** The PoC used a pre-created Google OAuth
-  client. Per-cluster provisioning without a manual Google step remains
-  unsolved, and is the real blocker — see [open-questions.md](open-questions.md).
+- **Zero-touch OIDC client provisioning.** The PoC used a pre-created Google
+  OAuth client, applied by hand. A day-2 model where the customer supplies their
+  own client now has a design and an ARO precedent, so this is no longer a
+  blocker — but provisioning without *any* manual Google step remains unsolved,
+  because Google has no API for creating OAuth web clients. See
+  [open-questions.md](open-questions.md) §1.
 - **Capability-aware payload stripping.** CVO payload removal of the guest
   console-operator works, but is GCP-gated with hardcoded manifest filenames
   rather than productized.
@@ -348,11 +351,13 @@ this needs its own ticket and is not tracked under any of the console Jiras.
 
 ## Next steps
 
-1. **Resolve the GCP OIDC console client model.** This, not the operator, is
-   what blocks shipping. It is topology-independent and would equally affect a
-   data-plane console under external OIDC. Options in
-   [reference/console-auth-options.md](reference/console-auth-options.md);
-   the open problem in [open-questions.md](open-questions.md).
+1. **Confirm the GCP OIDC console client model.** The day-2 design — customer
+   brings a pre-existing Google client, client ID set in `HostedCluster.spec` at
+   creation, redirect URI and secret supplied day-2 outside the spec — follows
+   ARO HCP's shipped pattern. What is needed now is the product decision that
+   customers own the client, plus the three code changes listed in
+   [open-questions.md](open-questions.md) §1. Background in
+   [reference/console-auth-options.md](reference/console-auth-options.md).
 2. **Upstream console-operator dual-client refactor**, framed as "manage console
    on a remote cluster" following CNO's merged precedent. Scoped in
    [operator-migration.md](operator-migration.md).
@@ -368,9 +373,11 @@ this needs its own ticket and is not tracked under any of the console Jiras.
    records the hosted-cluster API certificate as self-signed while the PoC ran
    against a cert-manager wildcard. See [open-questions.md](open-questions.md).
 
-The runtime path is proven and the engineering cost is bounded. The gating
-question is the OIDC client model, and after that, whether the console team will
-accept a remote-cluster operating mode upstream.
+The runtime path is proven and the engineering cost is bounded. The OIDC client
+model, previously the gating question, now has a day-2 design with an ARO
+precedent; what is left there is a product decision rather than a technical
+unknown. The remaining open question of substance is whether the console team
+will accept a remote-cluster operating mode upstream.
 
 See also [architecture.md](architecture.md),
 [operator-migration.md](operator-migration.md),
