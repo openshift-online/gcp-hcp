@@ -6,7 +6,7 @@
 
 ## Decision
 
-Adopt mandatory platform-managed upgrades for hosted cluster control planes following the GKE model: control plane upgrades are automatic and cannot be disabled. Customers control timing of y-stream upgrades through maintenance windows, maintenance exclusions, and channel selection. Z-stream upgrades are fully automatic and do not respect delay controls.
+Adopt mandatory platform-managed upgrades for hosted cluster control planes following the GKE model: control plane upgrades are automatic and cannot be disabled. Customers control timing of both y-stream and z-stream upgrades through maintenance windows, maintenance exclusions, and channel selection.
 
 Node Pool upgrades are entirely customer-triggered — manual or scheduled. Customers can specify a target version for the Node Pool; the default is the current control plane version. The target version must be within the supported version skew (N-3 minor versions) and cannot exceed the current control plane version. The platform does not automatically upgrade Node Pools.
 
@@ -76,25 +76,31 @@ Control plane upgrades are **mandatory and platform-managed**. Version downgrade
 - Manual (optional): customer initiates upgrade ahead of the automatic schedule
 
 **Delay controls:**
-- Y-stream (minor) upgrades respect maintenance windows and maintenance exclusions
-- Z-stream (patch) upgrades are fully automatic and do not respect delay controls
+- All control plane upgrades (both y-stream and z-stream) respect maintenance windows and maintenance exclusions
+
+#### New Cluster Default Version and Fleet Minimum Y-Version
+
+The platform maintains two separate version controls:
+
+- **New cluster default version**: The platform-defined default y-version for the channel. New clusters are created at the latest z-stream of this version. Updated when the platform promotes a new y-stream version.
+- **Fleet minimum y-version**: A separate floor for existing clusters, decoupled from the new cluster default. Only bumped when the current minimum approaches EOL, providing stability for existing clusters. The bump process includes customer communications (defined separately).
+
+This decoupling means promoting a new default version affects new cluster creation but does not automatically force existing clusters to that y-version. Existing clusters upgrade to a new y-version when the applicable fleet minimum y-version advances — either because the platform bumps it (approaching EOL) or because the customer switches to a channel with a higher fleet minimum y-version — or when a customer manually requests a y-stream upgrade. These y-stream upgrades follow the same delay and override rules as all other control plane upgrades.
 
 #### Version Promotion to Channel Default
 
+The promotion flow applies to both y-stream and z-stream versions, with different effects on the fleet:
+
+- **Z-stream** default promotion triggers progressive upgrades to existing clusters (respecting maintenance windows and exclusions)
+- **Y-stream** default promotion updates the new cluster creation version; existing clusters only upgrade when the fleet minimum y-version is bumped or when a customer requests a y-stream control plane upgrade
+
 The promotion flow:
 
-1. Red Hat publishes a new GA version to Cincinnati
+1. Red Hat publishes a new GA version to Cincinnati (the platform can block versions from Cincinnati if needed)
 2. The version becomes available in the corresponding channel (fast, stable, or EUS) per Red Hat's channel policies
-3. The platform runs internal validation against the new version (e2e tests, upgrade tests)
-4. Once validation passes, the platform promotes the version to the channel's **default** — an internal platform operation, not a Cincinnati concept
-5. The new default triggers progressive fleet-wide upgrades (progressive delivery policy documented separately)
-
-**How it works:**
-1. CVO queries Cincinnati via `spec.channel` and populates `status.version.availableUpdates`
-2. Platform evaluates upgrade eligibility (channel target, maintenance window, exclusions)
-3. Platform updates `spec.release.version`, triggering version-resolution via Cincinnati
-4. HyperShift orchestrates the control plane rollout
-5. Rollout proceeds progressively across the fleet
+3. The platform evaluates the version against its promotion criteria (defined separately) to determine readiness as the channel default
+4. Once the criteria are met, the platform promotes the version to the channel's **default** — an internal platform operation, not a Cincinnati concept
+5. New clusters are created at the new default version; existing clusters receive z-stream upgrades progressively (progressive delivery policy documented separately). Automatic y-stream upgrades to existing clusters are governed by the fleet minimum y-version (see above), not by the channel default promotion; customers can also manually request a y-stream upgrade
 
 ### Node Pool Upgrades
 
@@ -104,16 +110,6 @@ Node Pool upgrades are **entirely customer-triggered**. Customers can specify a 
 - Manual: customer initiates upgrade to a chosen version (default: current control plane version)
 - Scheduled: one-off scheduled upgrade to a chosen version (default: current control plane version)
 
-**Upgrade strategy — Replace (default):** Creates new machine instances with the target version and removes old ones in a rolling fashion. HyperShift uses CAPI MachineDeployments — when the NodePool version changes, CAPG creates new GCPMachine resources (new GCE instances), drains pods from old nodes, then deletes them.
-
-HyperShift Operator knobs:
-- **maxSurge**: how many extra nodes to create during the rollout (more = faster but uses more quota)
-- **maxUnavailable**: how many nodes can be down simultaneously
-- **nodeDrainTimeout**: force-removes stuck nodes after a timeout
-- **nodeVolumeDetachTimeout**: force-detaches volumes after a timeout
-
-**Future direction — Karpenter:** With Karpenter, upgrades shift to drift-based node replacement through Karpenter's disruption controls. The upgrade policy remains the same — only the execution mechanism changes.
-
 ## Customer Controls for Control Plane Upgrades
 
 ### Release Channel Selection
@@ -121,7 +117,7 @@ HyperShift Operator knobs:
 Customers select a release channel that determines which versions are offered for upgrade. Channels map to Cincinnati channel groups.
 
 - Channel is set at cluster creation (default: `stable`) and can be changed at any time
-- Changing channel might trigger an upgrade if the **default** version in the new channel is newer than the current version
+- Switching from EUS to stable or fast may trigger an upgrade if the fleet minimum y-version in the new channel is newer than the cluster's current version
 
 ### Maintenance Windows
 
@@ -129,21 +125,19 @@ Customers select a release channel that determines which versions are offered fo
 - **Recurrence**: [RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545) recurrence rules so that a single window can express complex schedules like "weekdays 2-6 AM UTC" or "Saturdays and Sundays only"
 - **Duration**: Minimum 4 hours (TBD from Perf/Scale tests) to allow upgrades to complete
 - **Default**: If no maintenance window is set, the platform may upgrade at any time
-- **Scope**: Applies to control plane y-stream upgrades only (z-stream upgrades are fully automatic)
+- **Scope**: Applies to all control plane upgrades (both y-stream and z-stream)
 
 ### Maintenance Exclusions
 
-Customer-defined blackout periods during which no automatic y-stream upgrades are applied, even if a maintenance window is open.
+Customer-defined blackout periods during which no automatic upgrades are applied, even if a maintenance window is open.
 
 - Up to 3 maintenance exclusions (aligned with GKE)
 - Maximum duration 30 days
 - Must leave at least 48 hours of maintenance availability in any rolling 32-day window (aligned with GKE). The platform rejects maintenance exclusion configurations that would violate this constraint at the API level
 
-**Override conditions** — maintenance windows and exclusions are respected *except for*:
-- Z-stream upgrades (always automatic)
-- Version is within **30 days of EOL** (aligned with GKE)
-- Workers are approaching the **version skew limit** (N-3) — the platform notifies the customer but does not block the control plane upgrade
-- The cluster version is **incompatible with a required platform component** update
+**Override conditions** — maintenance windows and exclusions are respected *except when*:
+- The cluster's y-stream version is within **30 days of EOL** (aligned with GKE)
+- A z-stream upgrade addressing a **critical security or platform issue** requires immediate patching
 
 ### Manual Upgrades
 
@@ -164,7 +158,8 @@ Customer-defined blackout periods during which no automatic y-stream upgrades ar
 | Upgrade remediation in progress | Control Plane status update indicating remediation is in progress |
 | Channel change triggering upgrade | Control Plane event with target version and reason |
 | Node Pool version skew approaching N-3 | Control Plane event with Node Pool identifier and recommended action |
-| Delay override pending | Advance notification at least **7 days** before override, with reason and override timeline |
+| Fleet minimum y-version bumped | Advance notification with new minimum version, upgrade timeline, and required action |
+| Delay override pending | Advance notification with reason and override timeline |
 
 ## Customer Controls for Node Pool Upgrades
 
@@ -194,20 +189,20 @@ If a cluster approaches EOL but no valid Cincinnati upgrade edge exists from its
 ### Positive
 
 * Eliminates long-tail version sprawl seen in customer-triggered models
-* Customer timing controls provide operational flexibility for y-stream upgrades
-* Z-stream auto-upgrades ensure security patches are applied promptly
+* Customer timing controls provide operational flexibility for all control plane upgrades (y-stream and z-stream)
 * Node Pool upgrades remain fully customer-controlled
 * Override mechanism ensures critical situations are not blocked by customer-configured delays
 * EUS channel support enables extended stability between minor versions
 * Progressive fleet rollout minimizes blast radius of problematic releases
+* Decoupling fleet minimum y-version from new cluster default provides greater stability for existing clusters
 
 ### Negative
 
 * Customers cannot defer y-stream upgrades indefinitely — less flexible than ROSA
-* Z-stream upgrades bypass all delay controls, even for patches with behavioral changes
 * Override conditions can force upgrades outside customer-preferred windows
 * Node Pool version divergence is possible — exceeding N-3 skew puts the Node Pool out of support
 * Dependency on Red Hat for edge resolution in EOL-with-no-edge scenarios
+* Decoupling fleet minimum y-version from new cluster default may result in a wider spread of y-versions across the fleet
 
 ## Cross-Cutting Concerns
 
@@ -218,8 +213,7 @@ If a cluster approaches EOL but no valid Cincinnati upgrade edge exists from its
 
 ### Security:
 
-* Z-stream auto-upgrades ensure critical security patches are applied without delay
-* Override mechanism ensures critical security situations are resolved regardless of customer-configured delays
+* All control plane upgrades (including z-stream security patches) respect customer timing controls; override conditions (EOL, critical security or platform issues) ensure critical situations are still resolved
 * Customer notifications at skew limit provide clear signal to act
 
 ### Performance:
