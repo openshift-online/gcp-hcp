@@ -74,8 +74,10 @@ The architecturally important cost point, and the reason the figure stays small:
   HAProxy router and the existing public LB / PSC service attachment. They are
   two additional SNI backends on infrastructure that is already provisioned per
   hosted cluster.
-- **No new certificate.** They reuse the wildcard certificate the API server
-  already uses.
+- **No new certificate**, because GCP HCP supplies a publicly trusted wildcard
+  for the API server and the console reuses it. On a deployment left on the
+  HyperShift default self-signed API certificate, a browser-facing console would
+  need its own publicly trusted certificate.
 - **No new DNS zone.** Two records in a zone that already exists.
 - **No new tunnel.** The konnectivity socks5 sidecar rides the konnectivity
   server that is already running.

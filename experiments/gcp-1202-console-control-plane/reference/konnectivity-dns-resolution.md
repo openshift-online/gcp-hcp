@@ -134,7 +134,7 @@ Without `-service-ca-file`, the bridge can reach the guest KAS but fails to vali
 For the konnectivity DNS resolution mechanism to work, the following must be in place:
 
 1. **Sidecar container:** A `konnectivity-socks5-proxy` sidecar in the console pod.
-2. **Guest kubeconfig:** The sidecar must have a kubeconfig for the guest cluster (to perform step 2 Service lookups). This is typically the same service-account kubeconfig used by the bridge.
+2. **Guest kubeconfig:** The sidecar must have a kubeconfig for the guest cluster (to perform step 2 Service lookups). In the PoC this is the HCP namespace's `service-network-admin-kubeconfig` Secret, mounted into the sidecar. It is **not** what the bridge uses — the bridge authenticates to the guest API with a bearer-token file minted by the `token-minter` sidecar.
 3. **Proxy environment variables:** Set on the bridge container:
    ```
    HTTP_PROXY=socks5://127.0.0.1:8090

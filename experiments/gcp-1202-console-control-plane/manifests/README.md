@@ -65,7 +65,7 @@ To reproduce the PoC:
    cd guest/
    # Supply guest kubeconfig via KUBECONFIG environment variable
    KUBECONFIG=/path/to/guest-kubeconfig ./apply.sh
-   KUBECONFIG=/path/to/guest-kubeconfig kubectl apply -f redhat-domain-admins.yaml
+   KUBECONFIG=/path/to/guest-kubeconfig kubectl apply -f console-admin.yaml
    # Run firewall workaround if needed (updates GCP firewall rules)
    ./allow-geneve-firewall.sh
    ```
