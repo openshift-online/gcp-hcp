@@ -233,6 +233,7 @@ inside the guest pod network.
 sequenceDiagram
     participant B as console bridge
     participant S as konnectivity-socks5-proxy
+    participant G as guest kube-apiserver (in-namespace)
     participant K as konnectivity-server
     participant A as konnectivity-agent (guest)
     participant T as thanos-querier.openshift-monitoring.svc
@@ -240,9 +241,9 @@ sequenceDiagram
     Note over B: HTTP_PROXY=socks5://127.0.0.1:8090<br/>NO_PROXY excludes the in-namespace guest KAS
     B->>S: CONNECT thanos-querier.openshift-monitoring.svc:9091
     Note over S: own resolver, not OS DNS
-    S->>K: resolve Service object via the guest kube-apiserver
-    K-->>S: .spec.clusterIP
-    Note over S,K: no DNS involved at all
+    S->>G: GET Service thanos-querier (direct, no tunnel)
+    G-->>S: .spec.clusterIP
+    Note over S,G: no DNS involved at all
     S->>K: dial ClusterIP:9091
     K->>A: over the pre-established reverse tunnel
     A->>T: TCP to the guest ClusterIP
@@ -291,7 +292,7 @@ flowchart LR
 |---|---|---|---|
 | A | Browser to bridge | cert-manager wildcard `*.DOMAIN`, the same `external-api-cert` secret the API server uses for its named certificate | Public chain |
 | B | Bridge to guest KAS | Guest KAS serving certificate, issued by the control-plane `root-ca` | `-ca-file` pointing at the `root-ca` ConfigMap |
-| C | Bridge to guest Services | service-ca-signed certificates | `-service-ca-file` pointing at the guest `service-serving-ca` ConfigMap |
+| C | Bridge to guest Services | service-ca-signed certificates | `-service-ca-file` pointing at the HCP-namespace `service-serving-ca` ConfigMap, which holds the guest service CA |
 | D | socks5 sidecar to konnectivity-server | konnectivity server certificate | `konnectivity-client` certificate and `konnectivity-ca-bundle`, mTLS |
 
 Two consequences worth stating plainly:

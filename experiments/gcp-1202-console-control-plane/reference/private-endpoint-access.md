@@ -27,13 +27,13 @@ In these modes, the console and downloads are exposed via the **public load bala
 
 1. **Route objects:** CPO reconciles a `console` Route and a `downloads` Route (both unlabeled or labeled for public visibility).
    - Host: `console.<domain>` and `downloads.<domain>`
-   - Target Service: `console.openshift-console.svc` and `downloads.openshift-console.svc`
+   - Target Service: `console.<hcp-namespace>.svc` and `downloads.<hcp-namespace>.svc` (the Services live in the HostedControlPlane namespace, not `openshift-console`)
    - TLS: passthrough (the router does not terminate TLS)
    - Backend port: 8443
 
 2. **Router backends:** The HCP HAProxy router (`app: private-router`) runs in `mode tcp` and performs SNI passthrough. It automatically registers backends for any Route labeled with the HCP route label. For console and downloads, the router configuration maps:
-   - SNI hostname `console.<domain>` → backend `console.openshift-console.svc:8443`
-   - SNI hostname `downloads.<domain>` → backend `downloads.openshift-console.svc:8443`
+   - SNI hostname `console.<domain>` → backend `console.<hcp-namespace>.svc:8443`
+   - SNI hostname `downloads.<domain>` → backend `downloads.<hcp-namespace>.svc:8443`
 
 3. **DNS:** external-dns (running in the `hypershift` namespace) watches Routes and publishes A records for `console.<domain>` and `downloads.<domain>` pointing to the **public load balancer IP**.
 
