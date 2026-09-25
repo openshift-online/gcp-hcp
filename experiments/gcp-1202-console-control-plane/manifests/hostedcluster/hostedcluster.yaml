@@ -1,0 +1,182 @@
+# HostedCluster for console-demo.
+# Now targets the dev-example management cluster (dev-mgt-us-c1-e5d4), while
+# reusing the baseline-hc customer project + infraID (see below).
+#
+# Reused (shared customer project / infra, per explicit approval):
+#   - GCP customer project: example-hcp-customer
+#   - infraID: condemo-a1b2 (VPC network, PSC subnet, workload identity
+#     pool/provider, and all workload identity service account emails)
+#   - issuerURL (OIDC provider/issuer): unchanged — kept on the previous
+#     region's OIDC URL/bucket (oidc.dev-reg-us-c1-e5d4...); the JWKS public
+#     docs are already published there and the SA signing key still matches.
+#   - SA signing key (spec.serviceAccountSigningKey -> sa-signing-key.yaml,
+#     gitignored): must stay the same keypair as the published JWKS at the
+#     shared infraID's OIDC bucket path.
+#
+# Changed for the dev-example MC:
+#   - API / OAuth / console endpoints moved to the new region's HC DNS zone:
+#     us-c1-e5d4c3-1.dev.gcp-hcp.openshiftapps.com (was
+#     us-c1-e5d4c3-1.int.gcp-hcp.openshiftapps.com).
+#
+# Unique to console-demo:
+#   - namespace / cluster name: console-demo
+#   - clusterID: new UUID
+apiVersion: hypershift.openshift.io/v1beta1
+kind: HostedCluster
+metadata:
+  name: console-demo
+  namespace: clusters-console-demo
+  labels:
+    gcp.managed.openshift.io/cluster-id: console-demo
+  annotations:
+    hypershift.openshift.io/control-plane-operator-image: quay.io/REPLACE_USER/hypershift-console-control-plane:REPLACE_TAG
+    # Same custom-cert-for-own-hostname pattern as baseline-hc (also has
+    # this annotation): the api.<cluster>-user... named certificate overlaps
+    # with the KAS's own external API SAN, which the SAN-conflict validator
+    # flags as a false positive. Required for the HC to reconcile.
+    hypershift.openshift.io/skip-kas-conflict-san-validation: "true"
+    # Relax the HCP namespace PodSecurity enforcement from `restricted` to
+    # `baseline`. On GKE (no SCC) HyperShift enforces restricted PSA, but
+    # cluster-network-operator's self-managed operands only set pod-level
+    # security fields and omit the container-level allowPrivilegeEscalation /
+    # capabilities.drop [ALL] restricted requires, so their pods fail admission
+    # and guest nodes never come up. baseline accepts them (they keep
+    # capabilities.drop [NET_RAW]). This is a stopgap for an upstream CNO gap —
+    # see ../../open-questions.md section 10.
+    hypershift.openshift.io/pod-security-admission-label-override: baseline
+spec:
+  autoscaling:
+    scaling: ScaleUpAndScaleDown
+  capabilities:
+    disabled:
+    - ImageRegistry
+    - Ingress
+    # - Console
+  # channel: stable-4.22
+  clusterID: 00000000-0000-4000-8000-000000000001
+  configuration:
+    apiServer:
+      audit:
+        profile: Default
+      clientCA:
+        name: ""
+      encryption: {}
+      servingCerts:
+        namedCertificates:
+        - names:
+          - api.console-demo-a1b2.us-c1-e5d4c3-1.dev.gcp-hcp.openshiftapps.com
+          servingCertificate:
+            name: external-api-cert
+    authentication:
+      oauthMetadata:
+        name: ""
+      oidcProviders:
+      - claimMappings:
+          groups:
+            claim: hd
+            prefix: ""
+          username:
+            claim: email
+            prefixPolicy: ""
+        issuer:
+          audiences:
+          - 32555940559.apps.googleusercontent.com
+          # console OIDC client id — must be an accepted audience so the guest
+          # KAS accepts ID tokens the console forwards after login. (The
+          # console bridge is configured with this client directly via CLI
+          # flags; an oidcProviders[].oidcClients entry is not usable here
+          # because its admission requires status.oidcClients, which only a
+          # running guest console-operator writes — see
+          # CONSOLE_CONTROL_PLANE_DOCS/reference/GOOGLE_OIDC_CLIENT_SETUP.md.)
+          - 123456789012-REPLACE_CONSOLE_OIDC_CLIENT.apps.googleusercontent.com
+          issuerCertificateAuthority:
+            name: ""
+          issuerURL: https://accounts.google.com
+        name: google
+      serviceAccountIssuer: ""
+      type: OIDC
+  controllerAvailabilityPolicy: HighlyAvailable
+  dns:
+    baseDomain: in.console-demo-a1b2.us-c1-e5d4c3-1.dev.gcp-hcp.openshiftapps.com
+    baseDomainPrefix: ""
+  etcd:
+    managed:
+      storage:
+        persistentVolume:
+          size: 8Gi
+        type: PersistentVolume
+    managementType: Managed
+  fips: false
+  # Reused from baseline-hc (shared VPC / project / WI pool).
+  infraID: condemo-a1b2
+  # Reused verbatim from baseline-hc (same OIDC provider/issuer).
+  issuerURL: https://oidc.dev-reg-us-c1-e5d4.dev.gcp-hcp.openshiftapps.com/condemo-a1b2
+  networking:
+    clusterNetwork:
+    - cidr: 10.132.0.0/14
+    networkType: OVNKubernetes
+    serviceNetwork:
+    - cidr: 172.31.0.0/16
+  olmCatalogPlacement: management
+  platform:
+    gcp:
+      endpointAccess: PublicAndPrivate
+      networkConfig:
+        network:
+          name: condemo-a1b2-network
+        privateServiceConnectSubnet:
+          name: condemo-a1b2-subnet
+      project: example-hcp-customer
+      region: us-central1
+      resourceLabels:
+      - key: goog-partner-solution
+        value: isol_psn_0014m00001h31bnqaq_openshift
+      workloadIdentity:
+        poolID: condemo-a1b2-wi-pool
+        projectNumber: "123456789012"
+        providerID: condemo-a1b2-k8s-provider
+        serviceAccountsEmails:
+          cloudController: condemo-a1b2-cloud-controller@example-hcp-customer.iam.gserviceaccount.com
+          controlPlane: condemo-a1b2-ctrlplane-op@example-hcp-customer.iam.gserviceaccount.com
+          imageRegistry: condemo-a1b2-image-registry@example-hcp-customer.iam.gserviceaccount.com
+          network: condemo-a1b2-cloud-network@example-hcp-customer.iam.gserviceaccount.com
+          nodePool: condemo-a1b2-nodepool-mgmt@example-hcp-customer.iam.gserviceaccount.com
+          storage: condemo-a1b2-gcp-pd-csi@example-hcp-customer.iam.gserviceaccount.com
+    type: GCP
+  pullSecret:
+    name: pull-secret
+  # Shared SA signing key with baseline-hc (see sa-signing-key.yaml,
+  # gitignored). Required because both HCs share infraID condemo-a1b2 and
+  # thus the same OIDC bucket path — using the same keypair avoids the two
+  # clusters clobbering each other's published JWKS. Setting this also
+  # makes HyperShift Operator skip its own OIDC document upload for
+  # console-demo (baseline-hc keeps publishing the matching JWKS).
+  serviceAccountSigningKey:
+    name: sa-signing-key-import
+  # 4.23.0-ec.0: earliest release whose apiserver-network-proxy (konnectivity)
+  # image supports --tls-min-version, which CPO now always passes to the
+  # konnectivity-server container (commit 20a145c47). 4.22.9 through at least
+  # 4.22.14 lack this flag and crash-loop with "unknown flag: --tls-min-version".
+  # No stable-4.23/candidate-4.23 channel exists yet (4.23 is pre-GA), so
+  # spec.channel is omitted rather than pointing at a nonexistent channel.
+  release:
+    image: quay.io/openshift-release-dev/ocp-release@sha256:14350234fcd6c464fbf37c07679b653567b2d250be0d18132b79a621f164d719
+  services:
+  - service: APIServer
+    servicePublishingStrategy:
+      route:
+        hostname: api.console-demo-a1b2.us-c1-e5d4c3-1.dev.gcp-hcp.openshiftapps.com
+      type: Route
+  - service: OAuthServer
+    servicePublishingStrategy:
+      route:
+        hostname: oauth.console-demo-a1b2.us-c1-e5d4c3-1.dev.gcp-hcp.openshiftapps.com
+      type: Route
+  - service: Konnectivity
+    servicePublishingStrategy:
+      type: Route
+  - service: Ignition
+    servicePublishingStrategy:
+      type: Route
+  sshKey:
+    name: ""
