@@ -242,29 +242,91 @@ programmatically.
 - Design rate-limiting or change-buffering for guest-driven reconciliations if needed.
 - Document the threat model and mitigations in the operator design.
 
-## 3. Custom DNS for the console
+## 3. Custom domain and certificate for the console
 
-**Status:** Open question raised by Claudio Busse.
+**Status:** Raised by Claudio Busse; since flagged as a near-term product
+requirement. **Not tested in this spike** — everything below is desk analysis
+from source.
 
-**Context:** ROSA recently shipped custom domains for the console. GCP HCP has no custom domain support for the API today, and the current proposal puts console and downloads records next to the API on the same wildcard certificate (`console.<domain>`, `downloads.<domain>` alongside `api.<domain>` and `oauth.<domain>`).
+### How OpenShift does it today
 
-**The question:** Should GCP HCP support custom console domains? If so, how does it interact with the existing wildcard certificate model?
+`Ingress.spec.componentRoutes[]` carries a `hostname` and an optional
+`servingCertKeyPairSecret`. console-operator matches `openshift-console/console`
+and `openshift-console/downloads` (`route.go:60-67`); the certificate is a
+`kubernetes.io/tls` Secret the admin creates in `openshift-config`.
+`Console.spec.route` is the deprecated predecessor — componentRoutes wins.
 
-**Mitigating detail:** The console already supports multiple hostnames (the `--additional-base-addresses` flag exists for exactly this), so it may be easier than the API case. However, it still requires:
+**The certificate never reaches the console pod.** console-operator inlines it
+into `Route.spec.tls` (`route.go:347-352`) on a Route declaring
+`termination: reencrypt`, so the OpenShift ingress router terminates it and the
+pod keeps serving its own service-ca certificate.
 
-- Customer-side DNS configuration (CNAME or A records pointing to the console route)
-- Customer-provided TLS certificate for the custom domain
-- Wiring into the `Console.spec.route` CR field
+Changing the hostname also updates the `console` OAuthClient, the
+`console-config` ConfigMap, `Console.status.consoleURL` and the `console-public`
+ConfigMap. The old hostname becomes a 301 redirector, so upstream a custom
+domain *replaces* the console URL rather than adding one.
 
-**Open question:** Would customers still configure the console's custom domain via the `Console` object **from within the HCP kube-apiserver** (requiring HCP API access), or would this be a HyperShift-level configuration (annotation/spec on the HostedCluster)?
+### Two possible traffic paths
 
-**Cross-reference:** See `architecture.md` for the DNS and certificate model.
+DNS and certificate both follow from the traffic path, so that is the decision.
 
-**Open work:**
+| | Direct to the control-plane router | Via a guest-side ingress |
+|---|---|---|
+| **Traffic** | Browser → public LB or PSC endpoint → HCP router → console pod, as `console.<domain>` does today | Browser → customer's IngressController → console over PSC |
+| **DNS** | Customer CNAMEs the custom name to `console.<domain>` | Customer points the custom name at their own ingress |
+| **Certificate** | Must reach the console pod — the gap | Terminated guest-side, never leaves the guest cluster |
 
-- Decide if custom console DNS is in scope for the initial implementation.
-- If yes: design the configuration surface (HostedCluster spec vs guest Console CR).
-- If yes: determine whether a separate certificate or an extended SAN list is used.
+From the browser both are one TLS connection on port 443. Neither needs changes
+to the public LB, the ILB, the PSC service attachment or the firewall.
+
+**Direct path — three gaps.**
+
+1. **A Route in the HCP namespace for the custom host.** The browser sends SNI
+   equal to that hostname, so the router needs a matching `req_ssl_sni` ACL,
+   which it derives from Routes CPO already reconciles.
+2. **The certificate on the pod.** It has to cross guest → management — the
+   second consumer of a sync direction that does not exist today, after the OIDC
+   client secret in §1 — and the pod must present it *only* for the custom
+   hostname, since it also serves `console.<domain>` under the platform
+   wildcard. That needs either SNI certificate selection in the bridge (an
+   upstream change: `GetCertificate` is already the right shape but ignores its
+   argument, `main.go:816-826`) or a second console Deployment per custom
+   domain, which needs no upstream change.
+3. **A CNAME from the customer.** The platform publishes nothing new.
+
+**Guest-side path.** The customer runs their own IngressController and a
+reencrypt Route with their own certificate, targeting the existing
+`console.<domain>` — so nothing new is needed control-plane-side and the private
+key never leaves the guest cluster. The obvious implementation does not work:
+`ExternalName` Services rely on FQDN-typed EndpointSlices, which the router
+rejects since the fix for
+[CVE-2026-42965](https://access.redhat.com/security/cve/cve-2026-42965), and the
+reencrypt backend sends no SNI (no `sni` keyword on the `server` line in
+`openshift/router`'s `haproxy-config.template`), so the HCP router would fall
+through to `default_backend kube_api`. It reduces to a purpose-built guest-side
+proxy that dials `console.<domain>` with SNI set explicitly.
+
+**Common to both.** `-additional-base-addresses` must cover the custom host, and
+under external OIDC `https://<custom>/auth/callback` must be registered on the
+Google client — another manual Google step, interacting with §1. The bridge
+already rewrites the OAuth `redirect_uri` from the request `Host` for allowed
+hosts (`auth.go:284-297`).
+
+### Open questions
+
+- **Which traffic path.** Whether the customer's private key crosses into the
+  management cluster is as much a trust question as a technical one.
+- **Configuration surface.** Guest `Ingress.spec.componentRoutes`, keeping the
+  upstream API but needing guest API access, or a HostedCluster field?
+- **Replace or add?** Upstream replaces the console URL. Keeping
+  `console.<domain>` serving alongside is a deliberate divergence.
+- **Certificate expiry** becomes a platform-visible outage on the direct path.
+  The bridge reloads the key pair per handshake (`main.go:818-825`), so a secret
+  refresh needs no pod restart, but monitoring and a degraded condition would
+  still be needed.
+- **Private clusters.** The custom name must resolve to the PSC endpoint inside
+  the customer VPC, so custom DNS and private exposure have to be designed
+  together.
 
 ## 4. Multi-tenant console
 
@@ -352,7 +414,6 @@ endpoint, so it is a dependency of this design rather than an incidental detail.
 
 **Mitigating factors:**
 
-- The console already supports multiple hostnames via `--additional-base-addresses`
 - The `consoleURL` is a status field, not spec, so clients should treat it as dynamic
 - Login redirects are driven by the `Console` CR, which the operator would update
 
