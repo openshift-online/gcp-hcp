@@ -38,7 +38,7 @@
 | **Secret** | v1 | console-oauth-config | openshift-console | `.data.clientSecret`; `resourceVersion` | ConsoleOperator, OAuthClients, OAuthClientSecret, OIDCSetup | sync_v400.go:223; oauthclientsecret.go:99,162 | **MC** (operand ns) |
 | **Secret** | v1 | console-serving-cert | openshift-console | `resourceVersion` (mounted) | ConsoleOperator | sync_v400.go:229; deployment.go:259 | **MC** (operand ns) |
 | **Secret** | v1 | session-secret | openshift-console | `.data` (session keys) | ConsoleOperator | sync_v400.go:969 | **MC** (operand ns) |
-| **Secret** | v1 | custom/componentRoute TLS | openshift-config | `tls.crt`, `tls.key` | Route (custom route certs) | route controller.go:280-341,375 | **Guest** |
+| **Secret** | v1 | custom/componentRoute TLS | openshift-config | `tls.crt`, `tls.key` | Route (custom route certs) | route controller.go:280-341,375 | **Guest** (source), **MC** (dest) — see §C |
 | **Secret** | v1 | OIDC clientSecret ref | openshift-config | `.data.clientSecret` | OAuthClientSecret | oauthclientsecret.go:133-139 | **Guest** |
 | **Secret** | v1 | pull-secret | openshift-config | `.dockerconfigjson` (cloud.openshift.com auth for telemetry) | ConsoleOperator (telemetry) | telemetry.go:72-92 | **Guest** |
 | **ConfigMap** | v1 | console-config | openshift-config-managed | first `.data` value (managed overlay) | ConsoleOperator | sync_v400.go:431-437; configmap.go:297-304 | **Guest** |
@@ -58,7 +58,7 @@
 | **Service** | v1 | console, downloads, console-redirect | openshift-console | applied/compared (Service controller) | ServiceController | service controller.go:132-195 | **MC** (operand ns) |
 | **ServiceAccount** | v1 | console, downloads | openshift-console | applied (ServiceAccount controller) | ServiceAccounts | serviceaccounts controller.go:138-179 | **MC** (operand ns, see note 5) |
 | **PodDisruptionBudget** | policy/v1 | console, downloads | openshift-console | applied (PDB controller) | PDB | poddisruptionbudget controller.go:99-121 | **MC** (operand ns) |
-| **IngressController** | operator.openshift.io/v1 | default | openshift-ingress-operator | `.spec.defaultCertificate` | Route (custom cert lookup) | route controller.go:160,307-312 | **Guest** |
+| **IngressController** | operator.openshift.io/v1 | default | openshift-ingress-operator | `.spec.defaultCertificate` | Route (custom cert lookup) | route controller.go:160,307-312 | **Dropped** (note 6) |
 | **OAuthClient** | oauth.openshift.io/v1 | console | — | `.secret`; `.redirectURIs`; `.accessTokenInactivityTimeoutSeconds` | ConsoleOperator, OAuthClients | sync_v400.go:448-453; oauthclients.go:232-262 | **Guest** |
 | **OLMConfig** | operators.coreos.com/v1 | cluster | — | `.spec.features.disableCopiedCSVs` | ConsoleOperator (dynamic lookup) | operator.go:210-230; sync_v400.go:950-961 | **Guest** |
 | **StorageVersionMigration** | migration.k8s.io/v1alpha1 | console-plugin-storage-version-migration | — | `.status.conditions` | StorageVersionMigration | storageversionmigration controller.go:92-204 | **Guest** |
@@ -68,13 +68,15 @@
 
 1. **Proxy** — the operator reads the **guest** `Proxy.status.*` today and applies it as the operand pod's egress env. In dual-cluster mode the operand runs on the **management cluster**, so it should arguably use the **MC** proxy config (for the pod's own egress to the internet), not the guest proxy. The guest proxy config is irrelevant to the management-side pod's egress. **Recommendation:** dual-cluster mode sets pod proxy env **explicitly** (konnectivity socks5 for guest-service traffic; MC proxy for internet egress), not by copying `Proxy.status.*`. See `../operator-migration.md` "Blast-radius concern."
 
-2. **Route** — CPO owns Routes in the dual-cluster topology (public/private variants, hostname from APIServer, ExternalName Service for Private). The operator **drops** Route controllers (`console`/`downloads` Route reconcile is gated off). The operator creates Service/Deployment/PDB only. See `reference/console-operator-io-spec.md` §B.
+2. **Route** — CPO owns Routes in the dual-cluster topology (public/private variants, hostname from APIServer, ExternalName Service for Private), **including any custom-hostname Route** (§C). The operator **drops** Route controllers (`console`/`downloads` Route reconcile is gated off) and creates Service/Deployment/PDB only. See §B.
 
 3. **oauth-serving-cert / default-ingress-cert** — only needed on the **integrated OAuth** path (non-OIDC). OIDC uses the OIDC issuer's CA, not the oauth-serving-cert. **Deferrable** for OIDC-first deployments (core console + plugins do not need it). Cross-cluster sync (guest `openshift-config-managed` → MC operand ns) is **not** implemented initially; stub or omit.
 
 4. **Node** — must read **guest** nodes (the worker fleet), not management nodes. The node list feeds `console-config` `nodeArchitectures`/`nodeOperatingSystems` (UI metadata for CLI download page arch/OS options and Lightspeed gate). Reading MC nodes would advertise the wrong architecture. Tolerate empty node list at early reconcile (warns, disables Lightspeed, default downloads).
 
 5. **ServiceAccount** — the operand pods' **management-cluster** ServiceAccount (for pod identity on the MC). **Distinct** from the **guest** SA the bridge authenticates **as** when proxying to guest KAS (that guest SA is CVO-created, name=`console`, ns=`openshift-console`; token is minted by CPO token-minter sidecar, not by the operator). See `../operator-migration.md` "Guest kube-apiserver authentication."
+
+6. **IngressController** — read only to resolve the default ingress certificate when a custom route reuses the default hostname. There is no guest `IngressController` in this topology, so the lookup has no meaning; the custom certificate comes from the `openshift-config` Secret directly (§C).
 
 ---
 
@@ -93,7 +95,7 @@
 | **Deployment** | console | openshift-console | apply full pod spec (image, flags, env, volumes, replicas, annotations) | run the bridge | ConsoleOperator | sync_v400.go:328-392; deployment.go:71-117 | **MC** (operand ns) |
 | **Deployment** | downloads | openshift-console | apply image/replicas/affinity | run downloads server | DownloadsDeployment | downloadsdeployment controller.go:117-133 | **MC** (operand ns) |
 | **Service** | console, downloads | openshift-console | apply (ClusterIP; **NodePort when ingressDisabled**) | expose pods (port 8443 for HCP router) | ServiceController | service controller.go:132-195 | **MC** (operand ns) |
-| **Service** | console-redirect | openshift-console | apply/delete (custom hostname only) | redirect svc for custom route | ServiceController | service controller.go:143-170 | **MC** (operand ns) |
+| **Service** | console-redirect | openshift-console | apply/delete (custom hostname only) | redirect svc for custom route | ServiceController | service controller.go:143-170 | **MC** (operand ns) — only under upstream replace semantics, §C |
 | **ServiceAccount** | console, downloads | openshift-console | apply | pod identity on MC | ServiceAccounts | serviceaccounts controller.go:129-179 | **MC** (operand ns) |
 | **PodDisruptionBudget** | console, downloads | openshift-console | apply/delete | availability | PDB | poddisruptionbudget controller.go:99-121 | **MC** (operand ns) |
 | **Route** | console, console-custom, downloads, downloads-custom, additional | openshift-console | apply/delete `.spec.host`, `.spec.tls` | expose via ingress | RouteController | route controller.go:208-406 | **Dropped** (note 2) |
@@ -112,7 +114,7 @@
 
 1. **resourceSyncer cross-cluster** — copies ConfigMaps from **guest** `openshift-config-managed` to **MC** operand namespace. library-go's `ResourceSyncController` is single-cluster, so dual-cluster needs a hand-rolled cross-cluster copy or direct fetch. **Deferrable** for OIDC-first (oauth-serving-cert only needed on integrated OAuth path; default-ingress-cert superseded). See `../operator-migration.md` "The thorniest pieces."
 
-2. **Route dropped** — CPO owns Routes (see Table 1 note 2). Operator Route controllers are gated off via `--unmanaged-resources` flag (default `console/Route,downloads/Route` in dual mode). Operator creates Service on port 8443 (HCP router backend); CPO creates the passthrough Route with HCP label + APIServer-derived hostname.
+2. **Route dropped** — CPO owns Routes (see Table 1 note 2). Operator Route controllers are gated off via `--unmanaged-resources` flag (default `console/Route,downloads/Route` in dual mode). Operator creates Service on port 8443 (HCP router backend); CPO creates the passthrough Route with HCP label + APIServer-derived hostname, and likewise for any custom hostname (§C).
 
 ---
 
@@ -123,11 +125,11 @@ Each resource is classified as **EXPOSURE** (Routes/Services/hostnames/ingress/T
 **EXPOSURE resources** (candidates to drop/gate when HyperShift router owns exposure):
 
 - RouteController (console/downloads) — **gate off** (CPO-owned Routes)
-- console-redirect Service — **drop** (custom-hostname redirect only)
+- console-redirect Service — **conditional** (only if a custom hostname *replaces* `console.<domain>` rather than being added alongside it, §C)
 - HealthCheckController — **drop** (probes external route URL; meaningless when router owns URL)
-- Ingress `spec.componentRoutes`/`.domain`/additional hosts — **gate off** (feed additional console base addresses + OAuth redirect URIs only if operator builds routes)
+- Ingress `spec.componentRoutes` — **keep reading, stop acting on**. It is the configuration surface for the custom hostname (§C); the operator consumes the hostname and the certificate reference but no longer builds a Route from them. `.spec.domain` and the guest ingress wildcard — **gate off**
 - operator `spec.route.hostname`/`spec.route.secret` — **drop** (legacy custom console route + TLS, deprecated)
-- Custom-route cert handling (openshift-config TLS secrets → Route.spec.tls) — **drop** (HyperShift router terminates TLS at pod, not Route)
+- Custom-route cert handling — **re-target, not drop**. The `openshift-config` TLS Secret is still the input; its destination changes from `Route.spec.tls` to the console pod, because the HyperShift router terminates nothing (§C)
 - `default-ingress-cert` sync + read — **drop** (only feeds health-check client CA pool; HealthCheck dropped)
 
 **Special cases:**
@@ -146,17 +148,64 @@ Each resource is classified as **EXPOSURE** (Routes/Services/hostnames/ingress/T
 - StorageVersionMigration, MigrationCleanup, staleConditions, logLevel, managementState, ConfigObserver — **keep**
 - UpgradeNotification, CLIOIDCClientStatus, OIDCSetup status writes — **keep**
 
-**Answer:** Yes, drop/gate traffic-routing guest-side configs when HyperShift router owns exposure. The existing `ingressDisabled` external-control-plane path (`starter.go:250-257`, `util.go:88-100`) already does this (drops Route+HealthCheck, switches Service to NodePort, makes URL-consumers fall back to `spec.ingress.consoleURL`). Extend that pattern for dual-cluster mode.
+**Answer:** Yes, drop/gate the guest-side objects that *perform* routing when the HyperShift router owns exposure. The existing `ingressDisabled` external-control-plane path (`starter.go:250-257`, `util.go:88-100`) already does this (drops Route+HealthCheck, switches Service to NodePort, makes URL-consumers fall back to `spec.ingress.consoleURL`). Extend that pattern for dual-cluster mode.
+
+The distinction that matters for custom hostnames: guest-side objects that *declare intent* — the hostname and its certificate reference — must keep being read. Only the objects that act on that intent move to the control plane.
 
 ---
 
-## §C. Additional console base addresses / custom hostnames
+## §C. Custom console hostnames
 
-**Mechanics:** The operator builds a **separate Route per component-route** with its own `ServingCertKeyPairSecret` (`GetAdditionalComponentRouteSpecs`/`GetAdditionalRouteHostnames`, `route.go:365-407`). `console-config` gets the hostname list (`additionalConsoleBaseAddresses: [https://host,...]`, `config_builder.go:409-413`).
+A customer-supplied console hostname is a **near-term requirement**, not an
+optional extra. This section records what it implies for the operator.
 
-**Problem in HyperShift SNI-passthrough topology:** The HyperShift router is `mode tcp`, routes by SNI to a bare TCP backend, and does **not** support reencrypt/edge TLS termination. A per-host Route cert has nowhere to be applied. TLS for every accepted hostname must be terminated **at the bridge pod on :8443**, which requires the bridge to **hold the additional certs and do SNI-based cert selection** on the incoming connection — a bridge capability that does not exist on the off-cluster path.
+**Upstream mechanics.** The operator builds a separate Route per component-route
+with its own `ServingCertKeyPairSecret`
+(`GetAdditionalComponentRouteSpecs`/`GetAdditionalRouteHostnames`,
+`route.go:365-407`) and inlines the certificate into `Route.spec.tls`
+(`route.go:347-352`). `console-config` gets the hostname list
+(`additionalConsoleBaseAddresses`, `config_builder.go:409-413`). The OpenShift
+ingress router terminates the customer's TLS; the pod never sees the
+certificate.
 
-**Conclusion:** **Out of scope** for the dual-cluster refactor. Drop additional-hostname support in split-cluster mode. Revisit only if the bridge gains SNI cert selection or the router gains reencrypt. The hostnames also feed OAuthClient redirect URIs (`oauthclients.go:190`), but that's OpenShift-OAuth-only and skipped under OIDC — doubly irrelevant.
+**Why that inverts here.** The HyperShift router is `mode tcp` with SNI
+passthrough and terminates nothing, so there is no edge to attach a certificate
+to. TLS for every accepted hostname is terminated **at the bridge pod on
+:8443**. The certificate therefore has to travel in the opposite direction from
+upstream — out of guest `openshift-config` and into the HCP namespace — and the
+pod has to present it only for the custom hostname, since it is simultaneously
+serving `console.<domain>` under the platform wildcard.
+
+**What the operator owns.**
+
+- **Read** the hostname and the certificate reference from guest
+  `Ingress.spec.componentRoutes[]`, as upstream. This is the configuration
+  surface; it does not change.
+- **Do not build a Route.** CPO owns the control-plane Route that gives the
+  router its `req_ssl_sni` ACL for the custom hostname (Table 1 note 2).
+- **Carry the certificate guest → management.** No such sync direction exists
+  today; the OIDC client secret needs the same one (`../open-questions.md` §1),
+  so it is worth building once.
+- **Feed the hostname to the bridge** via `-additional-base-addresses`, which
+  covers CSRF origins and per-request OAuth `redirect_uri` rewriting. That part
+  already works.
+
+**The unresolved piece** is how the pod selects between two certificates. The
+bridge takes a single `-tls-cert-file` and its `GetCertificate` hook discards
+the `*tls.ClientHelloInfo`, so it cannot do SNI selection today. Either that
+becomes an upstream change, or the operator runs a second console Deployment per
+custom hostname with its own certificate and `-base-address` — which needs no
+upstream change and is the cheaper option to evaluate first.
+
+**Also affected.** `console-redirect` Service and the bridge's `-redirect-port`
+implement upstream's *replace* semantics, where the default hostname 301s to the
+custom one. Whether `console.<domain>` should instead keep serving alongside is
+an open product question (`../open-questions.md` §3); the answer decides whether
+those two stay. The additional hostnames also feed OAuthClient redirect URIs
+(`oauthclients.go:190`), which matters only on the integrated-OAuth path.
+
+**Requirement-level analysis, including the guest-side alternative:**
+[`../open-questions.md`](../open-questions.md) §3.
 
 ---
 

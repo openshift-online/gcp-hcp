@@ -316,7 +316,7 @@ plugin and monitoring *workloads* stay guest-side.
 | Blast radius from customer changes | Guest NetworkPolicies, Route changes, ingress replacement or a service mesh can break it | Customer data-plane changes cannot break it — but see the inverse concern in [open-questions.md](open-questions.md) |
 | Plugin / monitoring reach | Guest-side, direct Service access | Guest-side, reached over the konnectivity tunnel — one extra hop, untested at scale |
 | Hostname | `console-openshift-console.apps.<basedomain>` | `console.<domain>`, next to `api.<domain>` — a user-visible migration |
-| Custom DNS | Follows the guest ingress custom-domain story | Open question; no custom domain for the API today either |
+| Custom domain | Works today: `Ingress.spec.componentRoutes`, cert terminated at the ingress router | Needs new work — the passthrough router cannot terminate a custom cert, so the cert must reach the pod and the bridge must do SNI selection. [open-questions.md](open-questions.md) §3 |
 | Implementation cost today | Zero, already shipping | A CPOv2 component plus a broad mechanical console-operator refactor, plus the unresolved OIDC client-provisioning problem |
 
 The status quo wins on implementation cost and on plugin latency. The
