@@ -15,4 +15,4 @@ cd "$(dirname "$0")"
 export KUBECONFIG
 
 kubectl apply -f oc-cli-downloads.yaml
-kubectl apply -f redhat-domain-admins.yaml
+kubectl apply -f console-admin.yaml

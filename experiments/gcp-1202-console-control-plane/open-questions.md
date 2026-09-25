@@ -29,7 +29,7 @@ at all — see
 - No wildcard redirect URIs (exact HTTPS match required, Console UI only to add/edit)
 - Client secret shown once at creation
 
-**Design constraint:** Any solution where Google sees a per-cluster URL is eliminated.
+**Design constraint:** Any solution requiring Google to be changed *during* cluster creation is eliminated. Note the scope — this rules out the creation flow, not Google ever holding a per-cluster redirect URI. See below.
 
 ### The day-2 client model
 
@@ -162,9 +162,12 @@ There are parallel discussions about adopting the **internal OpenShift OAuth
 server** to support multiple and custom identity providers. Under that model the
 console does not talk to Google at all — it delegates to `openshift-oauth`,
 which is the console's classic authentication path, and the Google client
-problem simply does not arise. No per-cluster client, no redirect-URI
-registration, no client secret to deliver, and none of the three code changes
-listed above are needed for auth purposes.
+problem simply does not arise. No per-cluster Google client, no Google
+redirect-URI registration, no Google client secret to deliver, and none of the
+three code changes listed above are needed for auth purposes. The integrated
+path has its own client — the cluster-local `OAuthClient` named `console` and
+its operator-generated secret — but both are created and rotated automatically
+in-cluster, with no external provider involved.
 
 This pairs unusually well with the control-plane-side console, because in
 HyperShift the OAuth server **already runs control-plane-side** and is already

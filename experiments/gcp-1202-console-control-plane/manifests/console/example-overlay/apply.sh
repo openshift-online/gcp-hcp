@@ -18,6 +18,11 @@ cd "$(dirname "$0")"
 : "${KUBECONFIG:?set KUBECONFIG to the management-cluster kubeconfig}"
 export KUBECONFIG
 
+# These three files hold real secret material (OIDC client secret, cookie AES
+# and HMAC keys). Create them 0600 rather than under the default umask, which
+# on most systems would leave them world-readable.
+umask 077
+
 # Extract the OIDC client secret from the intact OAuth client JSON into a
 # gitignored file the secretGenerator reads (keeps the JSON as the source of
 # truth; nothing else touches its contents).
@@ -27,5 +32,8 @@ python3 -c "import json; print(json.load(open('../../guest/oauth_client_secret.j
 # Generated once and kept (regenerating invalidates existing sessions).
 [ -s .session-encryption-key ] || head -c 32 /dev/urandom > .session-encryption-key
 [ -s .session-authentication-key ] || head -c 64 /dev/urandom > .session-authentication-key
+
+# Tighten any files left over from an earlier run made before the umask above.
+chmod 600 .oidc-client-secret .session-encryption-key .session-authentication-key
 
 kustomize build --load-restrictor LoadRestrictionsNone . | kubectl apply -f -

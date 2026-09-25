@@ -526,6 +526,12 @@ patches:
       - op: remove
         path: /spec/template/spec/serviceAccount
 
+      # -- Neither container talks to the Kubernetes API, so don't hand them a
+      #    token for the namespace `default` SA. Mirrors the console patch. --
+      - op: add
+        path: /spec/template/spec/automountServiceAccountToken
+        value: false
+
       # -- Pin the download-server container image. NOTE this is NOT the
       #    console image: upstream sets the download-server container to
       #    DOWNLOADS_IMAGE (subresource/deployment/deployment.go

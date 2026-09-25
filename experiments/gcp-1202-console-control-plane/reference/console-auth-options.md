@@ -72,7 +72,12 @@ Although the `OIDCClientConfig.clientSecret` API field is documented as optional
 - Console ClusterOperator reporting Degraded.
 - No functional browser login.
 
-### Authentication Configuration Example
+### Authentication Configuration Example (target state)
+
+This is the shape a production cluster would carry. The PoC does **not** set
+`oidcClients[]` on the guest `Authentication` CR — CEL rejects it without a
+matching `status.oidcClients` entry, which only a running console-operator
+writes. See "Why OIDC Status Writes are Not Required for Login" below.
 
 ```yaml
 apiVersion: config.openshift.io/v1

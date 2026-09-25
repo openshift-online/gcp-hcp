@@ -34,12 +34,16 @@ redirect URI, Google forbids wildcard redirects, and web-client creation is not
 automatable. That problem is topology-independent — it would equally affect a
 data-plane console under external OIDC.
 
-It now has a design with a shipped precedent. Because a Google client's redirect
-URI is mutable and the client can pre-exist the cluster, the client ID goes into
-`HostedCluster.spec` at creation (in both `issuer.audiences` and
-`oidcClients[]`), and the two things that depend on the cluster hostname — the
-redirect URI and the client secret — are supplied day-2 by the customer, outside
-the HostedCluster entirely. ARO HCP already ships exactly this shape, including
+It now has a **proposed** design with a shipped precedent. Because a Google
+client's redirect URI is mutable and the client can pre-exist the cluster, the
+client ID goes into `HostedCluster.spec` at creation (in both `issuer.audiences`
+and `oidcClients[]`), and the two things that depend on the cluster hostname —
+the redirect URI and the client secret — are supplied day-2 by the customer,
+outside the HostedCluster entirely. The PoC itself does not set `oidcClients[]`:
+HCCO mirrors it into the guest `Authentication` CR, where CEL rejects it without
+a matching `status.oidcClients` entry that only a running console-operator
+writes. Closing that — by having the ported operator write the guest status, or
+by pruning the entry from the mirror — is still open. ARO HCP already ships exactly this shape, including
 exact per-cluster redirect URIs rather than wildcards. What remains is a product
 decision (the customer brings their own Google client) and three bounded code
 changes.
