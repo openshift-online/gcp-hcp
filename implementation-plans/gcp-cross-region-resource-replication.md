@@ -291,8 +291,11 @@ Message received
 ### Delete Flow
 
 1. Reject the event unless `event.OriginRegion == leaderRegion`.
-2. Delete the resource by kind, namespace, and name.
-3. Treat NotFound as success.
+2. Get the existing object by kind, namespace, and name.
+3. If not found, treat as success and Ack. Deletes are idempotent.
+4. If found, compare `event.UpdatedAt` against the local object's last-applied timestamp or stored update timestamp.
+   * If the delete event is older than the local state, treat it as a stale no-op: Ack and increment `replication_events_skipped_total{reason="stale_delete"}`.
+   * If the delete event is newer, or the object has no reliable local timestamp, delete the object.
 
 ### Namespace Auto-Creation
 
@@ -443,16 +446,22 @@ Leadership changes are manual. Automatic cross-region leader election is intenti
 ### Failover Procedure
 
 1. Declare leader outage or planned failover.
-2. Fence the old leader or confirm it cannot accept writes. **RPO note**: any writes accepted by the old leader but not yet published to Pub/Sub, or published but not yet delivered to follower subscriptions, are at risk of loss. The data loss window is bounded by the target follower's replication lag at the moment of failover. Check `replication_lag_seconds` and `replication_last_leader_event_timestamp` on the target follower before proceeding.
+2. Fence the old leader or confirm it cannot accept writes.
+   **RPO note**: the data-loss window has two components:
+   * **Published but undelivered**: writes the old leader published to Pub/Sub but that have not yet been delivered to the target follower's subscription. This is bounded by `replication_lag_seconds` on the target follower.
+   * **Committed but unpublished**: writes the old leader committed to its local store but had not yet published to Pub/Sub, for example because of publisher lag, Pub/Sub client failure, or an incomplete reconcile. These writes are invisible to follower lag metrics. If the old leader is unavailable, this window is unmeasurable from the follower side.
+
+   A transactional outbox pattern, where the replication event is durably recorded in the same transaction as the resource write and relayed asynchronously, would close the committed-but-unpublished gap. This is deferred to future work. For the initial implementation, operators must accept that committed-but-unpublished writes are at risk during unplanned failover. Check `replication_lag_seconds` and `replication_last_leader_event_timestamp` on the target follower before proceeding.
 3. Select the target follower region.
 4. Check the target follower's last applied leader event and replication lag.
-5. Update GitOps/Argo/Helm config so `leaderRegion` points to the target region.
-6. Sync the target region so it starts accepting writes and publishing events.
-7. Sync remaining regions so they become followers of the new leader.
-8. Verify CLI discovery points to the new leader.
-9. Verify writes succeed only in the new leader.
-10. Verify forced writes to all followers are rejected.
-11. Monitor replication lag, rejected events, and split-brain alerts.
+5. Verify Cedar authorization state convergence on the target follower. Replication lag alone does not prove that the promoted follower's Cedar policy and entity caches contain the latest Role and RoleBinding state. Bound authorization staleness by pre-outage replication lag, Cedar policy-reload delay, and the outage-to-failover interval. Wait for the Cedar authorizer's last policy-rebuild timestamp to exceed the last applied leader event timestamp before accepting writes.
+6. Update GitOps/Argo/Helm config so `leaderRegion` points to the target region.
+7. Sync the target region so it starts accepting writes and publishing events.
+8. Sync remaining regions so they become followers of the new leader.
+9. Verify CLI discovery points to the new leader.
+10. Verify writes succeed only in the new leader.
+11. Verify forced writes to all followers are rejected.
+12. Monitor replication lag, rejected events, and split-brain alerts.
 
 ### Failback Procedure
 
@@ -482,30 +491,32 @@ All replication operations emit structured log entries using the controller-runt
 
 | Level | Event | Fields |
 |---|---|---|
-| INFO | Published event | `eventType`, `resourceKind`, `namespace`, `name`, `originRegion` |
+| INFO | Published event | `eventType`, `resourceKind`, `originRegion` |
 | INFO | Periodic resync completed | `resourceKind`, `resourcesPublished`, `syncID` |
 | INFO | Published inventory | `resourceKind`, `objectCount`, `syncID` |
-| WARN | Publish failed, requeuing | `resourceKind`, `namespace`, `name`, `error` |
+| WARN | Publish failed, requeuing | `resourceKind`, `error` |
 | ERROR | Follower attempted publish | `region`, `leaderRegion`, `eventType` |
 
 **Receiver:**
 
 | Level | Event | Fields |
 |---|---|---|
-| INFO | Upserted resource | `resourceKind`, `namespace`, `name`, `originRegion`, `outcome` |
-| INFO | Deleted resource | `resourceKind`, `namespace`, `name`, `originRegion` |
-| INFO | Created namespace | `namespace` |
+| INFO | Upserted resource | `resourceKind`, `originRegion`, `outcome` |
+| INFO | Deleted resource | `resourceKind`, `originRegion` |
+| INFO | Created namespace | `namespaceHash` |
 | INFO | Received `RESYNC_REQUEST` | `originRegion` |
 | INFO | Applied inventory | `resourceKind`, `originRegion`, `syncID`, `objectCount`, `prunedCount` |
-| WARN | Rejected stale event | `resourceKind`, `namespace`, `name`, `originRegion`, `updatedAt` |
-| ERROR | Rejected non-leader event | `eventType`, `resourceKind`, `namespace`, `name`, `originRegion`, `leaderRegion` |
-| ERROR | Permanent error, Ack'd | `eventType`, `resourceKind`, `namespace`, `name`, `originRegion`, `error` |
+| WARN | Rejected stale event | `resourceKind`, `originRegion`, `updatedAt` |
+| ERROR | Rejected non-leader event | `eventType`, `resourceKind`, `originRegion`, `leaderRegion` |
+| ERROR | Permanent error, Ack'd | `eventType`, `resourceKind`, `originRegion`, `error` |
 
 **Public API:**
 
 | Level | Event | Fields |
 |---|---|---|
-| INFO | Rejected follower write | `region`, `leaderRegion`, `resourceKind`, `namespace`, `name`, `verb` |
+| INFO | Rejected follower write | `region`, `leaderRegion`, `resourceKind`, `verb` |
+
+**Sensitive-data policy**: Log fields must not expose raw customer-controlled values such as resource `namespace` or `name`. Use opaque identifiers or omit these fields from structured logs. This follows the project's No-Sensitive-Data-In-Logs rule.
 
 ### Prometheus Metrics
 
@@ -515,6 +526,7 @@ All replication operations emit structured log entries using the controller-runt
 | `replication_events_published_total` | Counter | `region`, `event_type`, `resource_kind` | Events published by the leader |
 | `replication_events_applied_total` | Counter | `region`, `event_type`, `resource_kind`, `origin_region` | Events applied by receivers |
 | `replication_events_rejected_total` | Counter | `region`, `event_type`, `resource_kind`, `reason`, `origin_region` | Events rejected before apply |
+| `replication_events_skipped_total` | Counter | `region`, `event_type`, `resource_kind`, `reason` | Events skipped without applying, for example echo, stale duplicate, or stale delete |
 | `replication_events_dropped_total` | Counter | `region`, `event_type`, `resource_kind`, `reason` | Permanent errors Ack'd |
 | `replication_readonly_write_rejections_total` | Counter | `region`, `resource_kind`, `verb` | Public API writes rejected in followers |
 | `replication_publish_errors_total` | Counter | `region`, `resource_kind` | Publish failures that are requeued |
@@ -525,6 +537,7 @@ All replication operations emit structured log entries using the controller-runt
 | `replication_inventory_pruned_objects_total` | Counter | `region`, `resource_kind` | Mirror objects pruned from completed leader inventory |
 | `replication_lag_seconds` | Gauge | `region`, `leader_region` | Time since the last applied leader event |
 | `replication_last_leader_event_timestamp` | Gauge | `region`, `leader_region` | Unix timestamp of last applied leader event |
+| `replication_leader_committed_watermark` | Gauge | `region` | Future transactional-outbox enhancement: timestamp of the last committed leader write |
 | `replication_split_brain_detected_total` | Counter | `region` | Split-brain detection events |
 
 ### Recommended Alerts
@@ -553,6 +566,7 @@ The initial use case for cross-region replication is authorization Roles and Rol
 * **Cedar hot-reload interaction**: When the receiver creates, updates, or deletes a mirrored Role or RoleBinding in the local database, the Cedar authorizer's watch mechanism detects the change and triggers policy rebuild and cache invalidation.
 * **Marketplace integration**: The Marketplace controller creates the initial `service-admin` RoleBinding through the leader. The replication controller propagates it to follower regions.
 * **Leader outage behavior**: During a leader outage, follower regions continue to evaluate Cedar authorization decisions from their local mirror data. Authorization remains available but may become stale — no new Roles or RoleBindings can be created, updated, or deleted until a new leader is promoted. Existing authorization grants remain in effect. The staleness window is bounded by the time between the leader outage and the next successful failover.
+* **Authorization convergence delay**: Replication convergence, where a follower mirror is up to date, does not guarantee immediate Cedar authorization convergence. After the receiver applies a leader event to the local store, the Cedar authorizer's watch mechanism must detect the change, rebuild affected policies, and invalidate caches. This adds a bounded delay, typically sub-second under normal watch delivery and up to the periodic resync interval during watch failures. During manual failover, operators should verify the Cedar authorizer's last policy-rebuild timestamp exceeds the last applied leader event timestamp before promoting the follower.
 
 ---
 
@@ -580,6 +594,8 @@ The E2E test suite runs against one leader Kind cluster and at least one followe
 | 16 | Manual failover | Follower promoted through config accepts writes; old leader becomes follower |
 | 17 | Old leader rejoins as follower | Recovered old leader catches up from current leader |
 | 18 | Split-brain detection | Multiple leader reports trigger detection/alert metric |
+| 19 | Stale delete does not remove newer mirror | An out-of-order DELETE older than the current mirror is treated as a no-op |
+| 20 | Revoke-then-promote | A role revocation made on the leader before simulated outage is enforced by the promoted follower's Cedar authorization decisions |
 
 Tests use polling with a 30-second timeout. A `--no-pause` flag supports CI execution.
 
