@@ -52,6 +52,8 @@ Setting Priority and Fix Version depends on whether the work is customer-facing 
 | **Priority** | Product Manager | Architect |
 | **Fix Version** | Product Manager | Architect |
 
+> **Fix Version is the source of truth for milestone assignment.** Target Version is deprecated — do not use it.
+>
 > **Note:** Fix Versions set on Features and Initiatives automatically cascade to child Epics via
 > Jira automation. Set the Fix Version at the Feature/Initiative level during Refinement.
 >
@@ -61,6 +63,21 @@ Setting Priority and Fix Version depends on whether the work is customer-facing 
 > **When Fix Version changes:** Always have a conversation before adding or removing items from a Fix Version.
 > Ensure mutual awareness of scope changes (Slack for PM visibility, or raise in refinement sessions).
 > Add a comment explaining the scope/timeline shift for the audit trail.
+
+---
+
+## HPSTRAT Outcomes
+
+GCP HCP Features and Initiatives are parented to strategic Outcomes in HPSTRAT. The active Outcomes
+correspond to our current roadmap milestones — see the
+[HPSTRAT project](https://redhat.atlassian.net/jira/software/projects/HPSTRAT/boards) for the
+current list.
+
+Parent links are driven by Fix Version: a sync runs weekly to keep Features and Initiatives linked
+to the correct Outcome. If something is sitting in the wrong Outcome (or no Outcome), it will be
+corrected in the next run — or flag it in Slack to trigger an on-demand sync.
+
+The New stage checklist already prompts you to link to the parent HPSTRAT issue at creation time.
 
 ---
 
