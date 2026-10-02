@@ -46,3 +46,8 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Local ComplyTime WAF prototype binaries, caches, and audit outputs. Live
+# EvaluationLogs may contain target identifiers; keep all generated state local.
+/experiments/complytime-evidence/controls/cloud-armor-waf/bin/
+/experiments/complytime-evidence/controls/cloud-armor-waf/.complytime/

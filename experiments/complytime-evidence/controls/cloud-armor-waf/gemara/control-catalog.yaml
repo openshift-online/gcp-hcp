@@ -1,0 +1,40 @@
+title: Cloud Armor WAF Example Controls
+metadata:
+  id: cloud-armor-waf-example-controls
+  type: ControlCatalog
+  gemara-version: v1.0.0
+  version: "0.1.0"
+  description: Example-only control catalog for a Cloud Armor WAF prototype.
+  author:
+    id: complytime-waf-prototype
+    name: ComplyTime WAF Prototype
+    type: Software Assisted
+  mapping-references:
+    - id: example-waf-guidance
+      title: Example WAF configuration guidance
+      version: "0.1.0"
+  applicability-groups:
+    - id: gcp-external-application-load-balancer
+      title: GCP external HTTP(S) application load balancers
+      description: Global backends referenced by a URL map served through a global HTTP(S) proxy and external global forwarding rule.
+groups:
+  - id: web-application-firewall
+    title: Web application firewall
+    description: Controls for detecting and preventing web-based attacks.
+controls:
+  - id: example-cloud-armor-waf
+    title: Cloud Armor policy action and request logging
+    objective: Verify a selected backend is configured behind an external global HTTP(S) application load balancer, has a matching attached Cloud Armor policy with an active non-preview deny or rate-limit action, and has request logging enabled. This configuration check does not prove WAF effectiveness against attacks.
+    group: web-application-firewall
+    state: Draft
+    guidelines:
+      - reference-id: example-waf-guidance
+        entries:
+          - reference-id: EXAMPLE-WAF-GUIDE-1
+            remarks: Example relationship only; this is not a mapping to an approved organizational control.
+    assessment-requirements:
+      - id: EXAMPLE-WAF-POC-1
+        state: Draft
+        text: A selected global backend service referenced by a URL map served through a global HTTP(S) proxy and an external global forwarding rule MUST have a matching attached Cloud Armor security policy with at least one active, non-preview deny or rate-limit action, and backend request logging MUST be enabled with a sample rate greater than zero. This requirement is an example configuration check, not a test of WAF attack-detection effectiveness.
+        applicability:
+          - gcp-external-application-load-balancer
