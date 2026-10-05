@@ -1,0 +1,30 @@
+# cert-manager Certificate for console-demo API/OAuth endpoints.
+# Modeled on clusters-baseline-hc/external-api-cert.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: external-api-cert
+  namespace: clusters-console-demo
+  labels:
+    gcp.managed.openshift.io/cluster-id: console-demo
+spec:
+  dnsNames:
+  - '*.console-demo-a1b2.us-c1-e5d4c3-1.dev.gcp-hcp.openshiftapps.com'
+  duration: 2160h
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: public-issuer
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    rotationPolicy: Always
+    size: 2048
+  renewBefore: 720h
+  secretName: external-api-cert
+  subject:
+    organizations:
+    - Red Hat - Hypershift
+  usages:
+  - server auth
+  - client auth
