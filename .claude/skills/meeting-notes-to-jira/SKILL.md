@@ -2,6 +2,7 @@
 name: meeting-notes-to-jira
 description: Process GCP HCP meeting notes/transcripts into reviewed Jira updates — extracts action items, presents changes for approval, executes via MCP, and generates a Slack summary.
 argument-hint: "<path-to-transcript>"
+model: opus
 effort: high
 ---
 
@@ -38,6 +39,8 @@ Extract all Jira-actionable items:
 - **Bulk field operations** — systematic field changes agreed upon for multiple tickets
 - **Consolidation actions** — tickets identified as overlapping or duplicate
 
+**Accuracy rule:** When a discussion covers multiple goals, decisions, or viewpoints, extract all of them — do not distill to the most prominent one. A meeting segment about ARM scope that touches operator tiers, IBM-owned operators, and blocking bugs should produce a comment covering all three, not a single "scope clarified" sentence.
+
 For each item, note:
 - The GCP ticket number referenced
 - Who said it and in what context
@@ -57,6 +60,7 @@ For each ticket, retrieve:
 - Issue type
 - Labels
 - Parent issue (if any)
+- Assignee and Reporter (for all tickets receiving a comment — retain account IDs for owner-tagging in Phase 5; use assignee if set, reporter as fallback)
 
 **Important:** The GCP project uses **Fix Version only** for planning (Target Version was deprecated per 2026-06-23 planning meeting). Do not read or set `customfield_10855`.
 
@@ -99,10 +103,18 @@ For each, show:
 For each, show the **exact comment text** that will be posted. Use this format:
 
 ```
+(AI-generated meeting notes — @[owner] please review and edit this comment if anything is inaccurate or incomplete.)
+
 **Meeting Notes (YYYY-MM-DD Meeting Name):**
 
 [Structured summary of the discussion, with bullet points for key decisions and action items. Attribute decisions to speakers by name.]
 ```
+
+Where `@[owner]` is the ticket's assignee, or reporter if no assignee is set. If neither exists, omit the review-request line entirely.
+
+**Section header rule:** Use descriptive topic headers that name what was discussed, not headers that declare a conclusion. Write `**ARM Scope Discussion:**` not `**Scope Clarified:**`. Write `**Ownership Transfer:**` not `**Assignee Updated:**`. If there was a single clear decision, the content can say so — the header should describe the topic, not pre-announce the verdict.
+
+For each comment in the preview, also show: `Owner tag: @[name] (assignee)` or `Owner tag: @[name] (reporter fallback)` or `⚠️ No assignee or reporter — no owner tag`.
 
 ### 3d. New Tickets to Create
 For each, show:
@@ -169,7 +181,7 @@ Once approved, execute changes in this order:
 
 **MCP tools to use:**
 - `editJiraIssue` — for field updates (fix version, summary, description)
-- `addCommentToJiraIssue` — for posting comments. Use `contentFormat: "adf"` with `mention` nodes when tagging specific people (ADF mentions generate Jira notifications; markdown @mentions do not). Use `contentFormat: "markdown"` for comments that don't need @mentions.
+- `addCommentToJiraIssue` — always use `contentFormat: "adf"`. Every comment must open with a review-request paragraph containing an ADF `mention` node for the ticket's owner (assignee if set, reporter as fallback). If neither exists, open with plain text: "(AI-generated meeting notes — please review and edit if anything is inaccurate.)" ADF mentions generate Jira notifications; markdown @mentions do not.
 - `createJiraIssue` — for new tickets (use `contentFormat: "markdown"`)
 - `searchJiraIssuesUsingJql` — for querying bulk operation scope
 - `createIssueLink` — for linking related tickets (e.g., "Blocks", "Related")
