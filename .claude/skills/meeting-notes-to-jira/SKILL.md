@@ -2,7 +2,6 @@
 name: meeting-notes-to-jira
 description: Process GCP HCP meeting notes/transcripts into reviewed Jira updates — extracts action items, presents changes for approval, executes via MCP, and generates a Slack summary.
 argument-hint: "<path-to-transcript>"
-model: opus
 effort: high
 ---
 
@@ -110,7 +109,7 @@ For each, show the **exact comment text** that will be posted. Use this format:
 [Structured summary of the discussion, with bullet points for key decisions and action items. Attribute decisions to speakers by name.]
 ```
 
-Where `@[owner]` is the ticket's assignee, or reporter if no assignee is set. If neither exists, omit the review-request line entirely.
+Where `@[owner]` is the ticket's assignee, or reporter if no assignee is set. If neither exists, show the plain-text fallback: "(AI-generated meeting notes — please review and edit if anything is inaccurate or incomplete.)"
 
 **Section header rule:** Use descriptive topic headers that name what was discussed, not headers that declare a conclusion. Write `**ARM Scope Discussion:**` not `**Scope Clarified:**`. Write `**Ownership Transfer:**` not `**Assignee Updated:**`. If there was a single clear decision, the content can say so — the header should describe the topic, not pre-announce the verdict.
 
@@ -181,7 +180,7 @@ Once approved, execute changes in this order:
 
 **MCP tools to use:**
 - `editJiraIssue` — for field updates (fix version, summary, description)
-- `addCommentToJiraIssue` — always use `contentFormat: "adf"`. Every comment must open with a review-request paragraph containing an ADF `mention` node for the ticket's owner (assignee if set, reporter as fallback). If neither exists, open with plain text: "(AI-generated meeting notes — please review and edit if anything is inaccurate.)" ADF mentions generate Jira notifications; markdown @mentions do not.
+- `addCommentToJiraIssue` — always use `contentFormat: "adf"`. Every comment must open with a review-request paragraph containing an ADF `mention` node for the ticket's owner (assignee if set, reporter as fallback). If neither exists, open with plain text: "(AI-generated meeting notes — please review and edit if anything is inaccurate or incomplete.)" ADF mentions generate Jira notifications; markdown @mentions do not.
 - `createJiraIssue` — for new tickets (use `contentFormat: "markdown"`)
 - `searchJiraIssuesUsingJql` — for querying bulk operation scope
 - `createIssueLink` — for linking related tickets (e.g., "Blocks", "Related")
