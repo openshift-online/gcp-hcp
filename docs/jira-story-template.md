@@ -4,6 +4,14 @@ This template provides a standardized structure for creating Jira stories for in
 
 ---
 
+## Refinement
+
+Stories can be refined via the **weekly Backlog Refinement meeting** or through **offline refinement in Slack** (#team-gcp-hcp-eng using the Request Ticket Review workflow, requiring 24 hours + 2 +1s). Both paths require the Story to meet the [Definition of Ready](definition-of-ready.md#definition-of-ready-story) before moving to To Do.
+
+See [Refinement Process](refinement-process.md#offline-story-refinement-slack-alternative) for details on the offline Slack process.
+
+---
+
 ## User Story
 
 **As a** [platform user/developer/operations team/end user]

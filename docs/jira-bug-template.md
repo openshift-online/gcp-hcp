@@ -19,6 +19,14 @@ Use this template to report broken or regressed functionality in the GCP HCP pla
 
 ---
 
+## Refinement
+
+**Bug refinement is optional and at the author's discretion.** Straightforward bugs (clear reproduction, known fix) can proceed directly to To Do after meeting the [Definition of Ready](definition-of-ready.md#definition-of-ready-bug). Bring complex bugs to the weekly Backlog Refinement meeting if they need team input on root cause, approach, or scope.
+
+See [Refinement Process](refinement-process.md#bug-refinement-policy) for details.
+
+---
+
 ## Description of Problem
 
 [Clear, detailed description of what is broken. Include what you were trying to do, which component or feature is affected, and the observed impact.]
