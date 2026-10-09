@@ -4,6 +4,10 @@
 
 **Date**: 2026-10-06
 
+**Status**: Superseded
+
+**Superseded by**: [Add Cluster-Scoped Cedar ABAC Authorization](platform-scoped-cedar-authorization.md)
+
 ## Decision
 
 Version, Channel, and PlatformRole collection and item reads require a valid
