@@ -127,7 +127,8 @@ case requires both.
 ### Follow-on Work
 
 * PlatformRole joins the platform-scope path in a later migration after
-  GCP-1273 delivers its public API work.
+  GCP-1273 delivers its public API work. Its public endpoint and policy
+  association ship together.
 * The initial policy source is platform-managed configuration. Dynamic grants,
   denies, entitlements, and per-item list filtering can build on this path as
   their product requirements are defined.
@@ -152,13 +153,12 @@ case requires both.
 * The platform policy is included in every Cedar policy-set rebuild. Policy
   parse errors at startup prevent deployment of malformed policies.
 * Migration deploys and validates the default platform-scope path for Version
-  and Channel. PlatformRole joins a later migration after GCP-1273.
+  and Channel. PlatformRole joins a later migration after GCP-1273, with its
+  public endpoint and policy association delivered together.
 
 ## Related
 
 * [Authenticated catalog reads](authenticated-catalog-reads.md) (superseded)
 * [Cedar-based public API authorization](cedar-public-api-authorization.md)
-* [Cedar authorization implementation
-  plan](../../implementation-plans/gcp-cedar-public-api-authorization.md)
 * [GCP-1266](https://redhat.atlassian.net/browse/GCP-1266)
 * [GCP-1273](https://redhat.atlassian.net/browse/GCP-1273)
