@@ -45,7 +45,8 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [gecko-api-aggregation](identity/gecko-api-aggregation.md) | Delegate gecko internal API authn/authz to GKE kube-apiserver via API aggregation |
 | [secret-management-strategy](identity/secret-management-strategy.md) | Platform secret management: store directly in target system per the secret inventory, Bitwarden reserved for TOTP-only secrets |
 | [cedar-public-api-authorization](identity/cedar-public-api-authorization.md) | Cedar-based authorization for gecko public API with Helm-seeded PlatformRoles and in-process evaluation |
-| [authenticated-catalog-reads](identity/authenticated-catalog-reads.md) | Authenticated Version, Channel, and PlatformRole reads outside namespace-scoped Cedar authorization |
+| [authenticated-catalog-reads](identity/authenticated-catalog-reads.md) | ~~Authenticated Version, Channel, and PlatformRole reads outside namespace-scoped Cedar authorization~~ *(superseded by platform-scoped-cedar-authorization)* |
+| [platform-scoped-cedar-authorization](identity/platform-scoped-cedar-authorization.md) | Draft cluster-scoped Cedar authorization replacing exempt reads |
 
 ## Observability
 
