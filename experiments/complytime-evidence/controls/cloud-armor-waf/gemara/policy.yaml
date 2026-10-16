@@ -1,0 +1,54 @@
+title: Cloud Armor WAF Prototype Policy
+metadata:
+  id: cloud-armor-waf-prototype-policy
+  type: Policy
+  gemara-version: v1.0.0
+  version: "0.1.0"
+  description: Example-only Layer 3 policy connecting a prototype Cloud Armor control to an automated configuration assessment.
+  author:
+    id: complytime-waf-prototype
+    name: ComplyTime WAF Prototype
+    type: Software Assisted
+  mapping-references:
+    - id: cloud-armor-waf-example-controls
+      title: Cloud Armor WAF Example Controls
+      version: "0.1.0"
+contacts:
+  responsible:
+    - name: Prototype owner
+  accountable:
+    - name: Prototype reviewer
+scope:
+  in:
+    technologies:
+      - google-cloud-platform
+      - cloud-armor
+imports:
+  catalogs:
+    - reference-id: cloud-armor-waf-example-controls
+adherence:
+  evaluation-methods:
+    - id: cloud-armor-opa-intent-evaluation
+      type: Intent
+      mode: Automated
+      required: true
+      description: Evaluate the selected backend and Cloud Armor configuration using OPA/Rego.
+      executor:
+        id: opa
+        name: Open Policy Agent (OPA)
+        type: Software
+  assessment-plans:
+    - id: assess-cloud-armor-waf-poc
+      requirement-id: EXAMPLE-WAF-POC-1
+      frequency: on-demand
+      evaluation-methods:
+        - id: cloud-armor-live-configuration-check
+          type: Intent
+          mode: Automated
+          required: true
+          description: Read a global backend service and Cloud Armor security policy with gcloud, then evaluate their normalized configuration.
+          executor:
+            id: opa
+            name: Open Policy Agent (OPA)
+            type: Software
+      evidence-requirements: A normalized assessment input and pass/fail findings for policy attachment, at least one active non-preview Cloud Armor deny or rate-limit action, the URL-map-to-HTTP(S)-proxy-to-external-forwarding-rule chain, and backend request logging.

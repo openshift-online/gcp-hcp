@@ -1,0 +1,37 @@
+{
+  "target": {
+    "id": "synthetic-public-backend",
+    "internetFacing": true
+  },
+  "backendService": {
+    "name": "synthetic-backend-service",
+    "securityPolicy": "https://www.googleapis.com/compute/v1/projects/synthetic-project/global/securityPolicies/sample-waf",
+    "logConfig": {
+      "enable": true,
+      "sampleRate": 1.0
+    }
+  },
+  "securityPolicy": {
+    "name": "sample-waf",
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/synthetic-project/global/securityPolicies/sample-waf",
+    "rules": [
+      {
+        "priority": 1000,
+        "action": "deny(403)",
+        "preview": false,
+        "match": {
+          "expr": {
+            "expression": "evaluatePreconfiguredWaf('sqli-v33-stable')"
+          }
+        }
+      },
+      {
+        "priority": 2147483647,
+        "action": "allow",
+        "match": {
+          "versionedExpr": "SRC_IPS_V1"
+        }
+      }
+    ]
+  }
+}

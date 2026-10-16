@@ -1,0 +1,20 @@
+# Local prototype config only; Gemara control wording/ID is not yet approved.
+id: org.example.complytime.cloud-armor-waf-poc
+evaluator-id: opa
+version: 0.1.0
+
+gemara:
+  sources:
+    - source: file://./gemara/guidance-catalog.yaml
+    - source: file://./gemara/control-catalog.yaml
+    - source: file://./gemara/policy.yaml
+
+schemas:
+  - platform: cloud-armor-assessment
+    source: file://./schema/cloud-armor-assessment.cue
+
+policies:
+  dir: policy/
+
+fixtures:
+  dir: tests/fixtures/
