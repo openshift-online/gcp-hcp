@@ -9,6 +9,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [gke-container-platform](infrastructure/gke-container-platform.md) | GKE as the container platform (not OpenShift) |
 | [gcp-folder-project-hierarchy](infrastructure/gcp-folder-project-hierarchy.md) | Environment-first GCP folder and project hierarchy |
 | [regional-independence-architecture](infrastructure/regional-independence-architecture.md) | Regions operate independently with minimal cross-region dependencies |
+| [zero-egress-image-delivery](infrastructure/zero-egress-image-delivery.md) | Proposed: zero-egress image delivery through GAR with WIF-based credential generation |
 | [gke-fleet-management](infrastructure/gke-fleet-management.md) | GKE Fleet for cluster bootstrap without external network access |
 | [shared-node-pools](infrastructure/shared-node-pools.md) | Shared node pool architecture for management cluster control plane components |
 | [hosted-cluster-upgrade-policy](infrastructure/hosted-cluster-upgrade-policy.md) | Mandatory platform-managed control plane upgrades with customer timing controls |
