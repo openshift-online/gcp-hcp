@@ -1,0 +1,13 @@
+{
+  "name": "gcp-hcp-e2e-demo",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "slidev --port 3030",
+    "build": "slidev build"
+  },
+  "devDependencies": {
+    "@slidev/cli": "^53.0.0",
+    "@slidev/theme-default": "^0.25.0"
+  }
+}

@@ -1,0 +1,666 @@
+:root {
+  --rh-red: #ee0000;
+  --rh-red-dark: #a60000;
+  --rh-black: #151515;
+  --rh-gray-90: #1f1f1f;
+  --rh-gray-70: #383838;
+  --rh-gray-50: #707070;
+  --rh-gray-20: #e0e0e0;
+  --rh-gray-10: #f2f2f2;
+  --rh-white: #ffffff;
+}
+
+.slidev-layout {
+  padding: 0 !important;
+  background: var(--rh-white) !important;
+  color: var(--rh-black) !important;
+  font-family: "Red Hat Text", Arial, sans-serif !important;
+}
+
+.rh-slide {
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 50px 64px 42px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.rh-slide::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 11px;
+  background: var(--rh-red);
+}
+
+.rh-slide.cover {
+  background: var(--rh-gray-90);
+  color: var(--rh-white);
+}
+
+.rh-slide.cover::before {
+  width: 17px;
+}
+
+.brandline,
+.deck-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.brandline {
+  color: var(--rh-gray-70);
+  font-weight: 700;
+}
+
+.cover .brandline {
+  color: #fff;
+}
+
+.brandline .brand-accent {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 10px;
+  background: var(--rh-red);
+  border-radius: 2px;
+}
+
+.brandline .deck-kind {
+  color: var(--rh-gray-50);
+  font-weight: 500;
+}
+
+.cover .brandline .deck-kind {
+  color: #bfbfbf;
+}
+
+.rh-slide h1,
+.rh-slide h2,
+.rh-slide h3,
+.rh-slide p {
+  margin: 0;
+}
+
+.rh-slide h1,
+.rh-slide h2,
+.rh-slide h3 {
+  font-family: "Red Hat Display", "Red Hat Text", Arial, sans-serif;
+}
+
+.rh-slide h3 {
+  font-weight: 700;
+  opacity: 1;
+}
+
+.slide-heading {
+  margin-top: 33px;
+}
+
+.slide-kicker {
+  margin-bottom: 8px !important;
+  color: var(--rh-red-dark);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.rh-slide h2 {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.slide-subtitle {
+  max-width: 1050px;
+  margin-top: 12px !important;
+  color: var(--rh-gray-70);
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+.deck-footer {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--rh-gray-20);
+  color: var(--rh-gray-50);
+  font-size: 16px;
+}
+
+.deck-footer a {
+  color: var(--rh-red-dark);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.cover .deck-footer {
+  border-color: #4d4d4d;
+  color: #c7c7c7;
+}
+
+.cover .deck-footer a {
+  color: #fff;
+}
+
+.cover-main {
+  margin-top: 96px;
+}
+
+.cover .slide-kicker {
+  color: #f56e6e;
+  font-size: 22px;
+}
+
+.cover h1 {
+  max-width: 1000px;
+  margin-top: 12px;
+  font-size: 70px;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.cover h1 .cover-accent {
+  color: #f56e6e;
+}
+
+.rh-slide.cover .cover-subtitle {
+  margin-top: 27px !important;
+  color: #e0e0e0 !important;
+  opacity: 1 !important;
+  font-size: 26px;
+}
+
+.cover-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 58px;
+}
+
+.cover-card {
+  min-height: 124px;
+  padding: 20px 22px;
+  border: 1px solid #5e5e5e;
+  border-top: 5px solid var(--rh-red);
+  border-radius: 3px;
+  background: #292929;
+}
+
+.cover-card strong {
+  display: block;
+  font-family: "Red Hat Display", sans-serif;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.cover-card span {
+  display: block;
+  margin-top: 10px;
+  color: #d8d8d8;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.flow {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  margin-top: 26px;
+}
+
+.flow-node {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 165px;
+  box-sizing: border-box;
+  padding: 22px 15px;
+  border: 2px solid var(--rh-gray-20);
+  border-top: 7px solid var(--rh-red);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.flow-node .flow-step {
+  display: block;
+  margin-bottom: 15px;
+  color: var(--rh-red-dark);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.flow-node strong {
+  display: block;
+  font-family: "Red Hat Display", sans-serif;
+  font-size: 23px;
+  line-height: 1.12;
+  font-weight: 700;
+}
+
+.flow-node small {
+  display: block;
+  margin-top: 9px;
+  color: var(--rh-gray-70);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.flow-arrow {
+  flex: 0 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rh-red-dark);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.flow.compact .flow-node {
+  min-height: 135px;
+  padding: 16px 14px;
+}
+
+.flow.compact .flow-node .flow-step {
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+
+.flow.compact .flow-node strong {
+  font-size: 21px;
+}
+
+.flow.compact .flow-node small {
+  margin-top: 7px;
+  font-size: 16px;
+}
+
+.callouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 24px;
+  margin-bottom: 18px;
+}
+
+.callout {
+  min-height: 0;
+  padding: 20px 23px;
+  background: var(--rh-gray-10);
+  border-left: 6px solid var(--rh-red);
+  font-size: 20px;
+  line-height: 1.27;
+}
+
+.callout strong {
+  display: block;
+  margin-bottom: 5px;
+  font-family: "Red Hat Display", sans-serif;
+  font-size: 21px;
+}
+
+.callout code,
+.env-card code,
+.signal-card code,
+.small-banner code {
+  font-family: "Red Hat Mono", monospace;
+  color: var(--rh-red-dark);
+  font-size: 0.86em;
+}
+
+.env-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 25px;
+}
+
+.env-grid.compact {
+  margin-top: 14px;
+  margin-bottom: 16px;
+}
+
+.env-grid.compact .env-card {
+  min-height: 121px;
+  padding: 11px 18px;
+  font-size: 16px;
+}
+
+.env-grid.compact .env-card h3 {
+  margin-bottom: 6px;
+  font-size: 22px;
+}
+
+.env-grid.compact .env-line {
+  padding: 2px 0;
+}
+
+.env-card {
+  min-height: 144px;
+  padding: 17px 22px;
+  background: var(--rh-gray-10);
+  border-top: 5px solid var(--rh-red);
+  font-size: 18px;
+  line-height: 1.26;
+}
+
+.env-card h3 {
+  margin-bottom: 10px;
+  font-size: 26px;
+}
+
+.env-card .env-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 4px 0;
+}
+
+.env-card .env-line span:first-child {
+  color: var(--rh-gray-50);
+}
+
+.env-card .env-line span:last-child {
+  font-weight: 700;
+  text-align: right;
+}
+
+.small-banner {
+  margin-top: 18px;
+  padding: 13px 18px;
+  border: 1px solid #fbc5c5;
+  background: #fef0f0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.small-banner.compact {
+  margin-top: 12px;
+  padding: 9px 14px;
+  font-size: 16px;
+}
+
+.small-banner strong {
+  color: var(--rh-red-dark);
+}
+
+.signal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 26px;
+}
+
+.signal-card {
+  min-height: 0;
+  padding: 18px 22px;
+  border: 2px solid var(--rh-gray-20);
+  border-top: 7px solid var(--rh-red);
+  font-size: 19px;
+  line-height: 1.28;
+}
+
+.signal-card h3 {
+  margin-bottom: 10px;
+  font-size: 26px;
+}
+
+.signal-card p + p {
+  margin-top: 10px;
+}
+
+.signal-card .muted {
+  color: var(--rh-gray-50);
+  font-size: 17px;
+}
+
+.live-strip {
+  margin-top: 12px;
+  margin-bottom: 16px;
+  padding: 13px 22px;
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 16px;
+  background: var(--rh-gray-90);
+  color: #fff;
+  font-size: 18px;
+}
+
+.live-strip strong {
+  font-family: "Red Hat Display", sans-serif;
+}
+
+.live-links {
+  display: grid;
+  grid-template-columns: repeat(7, auto);
+  justify-content: space-between;
+  gap: 10px 12px;
+}
+
+.live-strip a {
+  color: #fff;
+  text-decoration: underline;
+  text-decoration-color: #f56e6e;
+  text-underline-offset: 4px;
+}
+
+.wip-tag {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 5px 11px;
+  border: 1px solid #f56e6e;
+  background: #fef0f0;
+  color: var(--rh-red-dark);
+  border-radius: 3px;
+  font-family: "Red Hat Text", sans-serif;
+  font-size: 16px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.candidate-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 18px;
+  margin-top: 31px;
+}
+
+.candidate-grid.compact {
+  margin-top: 22px;
+}
+
+.candidate-grid.compact .candidate-card {
+  min-height: 120px;
+  padding: 14px 18px;
+  font-size: 18px;
+}
+
+.candidate-grid.compact .candidate-card h3 {
+  margin-bottom: 5px;
+  font-size: 22px;
+}
+
+.candidate-grid.compact .candidate-card .muted {
+  font-size: 16px;
+}
+
+.candidate-card {
+  min-height: 145px;
+  padding: 20px 24px;
+  border: 1px solid var(--rh-gray-20);
+  background: var(--rh-gray-10);
+  font-size: 20px;
+  line-height: 1.27;
+}
+
+.candidate-card h3 {
+  margin-bottom: 10px;
+  font-size: 24px;
+}
+
+.candidate-card strong {
+  color: var(--rh-red-dark);
+}
+
+.candidate-card .muted {
+  color: var(--rh-gray-70);
+  font-size: 17px;
+}
+
+.wip-tag.small {
+  margin-left: 8px;
+  vertical-align: 3px;
+  padding: 3px 8px;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.small-banner.gate {
+  margin-top: 14px;
+  padding: 9px 16px;
+  border: none;
+  border-left: 6px solid var(--rh-red);
+  background: #fde3e3;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.who-acts {
+  margin-top: 16px;
+  padding: 12px 22px;
+  display: grid;
+  grid-template-columns: 110px repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: center;
+  border-left: 6px solid var(--rh-red);
+  background: var(--rh-gray-10);
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.who-acts strong {
+  font-family: "Red Hat Display", sans-serif;
+  font-size: 18px;
+}
+
+.who-acts b {
+  color: var(--rh-red-dark);
+}
+
+/* Dark treatment for every slide, matching the cover */
+.slidev-layout {
+  background: var(--rh-gray-90) !important;
+  color: var(--rh-white) !important;
+}
+
+.rh-slide {
+  background: var(--rh-gray-90);
+  color: var(--rh-white);
+}
+
+.rh-slide .brandline {
+  color: #fff;
+}
+
+.rh-slide .brandline .deck-kind {
+  color: #bfbfbf;
+}
+
+.rh-slide .slide-kicker {
+  color: #f56e6e;
+}
+
+.rh-slide h2,
+.rh-slide h3 {
+  color: #fff;
+}
+
+.rh-slide .slide-subtitle {
+  color: #d8d8d8;
+}
+
+.rh-slide code {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #333;
+  color: #f9a8a8;
+}
+
+.rh-slide .deck-footer {
+  border-color: #4d4d4d;
+  color: #c7c7c7;
+}
+
+.rh-slide .deck-footer a {
+  color: #fff;
+}
+
+.rh-slide .flow-node,
+.rh-slide .signal-card,
+.rh-slide .candidate-card {
+  border-color: #5e5e5e;
+  border-top-color: var(--rh-red);
+  background: #292929;
+}
+
+.rh-slide .candidate-card {
+  border-top: 1px solid #5e5e5e;
+}
+
+.rh-slide .flow-node .flow-step,
+.rh-slide .flow-arrow,
+.rh-slide .candidate-card strong,
+.rh-slide .who-acts b,
+.rh-slide .small-banner strong {
+  color: #f56e6e;
+}
+
+.rh-slide .flow-node strong {
+  color: #fff;
+}
+
+.rh-slide .flow-node small,
+.rh-slide .candidate-card .muted {
+  color: #d0d0d0;
+}
+
+.rh-slide .callout,
+.rh-slide .env-card,
+.rh-slide .who-acts {
+  background: #292929;
+  color: #e6e6e6;
+}
+
+.rh-slide .callout strong,
+.rh-slide .who-acts strong,
+.rh-slide .env-card .env-line span:last-child {
+  color: #fff;
+}
+
+.rh-slide .env-card .env-line span:first-child,
+.rh-slide .signal-card .muted {
+  color: #ababab;
+}
+
+.rh-slide .signal-card {
+  color: #e6e6e6;
+}
+
+.rh-slide .small-banner.gate {
+  background: #3d2020;
+  color: #fff;
+}
+
+.rh-slide .live-strip {
+  border: 1px solid #4d4d4d;
+  background: #151515;
+}
