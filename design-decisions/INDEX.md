@@ -67,6 +67,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [hcp-terraform-workload-identity-federation](automation/hcp-terraform-workload-identity-federation.md) | HCP Terraform WIF with dedicated access projects per environment |
 | [argocd-sync-wave-standardization](automation/argocd-sync-wave-standardization.md) | Standardized ArgoCD sync wave annotations using minimal 3-wave system |
 | [deployment-tooling-swim-lanes](automation/deployment-tooling-swim-lanes.md) | Configuration management swim lanes defining tool-specific resource lifecycle |
+| [operator-managed-argocd-configuration](automation/operator-managed-argocd-configuration.md) | Proposed CR-owned HCP settings and drop-in Argo replacement after old-runtime scale-down; opt-in only |
 | [openfeature-feature-flag-management](automation/openfeature-feature-flag-management.md) | OpenFeature with GitOps-managed flagd initially; ALM deferred as a future provider |
 | [pipeline-automation-tooling](automation/pipeline-automation-tooling.md) | Tekton as general-purpose pipeline automation for scheduled/event-driven workflows |
 | [cloud-workflows-automation-platform](automation/cloud-workflows-automation-platform.md) | Google Cloud Workflows for Zero Operator remediation with Vertex AI and PAM gates |
