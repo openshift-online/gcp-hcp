@@ -35,10 +35,7 @@ For detailed MCP tool integration examples, see the upstream skill documentation
 
 The GCP HCP team is organized into three pods (A, B, C). Work is organized by pod using the **Team** custom field in Jira, which determines which items appear on each pod's board via Quick Filters.
 
-**Pod membership:**
-- **Pod A:** Amador Pahim, Cristiano Veiga, Grzegorz Barabasz, Chaitanya Kandagatla
-- **Pod B:** Priya Vasanthakumar, Daniel Rejniak, Nico Schieder, Christoph Blecker
-- **Pod C:** Patrick Martin, Jim DAgostino, Drew Walczyk, Roger Flores
+**Pod membership:** See the [Team Ceremonies Calendar](https://redhat.atlassian.net/wiki/spaces/GCP/pages/424214835/Team+Ceremonies+Calendar) in Confluence for current pod assignments.
 
 **Team field automation:**
 - Features/Initiatives: Team is set when assigned to a pod member
