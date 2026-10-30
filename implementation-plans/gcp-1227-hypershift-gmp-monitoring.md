@@ -6,26 +6,26 @@
 
 **Target repository**: `github.com/openshift/hypershift` (upstream — requires HyperShift maintainer review/sign-off)
 
-> **Status**: Proposed runtime design pending maintainer sign-off. GCP-1292 foundation, including the reproducible API maintenance workflow, is implemented and validated locally on `acwalczyk/GCP-1292-monitoring-api-group-plumbing`; validation evidence and limitations are recorded in the HyperShift working plan `gmp-native-monitoring-revised-plan.md`. Phase 0 remains historical two-target feasibility evidence. Runtime reconciliation and the operator etcd/KAS slice are pending. Older line-number anchors below are historical and can drift.
+> **Status**: The design decision has HyperShift maintainer sign-off. The GCP-1292 foundation, including the reproducible API maintenance workflow, is implemented in HyperShift; validation evidence and limitations are recorded in the HyperShift working plan `gmp-native-monitoring-revised-plan.md`. Phase 0 remains historical two-target feasibility evidence. Runtime reconciliation and the operator etcd/KAS slice are pending (GCP-1293/GCP-1294/GCP-1295). Older line-number anchors below are historical and can drift.
 
 ## Overview
 
-Add a monitoring API-group selection to HyperShift so `hypershift install`, `hypershift-operator` and the control-plane-operator (CPOv2) can emit GMP resources (`monitoring.googleapis.com`) instead of CoreOS resources (`monitoring.coreos.com`), gated by a `MONITORING_API_GROUP` environment variable. The CoreOS default and the existing `RHOBS_MONITORING=1` path stay byte-for-byte unchanged. GMP resources are authored as separate, hand-maintained manifests/constructors with runtime resource selection still to be designed. A coverage-based parity test prevents a CoreOS scrape target from being added without matching GMP coverage (the CoreOS→GMP mapping is not 1:1 — see Phase 7).
+Add GMP monitoring selection to HyperShift so `hypershift install`, `hypershift-operator` and the control-plane-operator (CPOv2) can emit GMP resources (`monitoring.googleapis.com`) instead of CoreOS resources (`monitoring.coreos.com`), gated by an explicit `--enable-gmp-monitoring` CLI flag. The CoreOS default and the existing `RHOBS_MONITORING=1` path stay byte-for-byte unchanged (the flag/arg is only rendered when enabled). GMP resources are authored as separate, hand-maintained manifests/constructors with runtime resource selection still to be designed. A coverage-based parity test prevents a CoreOS scrape target from being added without matching GMP coverage (the CoreOS→GMP mapping is not 1:1 — see Phase 7).
 
 ### Goals
 
-- Backend selection retains the agreed MONITORING_API_GROUP management-deployment environment interface; GMP registration is additive and independent of selection.
+- Backend selection uses the explicit `--enable-gmp-monitoring` management-deployment flag interface; GMP registration is additive and independent of selection.
 - GMP coverage for all current monitors — **11 ServiceMonitors + 8 PodMonitors + 1 PrometheusRule** (per-HCP assets, reconciled by the binaries listed below) and **2 management-level monitors + 2 PrometheusRules** (install level). Note the mapping is **not 1:1**: GMP has no ServiceMonitor kind, so both `ServiceMonitor` and `PodMonitor` collapse onto `PodMonitoring`, and monitors targeting the same pods may be consolidated into a single `PodMonitoring` with multiple `endpoints`. The goal is that every CoreOS scrape *target* has GMP coverage, not that there are 20 matching GMP files.
 - Preserve MetricSet (Telemetry/SRE/All) filtering by reusing `support/metrics/sets.go`, translating output into GMP relabel types.
 - GMP-gated NetworkPolicy allowing `gke-gmp-system` collector ingress.
-- Fail-fast validation when `MONITORING_API_GROUP=monitoring.googleapis.com` is combined with `RHOBS_MONITORING=1`.
+- Fail-fast validation when `--enable-gmp-monitoring` is combined with RHOBS (the `--rhobs-monitoring` install flag or `RHOBS_MONITORING=1`).
 - Unit + repo-level parity tests covering both selections, backward compatibility, MetricSet translation, and authenticated targets.
 
 ### Non-Goals (this story)
 
 - GKE/GMP collector deployment or tuning; live-cluster scrape validation; cost/quota analysis (follow-up ops story).
 - Removing the dedicated Prometheus from gcp-hcp-infra (follow-up after cutover).
-- Refactoring the RHOBS `init()` mechanism or adding `monitoring.rhobs` as a third `MONITORING_API_GROUP` value (possible future work, out of scope here).
+- Refactoring the RHOBS `init()` mechanism or adding a `monitoring.rhobs` selection interface (possible future work, out of scope here).
 - Any change to ROSA HCP / ARO HCP behavior, or to guest-cluster workload monitoring.
 
 ## POC Path (proof-of-concept, before committing to full delivery)
@@ -38,7 +38,7 @@ The POC runs as **two decoupled tracks in parallel**:
 
 This is **Phase 0** and gates everything. It does not touch the HyperShift repo — it needs a live GKE management cluster with `gke-gmp-system` collectors.
 
-> **Status: COMPLETE — passed 2026-10-08.** etcd and kube-apiserver were scraped natively by `gke-gmp-system` collectors (`up=1`) on `dev-mgt-us-e4-dw0928-gke`. Both use mTLS client certs (no bearer token). ConfigMap-sourced CAs were mirrored into CA-only Secrets and the collector ServiceAccount was granted read via a namespaced Role/RoleBinding. Track B (the code slice) was **not** run — the foundation in Phases 1–2 is now implemented locally; the runtime slice and Phases 3–8 remain pending.
+> **Status: COMPLETE — passed 2026-10-08.** etcd and kube-apiserver were scraped natively by `gke-gmp-system` collectors (`up=1`) on `dev-mgt-us-e4-dw0928-gke`. Both use mTLS client certs (no bearer token). ConfigMap-sourced CAs were mirrored into CA-only Secrets and the collector ServiceAccount was granted read via a namespaced Role/RoleBinding. Track B (the code slice) was **not** run — the foundation in Phases 1–2 is implemented; the runtime slice and Phases 3–8 remain pending.
 
 1. Hand-write plain-YAML `PodMonitoring` for **etcd** (mTLS: `tls.cert`/`tls.key`/`tls.ca` as Secret refs) and **kube-apiserver** (mTLS: `metrics-client` cert/key + `root-ca` CA as Secret refs) — no Go, no typed structs.
 2. Apply against a real GKE cluster and confirm the collectors scrape both targets.
@@ -49,7 +49,7 @@ This is **Phase 0** and gates everything. It does not touch the HyperShift repo 
 
 ### Track B — Vertical code slice (repo, parallel with Track A)
 
-The next code slice uses the local API-only foundation and is limited to etcd and kube-apiserver. The GCP-1292 foundation supplies enum/conflict validation, both Deployment environment hops, reconciler/context threading, data types and serialization support. It emits no GMP monitoring resources yet.
+The next code slice uses the API-only foundation and is limited to etcd and kube-apiserver. The GCP-1292 foundation supplies flag/conflict validation, both Deployment arg hops (the operator→CPO hop gated by the CPO image compatibility label), reconciler/context threading, data types and serialization support. It emits no GMP monitoring resources yet.
 
 1. Select and test the reconciliation architecture before adding assets. Backend-aware per-workload handling and centralized GMP reconciliation are candidates; neither is approved or implemented by the foundation.
 2. Define inactive-backend exclusion before decoding and before update/delete/status/watch operations. Monitoring errors must be visible and retried without stopping core workloads; explicitly define HCP availability/upgrade policy, ownership-checked cleanup in both directions, and recovery after CRD/RBAC repair.
@@ -69,8 +69,8 @@ The next code slice uses the local API-only foundation and is limited to etcd an
 ### POC exit criteria
 
 - etcd and kube-apiserver GMP `PodMonitoring` are scraped by GMP collectors on a live GKE cluster (Track A evidence on GCP-1227).
-- With `MONITORING_API_GROUP=monitoring.googleapis.com`, the CPO emits GMP `PodMonitoring` for etcd/KAS and **omits** the CoreOS `ServiceMonitor`; with the default (unset) env var, output is byte-for-byte the CoreOS behavior.
-- RHOBS + env-var conflict fails at startup.
+- With `--enable-gmp-monitoring`, the CPO emits GMP `PodMonitoring` for etcd/KAS and **omits** the CoreOS `ServiceMonitor`; with the flag unset, output is byte-for-byte the CoreOS behavior.
+- RHOBS + GMP flag conflict fails at startup.
 - MetricSet filtering (Telemetry/SRE/All) is preserved for etcd/KAS through the translator.
 
 Passing the thin slice proves those two targets only. Audit the remaining discovery/auth/MetricSet and rule-scope differences before expanding; complete semantic parity, capacity, mixed-CPO compatibility and rollback gates before cutover.
@@ -105,29 +105,31 @@ Karpenter entries describe conditional upstream ownership. The pinned API permit
 
 ## Architecture
 
-The full-delivery topology below remains proposed. The foundation supplies install/CPO validation, both Deployment environment hops and CPO component-context propagation. Selection in the HyperShift operator's own component context, backend-aware resource emission and NetworkPolicy selection remain pending:
+The full-delivery topology below remains proposed. The foundation supplies install/operator/CPO startup validation, both Deployment arg hops (the operator→CPO hop gated by the CPO image compatibility label) and CPO component-context propagation. Selection in the HyperShift operator's own component context, backend-aware resource emission and NetworkPolicy selection remain pending:
 
 ```
-MONITORING_API_GROUP=monitoring.googleapis.com
+--enable-gmp-monitoring
       │
       ├── hypershift install ──► management-level monitors (hypershift ns)
       │        Go constructors in cmd/install/assets/hypershift_operator.go
-      │        + Options field (read from env) + startup validation
+      │        + Options field + startup validation
       │
       ├── hypershift-operator ──► CPO + karpenter-operator monitors
       │        │                    (karpenter-operator where enabled)
       │        └──────────────────► NetworkPolicy (per-HCP ns)
       │        shared selection → hostedcluster/component contexts + policy
       │        → runtime plumbing and reconciliation architecture pending
+      │        (forwards the flag to CPO Deployments only when the CPO
+      │         image carries the GMP-support label; otherwise CoreOS)
       │
       └── control-plane-operator ──► per-HCP workload monitors/rules
-               env var → MonitoringAPIGroup on contexts
+               flag → GMP selection on contexts
                → reconciliation architecture pending
 ```
 
 ### Key design choices (from the design decision)
 
-1. **Activation**: retain the agreed MONITORING_API_GROUP management-deployment environment interface; GMP registration is additive and independent of selection.
+1. **Activation**: an explicit `--enable-gmp-monitoring` flag on all three binaries (matching the `--rhobs-monitoring` precedent), propagated as a Deployment arg and gated by the CPO image compatibility label; GMP registration is additive and independent of selection. The earlier `MONITORING_API_GROUP` env-var interface was superseded (see the design decision's Alternatives).
 2. **Scheme**: register GMP types unconditionally and additively in Scheme and AllMonitoringScheme. Retain existing CoreOS/RHOBS registration. Runtime resource selection and lifecycle isolation are separate design requirements.
 3. **Manifests**: separate GMP assets/constructors, never runtime conversion.
 4. **Selection**: runtime architecture is unresolved. Per-manifest predicates run after manifest loading and false predicates initiate deletion; they do not alone provide pre-decode selection, failure containment or safe transitions.
@@ -148,17 +150,17 @@ The highest-risk unknown is authenticated scraping. Build a throwaway GMP `PodMo
 
 **Exit criteria (met)**: etcd and kube-apiserver both scraped by GMP collectors. Findings recorded on GCP-1227.
 
-### Phase 1 — Env Var, Options, Scheme, Validation (local foundation implemented)
+### Phase 1 — Flag, Options, Scheme, Validation (foundation implemented)
 
-The existing environment/context plumbing is retained. `support/metrics` supplies the CoreOS/GMP constants, `ParseMonitoringAPIGroup` and `MonitoringAPIGroupFromEnv`. Install validates explicit option values and environment-derived values, rejects GMP with `RHOBS_MONITORING=1` even without the CLI flag, and also rejects the flag/GMP conflict. CPO startup uses the same parser and conflict check.
+`--enable-gmp-monitoring` flows `hypershift install` → HyperShift operator Deployment args → `HostedClusterReconciler` → CPO Deployment args → CPO startup → `HostedControlPlaneReconciler` → `ControlPlaneContext` → `WorkloadContext`. The arg is only rendered when enabled, so default and RHOBS renders are byte-identical. Shared `metrics.ValidateGMPMonitoring` rejects GMP combined with RHOBS (the `--rhobs-monitoring` install flag or `RHOBS_MONITORING=1` via `--additional-operator-env-vars`) at install time, at HyperShift operator startup, and at CPO startup.
 
-The value flows through `HostedControlPlaneReconciler`, `ControlPlaneContext` and `WorkloadContext`. Install forwards GMP to the HyperShift operator Deployment; its CPO deployment adapter forwards the environment value to CPO. Both hops omit an unset or explicit CoreOS value so default/RHOBS output remains unchanged. The CPO Deployment adapter reads and validates the HyperShift operator's process environment before forwarding it; this does not populate the operator's own `ControlPlaneContext`. Startup validation and context propagation for monitors reconciled by `hypershift-operator` remain runtime work, required before their backend selection in Phase 4 as well as NetworkPolicy gating in Phase 6.
+**CPO compatibility gate**: the HyperShift operator only enables GMP — and passes the flag to the CPO — when the CPO image carries the `io.openshift.hypershift.control-plane-operator-supports-gmp-monitoring` label (older CPO images reject unknown flags and would crash-loop). The gate is required because the CPO image comes from the OCP release payload, not the operator image, so the operator cannot infer the CPO's flag support from its own; the label follows the existing capability-label pattern (`...-skips-haproxy`, `...-creates-aws-sg`). Otherwise it logs and falls back to `monitoring.coreos.com`. The label is added to CPO images in GCP-1293; until labelled payload images exist, absence of the label simply keeps GMP disabled, which is safe by design. Selection/context propagation for monitors reconciled by `hypershift-operator` itself remains runtime work, required before their backend selection in Phase 4 as well as NetworkPolicy gating in Phase 6.
 
-GMP type registration is unconditional and additive in both `Scheme` and `AllMonitoringScheme`. Existing CoreOS/RHOBS initialization is retained; registration starts no clients or watches. The unused `isGMP`/`isNotGMP` helpers were removed. Selection helpers belong with the eventual reconciliation design, where callers and lifecycle semantics exist.
+GMP type registration is unconditional and additive in both `Scheme` and `AllMonitoringScheme`. Existing CoreOS/RHOBS initialization is retained; registration starts no clients or watches. Selection helpers belong with the eventual reconciliation design, where callers and lifecycle semantics exist.
 
-Tests cover parser defaults/errors, both install rejection regressions, RHOBS compatibility, both Deployment hops and process initialization. Validation results and environmental limitations are in the HyperShift working plan; this is local work, not merged or deployed behavior.
+Tests cover flag parsing, install rejection regressions (flag and env-var RHOBS combinations), RHOBS compatibility, both Deployment arg hops, the CPO label gate, and process initialization. Validation results and environmental limitations are in the HyperShift working plan; this is an open PR, not merged or deployed behavior.
 
-### Phase 2 — Maintained GMP API-only package (local foundation implemented)
+### Phase 2 — Maintained GMP API-only package (foundation implemented)
 
 `support/gmpmonitoring` contains upstream-derived PodMonitoring, Rules, their lists and required nested spec/status data. The source version is selected in the download-only `hack/gmp-api-source/go.mod`; its `go.sum` verifies module inputs, and generated `support/gmpmonitoring/upstream.sha256` records the resolved version, immutable upstream commit, module checksums and input file checksums. The snapshot is a schema/serialization reference, not blanket GKE production compatibility.
 
@@ -166,7 +168,7 @@ Tests cover parser defaults/errors, both install rejection regressions, RHOBS co
 
 #### Maintenance ownership and workflow
 
-The GCP HCP team owns the snapshot, extraction tooling and compatibility validation. `gcp-reviewers` review package and tooling changes through the normal HyperShift review process. The canonical runbook is HyperShift's `support/gmpmonitoring/README.md`, currently part of the local GCP-1292 change; use the published implementation revision when available. Keep detailed operational instructions there rather than maintaining a second runbook here.
+The GCP HCP team owns the snapshot, extraction tooling and compatibility validation. `gcp-reviewers` review package and tooling changes through the normal HyperShift review process. The canonical runbook is HyperShift's `support/gmpmonitoring/README.md`. Keep detailed operational instructions there rather than maintaining a second runbook here.
 
 From the HyperShift repository root, with Go, Python 3 and Make available:
 
@@ -175,13 +177,13 @@ make gmp-sync
 make verify-gmp-sync
 ```
 
-An unchanged source pin must reproduce the snapshot without differences. Verification regenerates into temporary storage and fails on missing, different or unexpected generated files without rewriting tracked files. CI runs verification when GMP inputs, tooling, outputs or relevant dependency/tool versions change. Ordinary `make generate` continues to regenerate deepcopies offline.
+An unchanged source pin must reproduce the snapshot without differences. Verification regenerates into temporary storage and fails on missing, different or unexpected generated files without rewriting tracked files. `make gmp-sync` runs as part of `make update`, and `make verify-gmp-sync` runs as part of `make lint` (and therefore `make verify-ci`, `make verify`, and `make verify-parallel`), so a stale snapshot fails CI on every PR — not only on GMP-related changes. Ordinary `make generate` continues to regenerate deepcopies offline.
 
 For a source update, review relevant API/schema changes for the supported environments, change the prometheus-engine requirement in `hack/gmp-api-source/go.mod`, regenerate, verify and run the focused tests documented in the canonical runbook. Review the generated diff and include compatibility evidence in the update PR. Expected changes are limited to the source pin/checksums, provenance, API types, deepcopies, license and schema fixtures. Do not hand-edit generated files; unexpected runtime dependencies or extraction failures require owning-team review. How candidate updates are detected remains open; no fixed review cadence or release-monitoring automation is established. A new operator or collector release alone does not require a snapshot update.
 
 #### Validation and compatibility
 
-Local validation covers reproducible regeneration from existing and fresh module caches, verification rejecting altered/missing/unexpected generated files and missing input checksums, and an isolated source-pin update exercise. Focused race tests, the full unit suite and lint passed locally. This records local foundation evidence, not merged or deployed behavior.
+Local validation covers reproducible regeneration from existing and fresh module caches, verification rejecting altered/missing/unexpected generated files and missing input checksums, and an isolated source-pin update exercise. Focused race tests, the full unit suite and lint passed. This records pre-merge validation evidence, not deployed behavior.
 
 Package tests exercise actual HyperShift serializers, objects and lists with spec/status, nested deepcopy isolation, fresh-process registration and emitted examples against pinned v1 OpenAPI schemas with negative controls. Fixture CRDs are test inputs; HyperShift does not install them.
 
@@ -245,14 +247,14 @@ Add GMP equivalents for the 4 management-level resources (2 monitors + 2 rules) 
 | `HypershiftRecordingRule.Build()` (`metrics`) | :1871 | `HypershiftGMPRecordingRules.Build()` |
 | `HypershiftAlertingRule.Build()` (`alerts`, openshift-monitoring ns) | :1891 | `HypershiftGMPAlertingRules.Build()` |
 
-- Selection logic in `cmd/install/install.go` where the monitor objects are appended (near the existing `PlatformMonitoring`/external-dns blocks) chooses GMP vs CoreOS constructors based on `Options.MonitoringAPIGroup`.
+- Selection logic in `cmd/install/install.go` where the monitor objects are appended (near the existing `PlatformMonitoring`/external-dns blocks) chooses GMP vs CoreOS constructors based on `Options.EnableGMPMonitoring`.
 - These are simpler than CPO monitors (plain HTTP `/metrics`, no mTLS/bearer token).
 
 **Tests**: rendered object assertions for both selections; default remains CoreOS; alerting rule lands in `openshift-monitoring`.
 
 ### Phase 6 — NetworkPolicy (GMP-gated)
 
-- **Shared hypershift-operator selection (prerequisite)**: `hypershift-operator` reconciles the CPO PodMonitor and the karpenter-operator PodMonitor where enabled, in addition to `reconcileOpenshiftMonitoringNetworkPolicy`. Reuse the shared parser for startup validation and provide the parsed selection to the `hostedcluster` reconciler, its own `ControlPlaneContext`/`WorkloadContext`, and the NetworkPolicy path. Complete this plumbing before operator-reconciled monitor selection in Phase 4 and reuse it for NetworkPolicy gating in Phase 6. The runtime design gate determines resource selection and lifecycle handling; additive scheme registration alone does not implement them.
+- **Shared hypershift-operator selection (prerequisite)**: `hypershift-operator` reconciles the CPO PodMonitor and the karpenter-operator PodMonitor where enabled, in addition to `reconcileOpenshiftMonitoringNetworkPolicy`. The flag already reaches the `hostedcluster` reconciler (Phase 1); what remains is propagating the parsed selection into the operator's own `ControlPlaneContext`/`WorkloadContext` and the NetworkPolicy path. Complete this plumbing before operator-reconciled monitor selection in Phase 4 and reuse it for NetworkPolicy gating in Phase 6. The runtime design gate determines resource selection and lifecycle handling; additive scheme registration alone does not implement them.
 - In `hypershift-operator/controllers/hostedcluster/network_policies.go`, extend `reconcileOpenshiftMonitoringNetworkPolicy` (`:576-593`) to add an ingress rule admitting GMP collectors from `gke-gmp-system` **only when GMP is selected**. Reuse the existing broad monitoring policy shape (`podSelector: {}`, no port restrictions) with the Phase 0-confirmed collector peer (namespace `gke-gmp-system` + pod label `app.kubernetes.io/name=collector`). If the HyperShift team decides to descope collector access to specific metrics ports (the design decision's NetworkPolicy-scope open question), this plan will be updated to emit a per-endpoint destination set.
 - Default, ROSA HCP, and ARO HCP policies must be byte-for-byte unchanged (the new rule is additive and gated).
 
@@ -273,14 +275,14 @@ The mapping is many-to-one (no ServiceMonitor kind; `ServiceMonitor`/`PodMonitor
 
 ### Phase 8 — Documentation
 
-- Update HyperShift repo docs: installing the GMP CRDs on the management cluster and setting the `MONITORING_API_GROUP` env var on **all three binaries** (`hypershift install` for management-level resources, control-plane-operator for its workload resources, and hypershift-operator for its own reconciled monitors plus the GMP NetworkPolicy — see Phases 4 and 6) — the epic's "Update Documentation" task.
+- Update HyperShift repo docs: installing the GMP CRDs on the management cluster and using the `--enable-gmp-monitoring` flag on **all three binaries** (`hypershift install` for management-level resources, control-plane-operator for its workload resources, and hypershift-operator for its own reconciled monitors plus the GMP NetworkPolicy — see Phases 4 and 6) — the epic's "Update Documentation" task.
 - Note in gcp-hcp: mark the [hybrid GMP decision](../design-decisions/observability/hypershift-gmp-native-monitoring.md) linkage and that the dedicated Prometheus removal is a follow-up.
 
 ## Testing Strategy Summary
 
 | Layer | Coverage |
 |-------|----------|
-| Env var/validation | enum validation; RHOBS + env-var conflict across the selection-consuming binaries (install/render + CPO startup in the foundation; hypershift-operator startup before its monitor selection and NetworkPolicy gating); default→coreos |
+| Flag/validation | flag parsing; GMP + RHOBS conflict (flag and env-var forms) across the selection-consuming binaries (install/render + both operator startups in the foundation); CPO image label gate; default→coreos |
 | Scheme | `AllMonitoringScheme` registers coreos + GMP; RHOBS path unchanged |
 | API snapshot reproducibility | Local foundation: source pin/checksums and generated provenance; unchanged-pin regeneration; non-writing verification rejects missing, changed or unexpected artifacts; isolated pin-update exercise; CI verification on relevant changes |
 | API data/schema | Local foundation: serializer round trips, nested deepcopy isolation and pinned OpenAPI checks with negative controls; live admission/scraping/rule evaluation remain separate compatibility gates |
@@ -312,14 +314,14 @@ The mapping is many-to-one (no ServiceMonitor kind; `ServiceMonitor`/`PodMonitor
 - **Blocks on**: design sign-off (HyperShift maintainers).
 - **Depends on**: GMP CRDs installed on GKE management clusters (already present); GMP collectors running in `gke-gmp-system` (already present).
 - **Followed by** (separate ops/infra story): configure/validate GMP collectors, verify live scrape coverage & metric parity, assess ingestion volume/quota, cut over, and remove the dedicated Prometheus from gcp-hcp-infra.
-- **Possible future work** (out of scope here, not planned by this work): if desired, `monitoring.rhobs` could be folded in as a third `MONITORING_API_GROUP` value, and/or a `--rhobs-monitoring`-style validation flag could be added to cross-check the env var.
+- **Possible future work** (out of scope here, not planned by this work): if desired, `monitoring.rhobs` selection could be added as its own flag or folded into a shared backend-selection interface.
 
 ## Definition of Done (this story)
 
-- [ ] API snapshot has a documented GCP HCP owner and gcp-reviewers routing, a pinned source module, generated provenance, reproducible `make gmp-sync` and non-writing `make verify-gmp-sync` enforced in CI for relevant changes; canonical maintenance instructions and focused checks are documented. Implemented and validated locally; merge remains pending.
+- [ ] API snapshot has a documented GCP HCP owner and gcp-reviewers routing, a pinned source module, generated provenance, reproducible `make gmp-sync` (wired into `make update`) and non-writing `make verify-gmp-sync` (wired into `make lint` and the CI verify targets, so a stale snapshot fails every PR); canonical maintenance instructions and focused checks are documented.
 - [ ] Supported GKE/GMP environments and compatibility evidence are recorded, including GKE version, GMP operator image and the validation performed; offline schema checks are distinguished from live admission, scraping and rule evaluation.
-- [ ] `MONITORING_API_GROUP` honored by `hypershift install`, `hypershift-operator` and control-plane-operator for their respective in-scope resources; both operators' component contexts receive the selection. Default and `RHOBS_MONITORING=1` outputs unchanged (golden tests green).
-- [ ] RHOBS + GMP env-var combination is rejected with the specified error by every binary that consumes the selection — `hypershift install`/`render` and control-plane-operator startup today, and hypershift-operator startup before backend-aware monitor reconciliation and NetworkPolicy gating. The foundation's CPO Deployment adapter validation does not replace this startup/context requirement.
+- [ ] `--enable-gmp-monitoring` honored by `hypershift install`, `hypershift-operator` and control-plane-operator for their respective in-scope resources; both operators' component contexts receive the selection. Default and `RHOBS_MONITORING=1` outputs unchanged (golden tests green).
+- [ ] RHOBS + GMP combination is rejected with the specified error by every binary that consumes the selection — delivered by the foundation for `hypershift install`/`render`, HyperShift-operator startup and CPO startup; hypershift-operator must propagate the parsed selection into its own contexts before backend-aware monitor reconciliation and NetworkPolicy gating.
 - [ ] Every CoreOS scrape target (all 11 SM + 8 PM in the per-HCP inventory + the 2 endpoint-bearing management-level monitors) is covered by a GMP `PodMonitoring` endpoint and renders correctly — noting GMP resources may be fewer than CoreOS files due to SM/PM→PodMonitoring collapse and endpoint consolidation.
 - [ ] Rule resources (the CPO recording-rule `PrometheusRule` + the 2 management-level recording/alerting rules) have matching GMP rule resources at the required namespace/cluster/global scope and are verified **separately** from scrape-target coverage.
 - [ ] CPO writer permissions and the HyperShift operator's direct writer permissions and grant authority cover their respective selected GMP resources; authorization and backend-transition tests prove grants precede creation and owned-resource cleanup precedes revocation, with unchanged default/RHOBS steady-state policies.
@@ -329,5 +331,5 @@ The mapping is many-to-one (no ServiceMonitor kind; `ServiceMonitor`/`PodMonitor
 - [ ] Runtime tests cover backend selection/context propagation, inactive-backend isolation and ownership-checked transitions in both directions for in-scope monitors reconciled by each operator.
 - [ ] GMP-gated NetworkPolicy admits `gke-gmp-system`; non-GMP/ROSA/ARO policies unchanged.
 - [ ] Coverage-based parity test fails CI when a CoreOS scrape target has no GMP coverage.
-- [ ] HyperShift docs updated (CRD install + `MONITORING_API_GROUP` usage).
+- [ ] HyperShift docs updated (CRD install + `--enable-gmp-monitoring` usage).
 - [ ] ROSA HCP and ARO HCP verified unaffected.
