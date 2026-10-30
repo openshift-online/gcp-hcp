@@ -21,7 +21,7 @@ This repository uses the Jira plugin from [openshift-eng/ai-helpers](https://git
 The `jira:gcp-hcp` skill provides team-specific conventions for creating issues in the GCP project (Hypershift on GKE):
 
 - **Project Key**: GCP
-- **Custom Fields**: Epic Name, Epic Link, Parent Link
+- **Custom Fields**: Epic Name, Epic Link, Parent Link, Team
 - **Templates**: Story, Epic, and Feature templates in `docs/`
 - **Definition of Done**: Completion criteria in `docs/definition-of-done.md`
 
@@ -30,6 +30,25 @@ The skill is automatically invoked when:
 - Summary/description contains GCP HCP keywords
 
 For detailed MCP tool integration examples, see the upstream skill documentation.
+
+## Pod Structure and Team Field
+
+The GCP HCP team is organized into three pods (A, B, C). Work is organized by pod using the **Team** custom field in Jira, which determines which items appear on each pod's board via Quick Filters.
+
+**Pod membership:** See the [Team Ceremonies Calendar](https://redhat.atlassian.net/wiki/spaces/GCP/pages/424214835/Team+Ceremonies+Calendar) in Confluence for current pod assignments.
+
+**Team field automation:**
+- Features/Initiatives: Team is set when assigned to a pod member
+- Epics/Stories/Tasks: Team is inherited from parent issue (when created/updated and Team is empty)
+- Orphaned items (no parent): Team is set when assigned to a pod member
+- Manual Team assignments are preserved (automation only runs when Team is empty)
+
+See [`docs/pod-team-field-automation.md`](docs/pod-team-field-automation.md) for complete automation rules and troubleshooting.
+
+**When working on Features/Epics:**
+- The Team field indicates which pod owns the work
+- Pod ownership is visible on the Kanban board via Quick Filters (Pod A, Pod B, Pod C)
+- Cross-pod collaboration is normal; manual Team field overrides are supported
 
 # GCP HCP Plugin
 
