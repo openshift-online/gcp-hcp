@@ -2,8 +2,6 @@
 
 ***Scope***: GCP-HCP
 
-**Status**: Draft (for discussion)
-
 **Date**: 2026-10-09
 
 **Supersedes**: [Allow Authenticated Version, Channel, and PlatformRole Reads
