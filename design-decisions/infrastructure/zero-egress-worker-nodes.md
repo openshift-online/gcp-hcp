@@ -6,7 +6,7 @@
 
 ## Decision
 
-Deliver required images for workers through regional Google Artifact Registry (GAR) pull-through repositories, using worker VM identity and on-demand credential helpers. Deny public worker egress by default, with only explicitly approved exceptions for required platform services.
+Deliver required images for workers through regional Google Artifact Registry (GAR) remote repositories (pull-through caching), using worker VM identity and on-demand credential helpers. Deny public worker egress by default, with only explicitly approved exceptions for required platform services.
 
 ## Context
 
@@ -55,11 +55,15 @@ Grant worker identities read-only access to the required GAR repositories and sc
 
 ### Operability
 
-Reporting behavior is a rollout dependency: business and support must agree whether Insights and telemetry are disabled or use an explicitly approved egress path. Helper packaging, permission provisioning and rollout details remain implementation choices.
+**Rollout dependency:** Business and support must agree whether Insights and telemetry reporting is disabled or uses an explicitly approved egress path. The agreed behavior must be validated before rollout.
+
+Platform provisioning must establish read-only GAR access for worker VM identities before bootstrap. Helper packaging, the permission-provisioning mechanism and rollout details remain implementation choices.
+
+Provide diagnostics that distinguish credential-helper and metadata failures from GAR authorization and upstream image-fetch failures.
 
 ### Cost
 
-Plan for one Quay pull-through repository per enabled regional deployment/project. For example, dev, stage and production deployments in the same geographic region have three separate repositories; a single production deployment has one. Estimate storage and data transfer across deployments, including duplicated cached images.
+Plan for one Quay remote repository per enabled regional deployment/project. For example, dev, stage and production deployments in the same geographic region have three separate repositories; a single production deployment has one. Estimate storage and data transfer across deployments, including duplicated cached images.
 
 See [Google's GAR pricing breakdown](https://cloud.google.com/artifact-registry/pricing) for storage, data transfer, free allowances and optional vulnerability-scanning charges.
 
