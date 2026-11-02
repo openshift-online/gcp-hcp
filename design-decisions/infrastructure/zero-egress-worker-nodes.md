@@ -6,11 +6,11 @@
 
 ## Decision
 
-Deliver required OpenShift release images for workers through regional Google Artifact Registry (GAR) pull-through repositories, using worker VM identity and on-demand credential helpers. Deny public worker egress by default, with only explicitly approved exceptions for required platform services.
+Deliver required images for workers through regional Google Artifact Registry (GAR) pull-through repositories, using worker VM identity and on-demand credential helpers. Deny public worker egress by default, with only explicitly approved exceptions for required platform services.
 
 ## Context
 
-- **Problem Statement:** Workers need images from `quay.io` and `registry.redhat.io` to bootstrap, scale and upgrade. Downloading directly from these registries requires internet egress; blocking it can prevent required uncached pulls.
+- **Problem Statement:** Workers need images from `quay.io` to bootstrap, scale and upgrade. Downloading directly from these registries requires internet egress; blocking it can prevent required uncached pulls.
 - **Constraints:** No worker external IPs, service-account keys or distributed GAR pull-secret tokens. Control-plane authentication is outside this decision.
 - **Required connectivity:** Keep DNS resolution, Private Google Access to GAR and required Google APIs, and private connections to the hosted control-plane API and bootstrap services.
 - **Customer credentials:** Retain customers' private-registry credentials. Network access to those registries remains a separate requirement.
@@ -54,6 +54,8 @@ Grant worker identities read-only access to the required GAR repositories and sc
 Propose disabling Insights and telemetry reporting by default for zero-egress deployments, pending business and support agreement on reporting requirements. Define any approved egress explicitly. Helper packaging, permission provisioning and rollout details remain implementation choices.
 
 ### Cost
+
+Plan for one Quay pull-through repository per enabled regional deployment/project. For example, dev, stage and production deployments in the same geographic region have three separate repositories; a single production deployment has one. Estimate storage and data transfer across deployments, including duplicated cached images.
 
 See [Google's GAR pricing breakdown](https://cloud.google.com/artifact-registry/pricing) for storage, data transfer, free allowances and optional vulnerability-scanning charges.
 
