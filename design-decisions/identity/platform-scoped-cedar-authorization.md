@@ -1,4 +1,4 @@
-# Add Cluster-Scoped Cedar ABAC Authorization
+# Authorize Platform-Scoped Resources Through Role Bindings
 
 ***Scope***: GCP-HCP
 
@@ -11,154 +11,206 @@ Outside Cedar Authorization](authenticated-catalog-reads.md)
 
 ## Decision
 
-Gecko adds a cluster-scoped ABAC authorization path for explicitly configured
-public resources. Platform-managed Cedar policies evaluate trusted principal,
-resource, and request attributes for resources in a default platform scope.
-This path complements the current namespaced, RoleBinding-derived RBAC path.
+Gecko extends its existing Cedar-backed role-binding mechanism with private,
+platform-scoped `PlatformRoleBinding` resources. Each binding grants permissions
+from a `PlatformRole` to an authenticated subject for platform-scoped resources
+and supports the same optional Cedar condition as a namespace-scoped
+`RoleBinding`.
 
-Version and Channel `get`/`list` are the first platform-scope operations. Their
-public routes and `+orlop:public-verbs` remain unchanged. Each operation selects
-the shared platform-managed `authenticated-catalog-read` policy through
-`+orlop:authorization-policy`.
+Argo CD manages platform bindings through the private Kubernetes API. Version
+and Channel `get`/`list` are the first platform-scope operations authorized
+through these bindings. An `authenticated-user` PlatformRole and an
+all-authenticated binding preserve their current read access, with the initial
+binding's condition left unset.
 
 ## Context
 
-The current Cedar authorization path maps namespace-scoped requests into a
-RoleBinding-derived RBAC entity graph. Version and Channel are cluster-scoped
-catalog resources whose reads were exempted from Cedar evaluation by the
-[authenticated catalog-reads decision](authenticated-catalog-reads.md). That
-decision identified Cedar-based authorization as a viable alternative and
-included a reassessment clause directing this extension when per-principal
-policy control is needed.
+The existing authorization mechanism generates Cedar policies from roles and
+bindings. A PlatformRole supplies system-managed permissions; a RoleBinding
+grants those permissions within its own namespace. Version and Channel are
+platform-scoped catalog resources whose reads were exempted from Cedar by the
+[authenticated catalog-reads decision](authenticated-catalog-reads.md).
 
-This decision replaces the exemption with a Cedar ABAC path for explicitly
-configured cluster-scoped resources, beginning with Version and Channel. No
-request reaches the handler without an explicit Cedar `permit`.
+[Object-state-aware RoleBinding conditions](https://github.com/openshift-online/gecko/pull/484)
+already provide optional Cedar expressions, effective-object evaluation, and
+per-item list filtering before pagination. Platform-scope authorization can
+reuse these capabilities while moving catalog reads into the same grant model.
+
+The [Cedar authorization decision](cedar-public-api-authorization.md) considered
+a public PlatformRoleBinding model for cross-namespace administration. This
+decision introduces private grants for platform-scoped resources; Cluster,
+NodePool, and other namespace-scoped resources retain their existing
+namespace-bound authorization.
+
+## Authorization Model
+
+### Bindings and Scope
+
+* A PlatformRoleBinding preserves the RoleBinding spec shape: `subject`,
+  `roleRef`, and optional `condition`. Its role reference identifies a
+  PlatformRole.
+* A PlatformRoleBinding grants access only to platform-scoped resources. A
+  RoleBinding grants access only to namespace-scoped resources in its own
+  namespace, including when it references a PlatformRole.
+* Existing registered resource-scope metadata and explicit role permissions
+  determine the applicable grants. A namespace-less collection route for a
+  namespace-scoped resource retains the existing cross-namespace behavior.
+* A role may contain permissions for both scopes. Only permissions applicable
+  to the binding's scope affect authorization. Validation continues to check
+  known permissions, subjects, role references, and Cedar condition syntax;
+  runtime scope enforcement supplies the access boundary.
+* Each binding generates its own Cedar policy through the existing
+  authorization flow. Policy generation, watches, reloads, and entity-cache
+  invalidation extend the established RoleBinding mechanism.
+
+### Subjects and Conditions
+
+Exact subjects use the existing normalized authenticated identity. In a
+PlatformRoleBinding, `subject: "*"` selects every authenticated principal.
+Namespace-scoped RoleBinding subject semantics remain unchanged.
+
+Cedar conditions are supported from introduction and constrain the binding's
+grant using the existing object-aware evaluation mechanism. Subject matching,
+role permissions, resource scope, and the optional condition must all permit
+the operation. Grants remain additive across independently authorizing
+bindings.
+
+### Initial Grant
+
+The initial configuration grants Version and Channel reads through one shared
+role and binding:
+
+```yaml
+apiVersion: gcp.managed.openshift.io/v1
+kind: PlatformRole
+metadata:
+  name: authenticated-user
+spec:
+  permissions:
+    - version.get
+    - version.list
+    - channel.get
+    - channel.list
+---
+apiVersion: gcp.managed.openshift.io/v1
+kind: PlatformRoleBinding
+metadata:
+  name: authenticated-users
+spec:
+  subject: "*"
+  roleRef:
+    apiGroup: gcp.managed.openshift.io
+    kind: PlatformRole
+    name: authenticated-user
+```
+
+The optional condition is omitted from this binding. The role name is ordinary
+configuration; its explicit permissions and binding establish access.
 
 ## Alternatives Considered
 
-1. **Direct platform Cedar ABAC policies (chosen)**: Add a default platform
-   scope, explicit resource/action policy associations, and platform-managed
-   Cedar policies for cluster-scoped routes.
-2. **Cluster-scoped role bindings**: Add a declarative cluster role and binding
-   model, plus an onboarding and grant-management workflow for platform-scoped
-   assignments.
-
-| Alternative | Benefits | Trade-offs |
-| --- | --- | --- |
-| Direct platform Cedar ABAC policies (chosen) | Access derived from trusted request facts; no pre-created per-caller bindings required; policies can incorporate principal, resource, and request attributes for audience-gated visibility; Cedar `forbid` policies can revoke access for specific principals. | Introduces a platform-scoped policy path alongside the namespace-scoped path; authorization decisions depend on the accuracy of server-provided attributes. |
-| Cluster-scoped role bindings | Explicit grants to individual users or groups; consistent model with the existing namespaced RBAC path. | Requires Gecko to create or infer an artificial cluster binding for each entitled caller; cannot express attribute-based conditions (e.g. channel type, release stage) without layering ABAC on top. |
+1. **Platform-scope role bindings (chosen)**: Extend the existing binding
+   primitive with a private PlatformRoleBinding referencing a PlatformRole.
+   Argo CD manages grants, and optional Cedar conditions provide attribute-based
+   restrictions. One all-authenticated binding covers the initial catalog use
+   case. This adds a private resource kind and integrates it with authorization
+   storage, policy generation, and reload processing.
+2. **Embedded, named Cedar policies**: Associate resource/action operations with
+   named platform-managed Cedar policies through generated Orlop authorization
+   metadata, as explored in [Gecko #447](https://github.com/openshift-online/gecko/pull/447).
+   This keeps the persisted API surface smaller and supports direct authoring
+   of Cedar `permit` and `forbid` policies. It introduces a policy-selection
+   mechanism alongside binding-derived authorization, and changes to embedded
+   rules or associations follow a Gecko release.
 
 ## Decision Rationale
 
-* **ABAC choice**: Direct platform policies express access from trusted request
-  facts instead of pre-created user bindings. For the catalog use case, every
-  authenticated caller has the same access today, making per-caller bindings
-  unnecessary overhead.
-* **Role-binding trade-off**: A cluster-scoped role-binding model represents
-  explicit grants to individual users or groups. It would require Gecko to
-  create or infer an artificial cluster binding for each entitled caller, with
-  no gain until per-principal differentiation is needed — and when it is, ABAC
-  handles it directly through attributes.
-* **Attribute expansion**: Platform policies can tailor the catalog visible to a
-  caller from trusted caller and resource attributes. For example, internal
-  users can view candidate or nightly Channel resources while other callers see
-  the generally available channels. PlatformRole visibility can be filtered by
-  a resource attribute once its public endpoint is delivered.
-* **Bypass elimination**: The authorization-exemption class is entirely removed.
-  Every catalog read has a determining Cedar policy, providing an audit trail
-  that the exemption model could not.
-
-### RBAC and ABAC in Practice
-
-The existing namespaced path and the platform path answer different
-authorization questions. Namespaced RBAC evaluates whether a principal has a
-RoleBinding-derived role for an action in a namespace. Platform ABAC evaluates
-whether trusted properties of the principal, resource, and action satisfy a
-platform policy.
-
-The namespaced path generates Cedar policies from RoleBindings:
-
-```cedar
-permit (
-    principal,
-    action in [Action::"GetCluster"],
-    resource
-)
-when {
-    principal in NamespaceRole::"team-a/cluster-viewer/alice-binding" &&
-    resource in Namespace::"team-a"
-};
-```
-
-The platform path evaluates a policy for a resource in the default platform
-scope. A Channel policy can use trusted resource and principal attributes:
-
-```cedar
-permit (
-    principal,
-    action == Action::"GetChannel",
-    resource in PlatformScope::"default"
-)
-when {
-    resource.resourceType == "channels" &&
-    (resource.visibility == "public" || principal.internal == true)
-};
-```
-
-RBAC derives access from a role relationship and namespace. ABAC derives access
-from trusted properties of the principal, resource, and action. Both run in
-Cedar, and a future model can combine role bindings with attributes when a use
-case requires both.
+* **Authorization consistency**: PlatformRoleBindings extend the existing
+  subject, role, binding, and condition model. Existing resource-scope metadata
+  and permissions drive evaluation while the binding determines the grant's
+  scope.
+* **Operational flexibility**: Reviewed GitOps changes can update bindings and
+  their conditions using supported permissions and attributes. This separates
+  grant changes from authorizer releases and fits the established Argo CD
+  workflow. New permissions or context attributes can still require Gecko
+  changes.
+* **Shared authenticated access**: A single all-authenticated binding preserves
+  current catalog access and avoids per-caller onboarding. Both considered
+  approaches can express this baseline.
+* **Existing condition support**: Both approaches use Cedar and can express
+  attribute-based restrictions. Binding conditions already support effective
+  object state and per-item list filtering, making that capability part of the
+  shared authorization mechanism.
+* **Trade-off**: The additional private binding kind and its authorization
+  integration are justified by consistent grant management and operational
+  flexibility. Embedded policies remain a viable option for fixed rules and
+  direct policy authoring; the existing binding primitive better matches this
+  use case and its management workflow.
 
 ## Consequences
 
 ### Positive
 
-* Version and Channel reads use Cedar while preserving their public API paths
-  and cluster-scoped API model.
-* Explicit resource/action policy associations define the cluster-scoped
-  operations that participate in platform Cedar evaluation.
-* The authorization-exemption class is removed; every catalog request has a
-  determining Cedar policy and audit trail.
-* The same policy path supports trusted attributes, Cedar `forbid` policies,
-  and audience-gated visibility as product requirements emerge.
+* Version and Channel reads use binding-derived Cedar authorization while
+  preserving their public API paths and read-only access.
+* The catalog authorization exemption is retired; catalog reads obtain a
+  determining Cedar policy through the shared authorization mechanism.
+* Platform grants are reviewable GitOps resources and support the existing
+  Cedar condition and filtering capabilities.
+* Namespace-scoped authorization retains its established permissions and scope
+  boundaries.
+
+### Negative
+
+* A new private resource kind requires storage registration and integration
+  with the existing authorization machinery.
+* Catalog access depends on the configured role and binding. Missing or invalid
+  grants deny access, so GitOps configuration becomes part of catalog
+  availability.
+* The binding API exposes additive grants and grant-local conditions. Global
+  Cedar `forbid` policy management remains a separate capability.
 
 ### Follow-on Work
 
-* PlatformRole joins the platform-scope path in a later migration after
-  GCP-1273 delivers its public API work. Its public endpoint and policy
-  association ship together.
-* The initial policy source is platform-managed configuration. Dynamic grants,
-  denies, entitlements, and per-item list filtering can build on this path as
-  their product requirements are defined.
+* PlatformRole public discovery follows GCP-1273. Its public endpoint,
+  permissions, and corresponding grants are delivered together.
+* Additional trusted principal attributes are introduced when configured Cedar
+  conditions require them.
 
 ## Cross-Cutting Concerns
 
 ### Security
 
-* Authentication and normalized identity extraction occur before Cedar
-  evaluation. The server exclusively manages the policy source.
-* Platform-resource registration declares each participating resource/action
-  policy association. Unregistered resources and unconfigured verbs are denied.
-* Attribute-based policies use trusted server-provided attributes. A policy that
-  filters a collection evaluates items before pagination and
-  continuation-token construction.
-* The existing public authorization feature flag remains the rollout control.
-  When enabled, requests for resources in the default platform scope use their
-  Cedar policy path with no per-resource authorization exemptions.
+* Authentication and normalized identity extraction precede authorization.
+  The `*` subject selects authenticated principals only.
+* The management surface for PlatformRoleBindings is the private Kubernetes
+  API. Private Kubernetes RBAC reserves binding mutation for the Argo CD
+  identity, with changes controlled through infrastructure pull-request review.
+* Each binding's policy enforces the resource-scope boundary independently of
+  role contents. Missing or invalid bindings grant no access through that
+  binding, while independent valid grants retain their existing behavior.
+* Conditions use trusted identity and public object context. The initial grant
+  uses the existing authenticated identity; additional principal attributes
+  follow the needs of configured conditions.
+* Collection permission checks retain their existing coarse semantics, with
+  conditions evaluated per item before pagination. A condition excluding a
+  caller can yield an empty authorized list rather than a request-level denial.
 
 ### Operability
 
-* The platform policy is included in every Cedar policy-set rebuild. Policy
-  parse errors at startup prevent deployment of malformed policies.
-* Migration deploys and validates the default platform-scope path for Version
-  and Channel. PlatformRole joins a later migration after GCP-1273, with its
-  public endpoint and policy association delivered together.
+* PlatformRole definitions follow the existing Helm and Argo CD workflow.
+  PlatformRoleBindings are applied through Argo CD using the configuration
+  managed in [gcp-hcp-infra](https://github.com/openshift-online/gcp-hcp-infra).
+* Platform bindings participate in the established watch/reload and
+  cache-invalidation lifecycle. Failed refreshes retain the last successfully
+  loaded policy set, preserving existing RoleBinding behavior and revocation
+  semantics.
 
 ## Related
 
 * [Authenticated catalog reads](authenticated-catalog-reads.md) (superseded)
 * [Cedar-based public API authorization](cedar-public-api-authorization.md)
+* [PlatformRoleBinding POC (Gecko #596)](https://github.com/openshift-online/gecko/pull/596)
+* [Object-state-aware RoleBinding conditions (Gecko #484)](https://github.com/openshift-online/gecko/pull/484)
 * [GCP-1266](https://redhat.atlassian.net/browse/GCP-1266)
 * [GCP-1273](https://redhat.atlassian.net/browse/GCP-1273)

@@ -6,7 +6,7 @@
 
 **Status**: Superseded
 
-**Superseded by**: [Add Cluster-Scoped Cedar ABAC Authorization](platform-scoped-cedar-authorization.md)
+**Superseded by**: [Authorize Platform-Scoped Resources Through Role Bindings](platform-scoped-cedar-authorization.md)
 
 ## Decision
 
