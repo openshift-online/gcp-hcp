@@ -10,7 +10,7 @@ Deliver required images for workers through regional Google Artifact Registry (G
 
 ## Context
 
-- **Problem Statement:** Workers need images from `quay.io` to bootstrap, scale and upgrade. Downloading directly from these registries requires internet egress; blocking it can prevent required uncached pulls.
+- **Problem Statement:** Workers need images from `quay.io` to bootstrap, scale and upgrade. Downloading directly from Quay requires internet egress; blocking it can prevent required uncached pulls.
 - **Constraints:** No worker external IPs, service-account keys or distributed GAR pull-secret tokens. Control-plane authentication is outside this decision.
 - **Required connectivity:** Keep DNS resolution, Private Google Access to GAR and required Google APIs, and private connections to the hosted control-plane API and bootstrap services.
 - **Customer credentials:** Retain customers' private-registry credentials. Network access to those registries remains a separate requirement.
@@ -18,13 +18,13 @@ Deliver required images for workers through regional Google Artifact Registry (G
 
 ## Alternatives Considered
 
-1. **Centrally refreshed GAR pull secrets:** Require token distribution, synchronization and handling of renewal-driven disruption.
+1. **Centrally refreshed GAR pull secrets:** Generate tokens with External Secrets Operator and propagate them to workers, adding token distribution, synchronization and handling of renewal-driven disruption.
 2. **Workers pull directly from Quay and Red Hat:** Download from these public registry endpoints instead of GAR, requiring worker internet access.
 
 ## Decision Rationale
 
 - **Justification:** VM identity and native digest mirrors provide keyless image access without centrally distributing GAR tokens.
-- **Evidence:** [Kubernetes credential providers](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/) and [Compute Engine metadata authentication](https://docs.cloud.google.com/compute/docs/access/authenticate-workloads) provide the underlying mechanisms.
+- **Evidence:** Development validation is tracked in [GCP-1276](https://redhat.atlassian.net/browse/GCP-1276). [Kubernetes credential providers](https://kubernetes.io/docs/tasks/administer-cluster/kubelet-credential-provider/) and [Compute Engine metadata authentication](https://docs.cloud.google.com/compute/docs/access/authenticate-workloads) provide the underlying mechanisms.
 - **Comparison:** A runtime helper complements kubelet's provider for bootstrap and mirror pulls, avoiding recurring token-file updates.
 
 ## Consequences
@@ -45,13 +45,17 @@ Deliver required images for workers through regional Google Artifact Registry (G
 
 ## Cross-Cutting Concerns
 
+### Reliability
+
+Regional caches limit cross-region dependencies and can serve retained images during Quay outages; uncached or evicted images still require upstream availability. Validate recovery from metadata, IAM and GAR failures, including credential-cache expiry and fresh-worker bootstrap.
+
 ### Security
 
-Grant worker identities read-only access to the required GAR repositories and scope mirror rules to required OpenShift repositories. Restricted upstream credentials / scopes must be in place to prevent arbiatary image pulls.
+Grant worker identities read-only access to the required GAR repositories and scope mirror rules to required OpenShift repositories. Use least-privilege upstream credentials; [public Quay images remain readable](https://docs.projectquay.io/use_quay.html#project-quay-repository-overview), so enforcing an image allowlist requires additional controls.
 
 ### Operability
 
-Propose disabling Insights and telemetry reporting by default for zero-egress deployments, pending business and support agreement on reporting requirements. Define any approved egress explicitly. Helper packaging, permission provisioning and rollout details remain implementation choices.
+Reporting behavior is a rollout dependency: business and support must agree whether Insights and telemetry are disabled or use an explicitly approved egress path. Helper packaging, permission provisioning and rollout details remain implementation choices.
 
 ### Cost
 
