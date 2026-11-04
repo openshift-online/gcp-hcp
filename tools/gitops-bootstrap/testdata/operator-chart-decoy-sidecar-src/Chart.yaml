@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-decoy-sidecar
+description: Synthetic fixture whose manager container has no required env while a decoy-sidecar container carries the correct values, used to test render.sh binding manager env checks to the manager container specifically. Not a real product chart.
+version: 0.1.0

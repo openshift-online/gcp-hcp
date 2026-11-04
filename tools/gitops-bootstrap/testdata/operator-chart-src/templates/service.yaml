@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: synthetic-operator-metrics
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: synthetic-operator
+  ports:
+    - port: 8443
+      targetPort: 8443
+# Some real-world charts emit this boilerplate status on Service objects;
+# Config Sync rejects it as a declared source field even though Helm accepts it.
+status:
+  loadBalancer: {}

@@ -1,0 +1,21 @@
+# Real pins for the locally maintained OpenShift GitOps 1.22.2 charts
+# (GCP-1280). See chart-src/PROVENANCE.md for what these archives are and
+# are not. render.sh verifies `checksum` against the local archive
+# byte-for-byte and `version` against the archive's Chart.yaml.
+#
+# `origin`/`digest` record the OFFICIAL bundle the charts were authored
+# from. The archives themselves are produced locally by
+# chart-src/build-charts.sh and have no registry manifest digest of their
+# own (digest is the official bundle manifest digest, not an archive digest).
+crdsChart:
+  path: ./charts/gitops-operator-crds-0.1.0.tgz
+  version: "0.1.0"
+  origin: "local packaging of CRDs from registry.redhat.io/openshift-gitops-1/gitops-operator-bundle (appVersion 1.22.2); see chart-src/PROVENANCE.md"
+  digest: "sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d"
+  checksum: "sha256:b7abbd6459fb0fc3eaa7b8606d469d62fef23dada33abdf533f15674cca91e5a"
+operatorChart:
+  path: ./charts/gitops-operator-0.1.0.tgz
+  version: "0.1.0"
+  origin: "local packaging authored around the operator Deployment/RBAC of registry.redhat.io/openshift-gitops-1/gitops-operator-bundle (appVersion 1.22.2); see chart-src/PROVENANCE.md"
+  digest: "sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d"
+  checksum: "sha256:a9802c69e08e32185eb35b7dba3c717b895a61ca7aa7fc8ce475e1b26fc99257"

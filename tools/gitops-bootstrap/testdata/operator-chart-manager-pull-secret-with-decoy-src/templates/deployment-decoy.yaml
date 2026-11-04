@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synthetic-operator-decoy
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: synthetic-operator-decoy
+  template:
+    metadata:
+      labels:
+        app: synthetic-operator-decoy
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: decoy
+          image: {{ .Values.image }}

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-crds-chart-contaminated
+description: Synthetic fixture with a non-CRD object smuggled into templates/, used to test render.sh's CRD-only rejection. Not a real product chart.
+version: 0.1.0

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-unsupported-kind
+description: Synthetic fixture that renders an object kind outside the reviewed contract, used to test render.sh's unsupported-kind rejection. Not a real product chart.
+version: 0.1.0

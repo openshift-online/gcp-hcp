@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-triple-underscore-path-image
+description: Synthetic fixture whose manager image has an invalid triple-underscore repository path segment, used to test render.sh's repository-grammar rejection. Not a real product chart.
+version: 0.1.0

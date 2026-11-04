@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-manager-pull-secret-with-decoy
+description: Synthetic fixture with two Deployments where the manager's own Deployment correctly references the pull secret and an unrelated decoy Deployment does not, used as a positive regression that the manager's own Deployment is actually checked. Not a real product chart.
+version: 0.1.0
