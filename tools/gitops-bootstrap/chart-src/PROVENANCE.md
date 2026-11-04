@@ -79,8 +79,8 @@ floating tag and no fallback registry).
 
 | Archive | Version / appVersion | SHA256 (pinned in `../pins.yaml`) |
 | --- | --- | --- |
-| `../charts/gitops-operator-crds-0.1.0.tgz` | `0.1.0` / `1.22.2` | `b7abbd6459fb0fc3eaa7b8606d469d62fef23dada33abdf533f15674cca91e5a` |
-| `../charts/gitops-operator-0.1.0.tgz` | `0.1.0` / `1.22.2` | `a9802c69e08e32185eb35b7dba3c717b895a61ca7aa7fc8ce475e1b26fc99257` |
+| `../charts/gitops-operator-crds-0.1.0.tgz` | `0.1.0` / `1.22.2` | `32bbf0742652160b3aaa953036f6bf933a45b79c55aaed9e9fdf13b9fdd9ec9b` |
+| `../charts/gitops-operator-0.1.0.tgz` | `0.1.0` / `1.22.2` | `f19b9fc1340731e47e7e48b205c28d4c71a89fcddc873897cdea92b1a75b0ccf` |
 
 `0.1.0` is a truthful local packaging version, distinct from the official
 appVersion. The archives have no registry/OCI manifest digest of their own; the
@@ -118,9 +118,10 @@ and every other Promoter CRD.
 
 Written independently around the CSV; template code from other charts was not
 copied. `values.yaml` and `templates/rbac.yaml` are generated from the CSV. The
-manager container's command, args, probes, ports, security context, resources,
+manager container's command, args, probes, ports, security context,
 volume and volume mount, the pod security context, grace period and both RBAC
-rule sets equal the CSV (offline tests diff them). Documented deltas:
+rule sets equal the CSV (offline tests diff them); manager `resources` is the one
+exempted field (delta 5). Documented deltas:
 
 1. `ENABLE_CONVERSION_WEBHOOK` defaults to `"false"` (CSV `"true"`); setting it
    to true fails the render.
@@ -131,6 +132,55 @@ rule sets equal the CSV (offline tests diff them). Documented deltas:
 4. Not shipped: ServiceMonitor, metrics/webhook Services, the Prometheus
    Role/RoleBinding, the metrics token Secret, the manager-config ConfigMap and
    any default `openshift-gitops` instance.
+5. **Manager `resources` (intentional delta from the CSV's `resources: {}`):**
+   values-driven, defaulting to an **untuned initial budget** with no
+   performance or sizing guarantee and no verified source: requests cpu `100m` /
+   memory `256Mi`, limits cpu `1` / memory `1Gi`. The generated `values.yaml`
+   carries it (from `build-charts.sh`), and the same statement is in the packaged
+   `NOTICE`. Offline parity tests exempt exactly this block and nothing else. The
+   budget must be validated before activation (see `bootstrap-gitops/README.md`).
+
+## Interim controller RBAC (temporary additive migration-parity exception)
+
+`bootstrap-gitops/.../controller-rbac.yaml` grants the application controller
+ServiceAccount the legacy bootstrap controller's wildcard rules
+(`*/*/*` and `nonResourceURLs *`). It is a **temporary, additive
+migration-parity exception, not least privilege**, with the exit criterion
+**GCP-1285**: scoped permissions covering the managed workloads must be supplied
+and validated before the grant can be removed or narrowed. It is not narrowed or
+redesigned here.
+
+Why it is not simply dropped (pinned-source evidence, not GKE runtime proof):
+
+- argocd-operator `a213c171036aaae3b90a44754420d14e6752287b` generates a
+  ClusterRole and ClusterRoleBinding for the seed (`argocd/gitops`:
+  `gitops-argocd-argocd-application-controller`, subject ServiceAccount
+  `argocd/gitops-argocd-application-controller`, gated by
+  `ARGOCD_CLUSTER_CONFIG_NAMESPACES=argocd`).
+- The GitOps operator `cf32771491be2ed7f03d43d279171d6c265f2d2b` registers
+  `openshift.ReconcilerHook` unconditionally, outside `IsOpenShiftCluster()`
+  (`cmd/main.go` line 365). argocd-operator's `role.go` calls the hook (line 376),
+  and `controllers/argocd/openshift/openshift.go` (lines 35-42 and 318-473)
+  replaces the stock wildcard rules with narrower ones: cluster-wide read, writes
+  limited to rbac/storage-style cluster resources and namespaces, PVC/PV and
+  ConfigMaps, and ServiceAccount impersonation. It also rewrites the namespaced
+  Role, generated only in instance/managed-by-labelled namespaces.
+- So the operator-generated RBAC is not migration-parity-equivalent: without this
+  grant the controller would lose writes to Deployment, Service, Secret and
+  similar kinds in unmanaged namespaces and cluster writes such as CRDs and
+  webhooks that the legacy controller performs.
+
+| File | SHA256 |
+| --- | --- |
+| gitops-operator `cmd/main.go` @ `cf327714…` | `69d0821362e591c6042818627149e98d45f3efe76d41d90493667a8b90f0722a` |
+| gitops-operator `controllers/argocd/openshift/openshift.go` @ `cf327714…` | `85301c8239de18d2f88d0edb40cdd6080583fd60f801d512e6b2f10c3a1e4f96` |
+| argocd-operator `controllers/argocd/role.go` @ `a213c171…` | `20c9c379fab26d996923cc7afb929ed5fe85f70899fe658d58a0e5e25388bba3` |
+| argocd-operator `controllers/argocd/rolebinding.go` @ `a213c171…` | `de59446b2b63e3e3f5b58c8027aba156add28c65e17479973fb5e54b1c9f9c34` |
+
+The offline tests keep proving that the interim role equals the legacy bootstrap
+role's rules and that its binding subject matches the operator's service-account
+naming; the manager's `ARGOCD_CLUSTER_CONFIG_NAMESPACES` is checked as the
+instance namespace. No runtime closure is claimed.
 
 ## Controller-dependency evidence (selected-release assumptions)
 

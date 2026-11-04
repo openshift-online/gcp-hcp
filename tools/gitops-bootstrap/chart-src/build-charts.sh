@@ -73,6 +73,12 @@ MANAGER_IMAGE="$(jq -er '.spec.install.spec.deployments[0].spec.template.spec.co
 # CSV default is "true"): this packaging ships the v1beta1-only ArgoCD CRD
 # and no serving certificates, so enabling conversion is rejected at render
 # time. WATCH_NAMESPACE is set to "" (OLM injects this for AllNamespaces).
+#
+# `resources` is an UNTUNED INITIAL BUDGET added by this packaging (the official
+# CSV sets `resources: {}`). It has no performance or sizing guarantee and no
+# verified source: it must be validated against observed manager
+# startup/reconcile CPU and memory, throttling, OOM kills and restarts before
+# activation or promotion (see bootstrap-gitops/README.md).
 replicaCount: 1
 serviceAccount:
   name: openshift-gitops-operator-controller-manager
@@ -82,6 +88,7 @@ pullSecret:
 imagePullSecrets: []
 EOF
   jq -n --arg image "$MANAGER_IMAGE" '{image: {manager: $image}}' | yq eval -P '.' -
+  jq -n '{resources: {requests: {cpu: "100m", memory: "256Mi"}, limits: {cpu: "1", memory: "1Gi"}}}' | yq eval -P '.' -
   jq -c '
     .spec.install.spec.deployments[0].spec.template.spec.containers[] | select(.name=="manager") | .env
     | map(select(.name | test("IMAGE") | not))

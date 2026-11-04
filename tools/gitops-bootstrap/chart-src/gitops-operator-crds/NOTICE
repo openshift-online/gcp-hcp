@@ -26,7 +26,10 @@ CHANGES MADE TO UPSTREAM FILES (Apache License 2.0, section 4(b)):
   * gitops-operator/templates/rbac.yaml and gitops-operator/values.yaml are
     GENERATED from the bundle's ClusterServiceVersion (rules, environment and
     image references); the default of ENABLE_CONVERSION_WEBHOOK was changed from
-    "true" to "false" and WATCH_NAMESPACE was added as an empty value.
+    "true" to "false", WATCH_NAMESPACE was added as an empty value, and the
+    manager `resources` (the official CSV sets `resources: {}`) default to an
+    UNTUNED INITIAL BUDGET with no performance or sizing guarantee: requests
+    cpu 100m / memory 256Mi, limits cpu 1 / memory 1Gi.
 
 The Helm scaffolding (Chart.yaml, other templates, packaging) was written
 independently for this repository. This is a local packaging for GKE bootstrap

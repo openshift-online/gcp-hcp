@@ -7,6 +7,12 @@
 # CSV default is "true"): this packaging ships the v1beta1-only ArgoCD CRD
 # and no serving certificates, so enabling conversion is rejected at render
 # time. WATCH_NAMESPACE is set to "" (OLM injects this for AllNamespaces).
+#
+# `resources` is an UNTUNED INITIAL BUDGET added by this packaging (the official
+# CSV sets `resources: {}`). It has no performance or sizing guarantee and no
+# verified source: it must be validated against observed manager
+# startup/reconcile CPU and memory, throttling, OOM kills and restarts before
+# activation or promotion (see bootstrap-gitops/README.md).
 replicaCount: 1
 serviceAccount:
   name: openshift-gitops-operator-controller-manager
@@ -16,6 +22,13 @@ pullSecret:
 imagePullSecrets: []
 image:
   manager: registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator@sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
 env:
   ARGOCD_CLUSTER_CONFIG_NAMESPACES: openshift-gitops
   CLUSTER_SCOPED_ARGO_ROLLOUTS_NAMESPACES: openshift-gitops

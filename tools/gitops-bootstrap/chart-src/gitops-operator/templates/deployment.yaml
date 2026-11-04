@@ -1,6 +1,7 @@
 {{- /*
   Manager Deployment mirroring the official CSV (command, args, probes, ports,
-  security context, metrics-certs volume). Env comes from two maps so that the
+  security context, metrics-certs volume) except `resources`, which is values-driven
+  (an untuned initial budget; the official CSV sets none). Env comes from two maps so that the
   complete official image tuple is explicit; overlapping keys are rejected.
 */ -}}
 {{- if eq (toString .Values.env.ENABLE_CONVERSION_WEBHOOK) "true" }}
@@ -79,7 +80,8 @@ spec:
             - containerPort: 8081
               name: health
               protocol: TCP
-          resources: {}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

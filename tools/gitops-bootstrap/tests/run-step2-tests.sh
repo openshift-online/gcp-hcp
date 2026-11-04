@@ -97,8 +97,10 @@ j "$T/render/operator.yaml" > "$T/op.json"
 jq -c '.spec.install.spec.deployments[0].spec.template.spec.containers[] | select(.name=="manager")' "$T/csv.json" > "$T/csv-mgr.json"
 jq -c '.[] | select(.kind=="Deployment") | .spec.template.spec.containers[] | select(.name=="manager")' "$T/op.json" > "$T/op-mgr.json"
 ENVMAP='(.env | map({(.name): (.value // "")}) | add)'
-check "manager command/args/probes/ports/securityContext/resources/mounts equal the official CSV" \
-  bash -c "diff <(jq -S '{command,args,livenessProbe,readinessProbe,ports,securityContext,resources,volumeMounts,image}' '$T/csv-mgr.json') <(jq -S '{command,args,livenessProbe,readinessProbe,ports,securityContext,resources,volumeMounts,image}' '$T/op-mgr.json')"
+check "manager command/args/probes/ports/securityContext/mounts/image equal the official CSV (resources exempted below)" \
+  bash -c "diff <(jq -S '{command,args,livenessProbe,readinessProbe,ports,securityContext,volumeMounts,image}' '$T/csv-mgr.json') <(jq -S '{command,args,livenessProbe,readinessProbe,ports,securityContext,volumeMounts,image}' '$T/op-mgr.json')"
+check "the only manager resources delta: CSV sets none, the packaging sets exactly the documented untuned initial budget" \
+  bash -c "jq -e '.resources == {}' '$T/csv-mgr.json' && jq -e '.resources == {requests:{cpu:\"100m\",memory:\"256Mi\"}, limits:{cpu:\"1\",memory:\"1Gi\"}}' '$T/op-mgr.json'"
 check "manager env equals the official CSV env except the three documented GKE deltas" \
   bash -c "diff <(jq -S '$ENVMAP | .ENABLE_CONVERSION_WEBHOOK=\"false\" | .ARGOCD_CLUSTER_CONFIG_NAMESPACES=\"argocd\" | .WATCH_NAMESPACE=\"\"' '$T/csv-mgr.json') <(jq -S '$ENVMAP' '$T/op-mgr.json')"
 check "no manager image env is missing (31 image env names, none extra)" \
@@ -335,6 +337,13 @@ check "manager Deployment in the built bundle references the pull secret and its
 # interim controller RBAC
 check "interim controller RBAC mirrors the legacy application-controller wildcard rules under a distinct name and the operator SA" \
   bash -c "diff <(jq -S '.[] | select(.kind==\"ClusterRole\" and .metadata.name==\"gitops-application-controller-interim-parity\") | .rules' '$T/mc-built.json') <(yq eval -o=json 'select(.kind==\"ClusterRole\" and .metadata.name==\"argocd-application-controller\") | .rules' '$ROOT/bootstrap/argocd/install.yaml' | jq -S .) && jq -e '.[] | select(.kind==\"ClusterRoleBinding\" and .metadata.name==\"gitops-application-controller-interim-parity\") | .subjects == [{kind:\"ServiceAccount\", name:\"gitops-argocd-application-controller\", namespace:\"argocd\"}]' '$T/mc-built.json'"
+
+check "both final bundles carry the exact manager resource block" \
+  bash -c "for t in mc region; do kubectl kustomize '$T/'\$t | yq eval -o=json -I=0 '.' - | jq -se '.[] | select(.kind==\"Deployment\") | .spec.template.spec.containers[0].resources == {requests:{cpu:\"100m\",memory:\"256Mi\"}, limits:{cpu:\"1\",memory:\"1Gi\"}}' >/dev/null || exit 1; done"
+check "interim RBAC is documented as a temporary additive exception with the GCP-1285 exit criterion (template, README, PROVENANCE)" \
+  bash -c "for f in '$TOOL/bundle-templates/controller-rbac.yaml.tmpl' '$ROOT/bootstrap-gitops/README.md' '$TOOL/chart-src/PROVENANCE.md'; do grep -q 'GCP-1285' \"\$f\" && grep -qi 'additive' \"\$f\" || exit 1; done; grep -q 'ReconcilerHook' '$TOOL/bundle-templates/controller-rbac.yaml.tmpl'; ! grep -q 'mirrors the wildcard permissions of the existing application controller until' '$TOOL/bundle-templates/controller-rbac.yaml.tmpl'"
+check "resources budget is documented as untuned in README, PROVENANCE and the packaged NOTICE, with the Dev AIO observation gate" \
+  bash -c "grep -qi 'untuned' '$ROOT/bootstrap-gitops/README.md' && grep -q 'OOM' '$ROOT/bootstrap-gitops/README.md' && grep -qi 'untuned' '$TOOL/chart-src/PROVENANCE.md' && grep -qi 'UNTUNED' '$T/x/gitops-operator/NOTICE' && grep -qi 'UNTUNED' '$T/x/gitops-operator-crds/NOTICE'"
 
 # --------------------------------------------------------- repo-level
 check "committed MC bundle equals a fresh deterministic assembly" \

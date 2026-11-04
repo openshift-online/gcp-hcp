@@ -21,7 +21,7 @@ bootstrap-gitops/
 Each bundle directory is a self-contained kustomization:
 `crds.yaml` (5 child CRDs), `operator.yaml` (operator namespace, ServiceAccount,
 RBAC, Deployment), `registry.yaml` (bootstrap SecretStore + ExternalSecret),
-`gitops-instance.yaml` (ArgoCD seed), `controller-rbac.yaml` (interim parity
+`gitops-instance.yaml` (ArgoCD seed), `controller-rbac.yaml` (temporary additive parity
 RBAC) and `kustomization.yaml` (lifecycle and ordering patches).
 
 Only **MC** and **region** exist. A global bundle is out of scope: the
@@ -170,11 +170,20 @@ CRDs, ArgoCD reconcile with Promoter disabled, ESO delivery of the pull secret
 `gitops-argocd-application-controller` service-account name, prune/ownership
 behavior and health.
 
-Additional later Dev AIO acceptance check: the `argocds` CRD is about 912 KB
-(911,547 bytes as compact JSON). Whether Config Sync's server-side-apply
-managedFields leave headroom under the etcd 1.5 MiB object limit is **unproven**;
-confirm it on a real cluster before relying on this bundle. No offline claim is
-made and no unsupported workaround is applied preemptively.
+Additional later Dev AIO acceptance checks:
+
+- Manager resources: before activation or promotion, observe the operator's
+  startup and reconcile CPU and memory, CPU throttling, OOM kills and restarts
+  under the `100m`/`256Mi` requests and `1`/`1Gi` limits, and confirm the sizing
+  is appropriate for the target. The budget is untuned and has no sizing
+  guarantee; adjust through the reviewed values only after observation.
+- Interim controller RBAC: confirm the effective controller permissions on the
+  target and track GCP-1285 for the scoped replacement.
+- The `argocds` CRD is about 912 KB (911,547 bytes as compact JSON). Whether
+  Config Sync's server-side-apply managedFields leave headroom under the etcd
+  1.5 MiB object limit is **unproven**; confirm it on a real cluster before
+  relying on this bundle. No offline claim is made and no unsupported
+  workaround is applied preemptively.
 
 ## Seed and registry decisions
 
@@ -189,5 +198,20 @@ made and no unsupported workaround is applied preemptively.
   IDs, no keys) and an ExternalSecret producing a `dockerconfigjson` Secret
   labelled for propagation. No Secret object or credential is declared in Git.
   The child never depends on a day-two Argo-managed store.
-- The interim controller RBAC mirrors the legacy application controller's
-  wildcard rules under a distinct name until scoped permissions are reviewed.
+- **Interim controller RBAC: a temporary, additive migration-parity exception
+  (not least privilege).** `controller-rbac.yaml` gives the application
+  controller ServiceAccount the legacy controller's wildcard rules under a
+  distinct name, on top of the ClusterRole/ClusterRoleBinding the operator
+  generates (RBAC is additive). It is kept because, in the pinned source, the GitOps
+  operator registers its OpenShift reconciler hook unconditionally and that hook
+  replaces the stock wildcard rules with narrower ones, so the operator-generated
+  role would lose writes to workload kinds in unmanaged namespaces and cluster
+  writes such as CRDs and webhooks that the legacy controller performs. This is
+  pinned-source evidence, not GKE runtime proof (details and file digests:
+  `tools/gitops-bootstrap/chart-src/PROVENANCE.md`). **Exit criterion: GCP-1285**
+  supplies and validates scoped permissions covering the managed workloads
+  before the grant can be removed or narrowed; it is not redesigned here.
+- **Manager resources are an untuned initial budget.** The operator Deployment
+  requests cpu `100m` / memory `256Mi` and is limited to cpu `1` / memory `1Gi`
+  (the official CSV sets none). The numbers have no verified source and no
+  performance or sizing guarantee.

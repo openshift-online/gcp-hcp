@@ -1,9 +1,27 @@
-# INTERIM parity RBAC: mirrors the wildcard permissions of the existing
-# application controller until scoped permissions are reviewed. Named
-# distinctly so it cannot be confused with, or collide with, any
-# operator-generated or legacy role. Subject ServiceAccount follows the
-# operator's <instance>-argocd-application-controller naming (verified from
-# operator source; on-cluster confirmation is later runtime work).
+# TEMPORARY, ADDITIVE migration-parity exception (not least privilege).
+#
+# This grants the Argo CD application controller the same wildcard
+# permissions as the legacy bootstrap controller, in ADDITION to the
+# ClusterRole/ClusterRoleBinding the operator generates itself (for the
+# reviewed seed argocd/gitops: gitops-argocd-argocd-application-controller,
+# bound to the same ServiceAccount; Kubernetes RBAC is additive, so the
+# effective permissions are the union). It is kept because the operator-
+# generated role is not migration-parity-equivalent: the pinned GitOps
+# operator registers its OpenShift ReconcilerHook unconditionally, which
+# replaces the stock wildcard rules with narrower ones (cluster-wide read,
+# writes limited to rbac/storage-style cluster resources and a few core
+# kinds, serviceaccount impersonation). Dropping this grant would lose
+# writes to workload kinds (Deployment, Service, Secret, ...) in namespaces
+# the operator does not manage, and cluster writes such as CRDs and webhooks,
+# that the legacy controller performs today. Pinned-source evidence only
+# (see tools/gitops-bootstrap/chart-src/PROVENANCE.md), not GKE runtime proof.
+#
+# Exit criterion: GCP-1285 supplies and validates scoped permissions that
+# cover the managed workloads; only then may this grant be removed or narrowed.
+# Until then it must not be copied as a pattern. Named distinctly so it cannot
+# collide with any operator-generated or legacy role. The subject ServiceAccount
+# follows the operator's <instance>-argocd-application-controller naming
+# (pinned source; on-cluster confirmation is later runtime work).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
