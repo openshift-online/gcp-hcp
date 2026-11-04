@@ -5,8 +5,8 @@
 # values are the official digest-pinned references; there is no floating tag
 # and no fallback. ENABLE_CONVERSION_WEBHOOK defaults to "false" (official
 # CSV default is "true"): this packaging ships the v1beta1-only ArgoCD CRD
-# and no serving certificates, so enabling conversion is rejected at render
-# time. WATCH_NAMESPACE is set to "" (OLM injects this for AllNamespaces).
+# and no serving certificates, so the chart renders only the literal "false"
+# (any other value fails the render). WATCH_NAMESPACE is set to "" (OLM injects this for AllNamespaces).
 #
 # `resources` is an UNTUNED INITIAL BUDGET added by this packaging (the official
 # CSV sets `resources: {}`). It has no performance or sizing guarantee and no

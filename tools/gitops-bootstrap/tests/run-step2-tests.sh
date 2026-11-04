@@ -136,8 +136,17 @@ expect_fail "render rejects a pin whose checksum does not match the archive" "ch
   "$TOOL/render.sh" --pins "$T/pins-bad.yaml" --namespace gitops-operator --instance-namespace argocd \
     --service-account openshift-gitops-operator-controller-manager --image-pull-secret-name redhat-registry-pull-secret \
     --image-allowlist "$ALLOW" --output-dir "$T/neg2"
-expect_fail "operator chart refuses ENABLE_CONVERSION_WEBHOOK=true (no certs, v1beta1-only CRD)" "unsupported here" \
-  helm template x "$T/x/gitops-operator" --namespace gitops-operator --set-string env.ENABLE_CONVERSION_WEBHOOK=true
+# Packaged-chart guard: only the literal "false" may reach the manager env.
+for bad in true TRUE True 1 0 FALSE False "" no; do
+  expect_fail "packaged chart rejects ENABLE_CONVERSION_WEBHOOK='$bad' (only \"false\" is allowed)" 'ENABLE_CONVERSION_WEBHOOK must be "false"' \
+    helm template x "$T/x/gitops-operator" --namespace gitops-operator --set-string "env.ENABLE_CONVERSION_WEBHOOK=$bad"
+done
+expect_fail "packaged chart rejects a native Helm boolean true" 'ENABLE_CONVERSION_WEBHOOK must be "false"' \
+  helm template x "$T/x/gitops-operator" --namespace gitops-operator --set env.ENABLE_CONVERSION_WEBHOOK=true
+expect_fail "packaged chart rejects a removed (null) setting" 'ENABLE_CONVERSION_WEBHOOK must be "false"' \
+  helm template x "$T/x/gitops-operator" --namespace gitops-operator --set env.ENABLE_CONVERSION_WEBHOOK=null
+check "packaged chart renders the literal \"false\" by default, for string \"false\" and for a native boolean false" \
+  bash -c "for a in '' '--set-string env.ENABLE_CONVERSION_WEBHOOK=false' '--set env.ENABLE_CONVERSION_WEBHOOK=false'; do helm template x '$T/x/gitops-operator' --namespace gitops-operator \$a | yq eval -o=json -I=0 'select(.kind==\"Deployment\") | .spec.template.spec.containers[0].env[] | select(.name==\"ENABLE_CONVERSION_WEBHOOK\") | .value' - | grep -qx '\"false\"' || exit 1; done"
 expect_fail "operator chart refuses env keys that overlap imageEnv" "also an imageEnv key" \
   helm template x "$T/x/gitops-operator" --namespace gitops-operator --set-string env.ARGOCD_IMAGE=registry.redhat.io/a/b@sha256:$(printf '0%.0s' {1..64})
 

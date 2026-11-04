@@ -80,7 +80,7 @@ floating tag and no fallback registry).
 | Archive | Version / appVersion | SHA256 (pinned in `../pins.yaml`) |
 | --- | --- | --- |
 | `../charts/gitops-operator-crds-0.1.0.tgz` | `0.1.0` / `1.22.2` | `32bbf0742652160b3aaa953036f6bf933a45b79c55aaed9e9fdf13b9fdd9ec9b` |
-| `../charts/gitops-operator-0.1.0.tgz` | `0.1.0` / `1.22.2` | `f19b9fc1340731e47e7e48b205c28d4c71a89fcddc873897cdea92b1a75b0ccf` |
+| `../charts/gitops-operator-0.1.0.tgz` | `0.1.0` / `1.22.2` | `694b209eddc8b16b31e1d0bed2fbee2a8457774d88b8e76ace851c7f0bcd1010` |
 
 `0.1.0` is a truthful local packaging version, distinct from the official
 appVersion. The archives have no registry/OCI manifest digest of their own; the
@@ -123,8 +123,10 @@ volume and volume mount, the pod security context, grace period and both RBAC
 rule sets equal the CSV (offline tests diff them); manager `resources` is the one
 exempted field (delta 5). Documented deltas:
 
-1. `ENABLE_CONVERSION_WEBHOOK` defaults to `"false"` (CSV `"true"`); setting it
-   to true fails the render.
+1. `ENABLE_CONVERSION_WEBHOOK` defaults to `"false"` (CSV `"true"`); the chart
+   renders only the literal `"false"` (a native Helm boolean false normalizes to
+   it) and fails the render for any other value, with no case-folding or boolean
+   parsing.
 2. `ARGOCD_CLUSTER_CONFIG_NAMESPACES` is set by the renderer to the instance
    namespace (`argocd`) instead of `openshift-gitops`.
 3. `WATCH_NAMESPACE=""` is set explicitly (OLM injects it for AllNamespaces);
