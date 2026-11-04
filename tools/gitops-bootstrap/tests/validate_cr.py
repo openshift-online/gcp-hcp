@@ -63,7 +63,7 @@ def check(schema, value, path, errs):
                 check(props[k], v, "%s.%s" % (path, k), errs)
             elif isinstance(addl, dict):
                 check(addl, v, "%s.%s" % (path, k), errs)
-            elif props is not None and addl is not True:
+            elif addl is not True:
                 errs.append("%s: unknown field %s" % (path, k))
     elif isinstance(value, list) and "items" in schema:
         for i, v in enumerate(value):

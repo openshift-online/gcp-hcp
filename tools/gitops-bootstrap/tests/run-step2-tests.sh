@@ -425,6 +425,19 @@ yq eval -o=json -I=0 '.' "$T/mc/crds.yaml" > "$T/child-crds.json"
 check "ArgoCD seed validates against the v1beta1 CRD schema (no unknown/pruned fields)" python3 -I "$HERE/validate_cr.py" "$T/child-crds.json" argocds.argoproj.io v1beta1 "$T/seed.json"
 sed 's/"disableAdmin"/"disableAdminn"/' "$T/seed.json" > "$T/seed-bad.json"
 expect_fail "schema validator rejects a mistyped seed field" "unknown field disableAdminn" python3 -I "$HERE/validate_cr.py" "$T/child-crds.json" argocds.argoproj.io v1beta1 "$T/seed-bad.json"
+# Pruning semantics of the helper itself, on synthetic one-field CRDs (real CLI, temp JSON only).
+vcr() { # vcr <schema-json-for-spec> <spec-json> -> runs validate_cr.py on a synthetic CRD/CR
+  printf '{"metadata":{"name":"t.example"},"spec":{"versions":[{"name":"v1","schema":{"openAPIV3Schema":{"type":"object","properties":{"spec":%s}}}}]}}' "$1" > "$T/vcr-crd.json"
+  printf '{"apiVersion":"example/v1","kind":"T","metadata":{"name":"x"},"spec":%s}' "$2" > "$T/vcr-cr.json"
+  python3 -I "$HERE/validate_cr.py" "$T/vcr-crd.json" t.example v1 "$T/vcr-cr.json"
+}
+expect_fail "validator rejects an unknown field under an object schema WITHOUT properties (it would be pruned)" "unknown field typo" vcr '{"type":"object"}' '{"typo":true}'
+expect_fail "validator rejects an unknown field under an object schema with empty properties" "unknown field typo" vcr '{"type":"object","properties":{}}' '{"typo":true}'
+check "validator accepts an empty object under a closed object schema" vcr '{"type":"object"}' '{}'
+check "validator accepts unknown fields under x-kubernetes-preserve-unknown-fields" vcr '{"type":"object","x-kubernetes-preserve-unknown-fields":true}' '{"typo":true}'
+check "validator accepts correctly typed values under a typed additionalProperties map" vcr '{"type":"object","additionalProperties":{"type":"string"}}' '{"a":"x","b":"y"}'
+expect_fail "validator rejects a wrongly typed value under a typed additionalProperties map" "expected string" vcr '{"type":"object","additionalProperties":{"type":"string"}}' '{"a":1}'
+check "validator accepts any key under additionalProperties:true" vcr '{"type":"object","additionalProperties":true}' '{"typo":true}'
 check "seed enables ApplicationSet, Notifications and Dex; admin and anonymous disabled; annotation tracking" \
   bash -c "jq -e '.spec.applicationSet.enabled == true and .spec.notifications.enabled == true and .spec.sso.provider == \"dex\" and .spec.disableAdmin == true and .spec.usersAnonymousEnabled == false and .spec.resourceTrackingMethod == \"annotation\" and .metadata.name == \"gitops\" and .metadata.namespace == \"argocd\"' '$T/seed.json'"
 check "seed Dex config equals the existing bootstrap argocd-cm authproxy seed" \
