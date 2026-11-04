@@ -9,9 +9,11 @@
 #
 # This file only pins the chart archives. render.sh separately requires a
 # mandatory, non-empty approved-image set (--allowed-image / a non-empty
-# --image-allowlist file) covering every container image and *_IMAGE /
-# RELATED_IMAGE_* env value the charts render; there is no default for that
-# either. See tools/gitops-bootstrap/README.md.
+# --image-allowlist file) covering every container/initContainer image and
+# every env value whose name contains the uppercase string IMAGE anywhere
+# (case-sensitive, e.g. ARGOCD_IMAGE, RELATED_IMAGE_*,
+# GITOPS_CONSOLE_PLUGIN_IMAGE_PF5) that the charts render; there is no default
+# for that either. See tools/gitops-bootstrap/README.md.
 #
 # Fields:
 #   path:     path to a local, already-vendored Helm chart archive (.tgz).
