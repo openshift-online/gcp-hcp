@@ -37,7 +37,18 @@ tools/gitops-bootstrap/assemble.sh --type mc --global-project-id synthetic-globa
   --output-dir /new/dir/mc --shared-crds-output /new/file/shared-crds.yaml
 tools/gitops-bootstrap/assemble.sh --type region --global-project-id synthetic-global-project \
   --output-dir /new/dir/region
-tools/gitops-bootstrap/tests/run-step2-tests.sh
+tools/gitops-bootstrap/tests/run-step2-tests.sh   # BOOTSTRAP_BASE_REF defaults to origin/main
+```
+
+The suite checks that the active `bootstrap/` is unchanged against the merge
+base of `BOOTSTRAP_BASE_REF` (default `origin/main`) and `HEAD`, so committed
+changes fail even with a clean working tree. The ref must already exist locally
+and share history with `HEAD`; the suite never fetches and aborts before any
+other test if it cannot resolve the base. In a fork checkout whose `origin/main`
+is not the PR base, pass the right local ref or commit:
+
+```sh
+BOOTSTRAP_BASE_REF=upstream/main tools/gitops-bootstrap/tests/run-step2-tests.sh
 ```
 
 Chart provenance, the official image tuple and every digest are in

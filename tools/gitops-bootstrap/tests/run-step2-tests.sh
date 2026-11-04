@@ -6,6 +6,17 @@
 # Run from anywhere: tools/gitops-bootstrap/tests/run-step2-tests.sh
 # Optional: GITOPS_BUNDLE_DIR=<verified extracted official bundle dir> adds a
 # byte-level check of the vendored CRDs against the official bundle.
+#
+# BOOTSTRAP_BASE_REF (default: origin/main) selects the PR base the active
+# bootstrap/ must be unchanged against. The suite compares bootstrap/ with the
+# merge base of that ref and HEAD, so committed changes fail even when the
+# working tree is clean, and index, worktree and untracked changes fail too.
+# The ref (a branch, remote-tracking ref or commit SHA) must already exist
+# locally and share history with HEAD; the suite never fetches, never falls
+# back to HEAD and never guesses another remote, and it aborts before any other
+# test if the base cannot be resolved. In a fork checkout whose origin/main is
+# not the PR base, pass the right local ref, e.g.:
+#   BOOTSTRAP_BASE_REF=upstream/main tools/gitops-bootstrap/tests/run-step2-tests.sh
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +44,44 @@ expect_fail() { # expect_fail <description> <stderr-pattern> <command...>
     fail "$d (wrong error: $(head -c 200 <<<"$out"))"
   fi
 }
+
+# --- active bootstrap/ guard (helpers are reused by the synthetic fixtures below)
+BOOTSTRAP_BASE_REF="${BOOTSTRAP_BASE_REF:-origin/main}"
+
+# resolve_bootstrap_base <repo> <ref>: print the merge base of <ref> and HEAD.
+resolve_bootstrap_base() {
+  local repo="$1" ref="$2" commit base
+  if ! commit="$(git -C "$repo" rev-parse --verify --quiet --end-of-options "${ref}^{commit}")"; then
+    echo "BOOTSTRAP_BASE_REF '$ref' does not resolve to a commit in this repository; the suite never fetches, so supply a locally available PR base (branch, remote-tracking ref or commit SHA)" >&2
+    return 1
+  fi
+  if ! base="$(git -C "$repo" merge-base "$commit" HEAD)"; then
+    echo "BOOTSTRAP_BASE_REF '$ref' shares no history (no merge base) with HEAD; supply the PR base with shared history" >&2
+    return 1
+  fi
+  printf '%s\n' "$base"
+}
+
+# bootstrap_unchanged <repo> <merge-base>: bootstrap/ equals the merge base,
+# including committed, staged and unstaged edits, and has no untracked files.
+bootstrap_unchanged() {
+  local repo="$1" base="$2"
+  if ! git -C "$repo" diff --quiet "$base" -- bootstrap; then
+    echo "bootstrap/ differs from merge base $base (committed, staged or unstaged change)" >&2
+    return 1
+  fi
+  if [[ -n "$(git -C "$repo" status --porcelain -- bootstrap)" ]]; then
+    echo "bootstrap/ has staged, unstaged or untracked changes" >&2
+    return 1
+  fi
+}
+
+# Fail early, before any expensive test, if the comparison base is unusable.
+if ! BOOTSTRAP_BASE_COMMIT="$(resolve_bootstrap_base "$ROOT" "$BOOTSTRAP_BASE_REF")"; then
+  echo "run-step2-tests.sh: cannot select the active-bootstrap comparison base; aborting before any test" >&2
+  exit 1
+fi
+echo "bootstrap comparison base: $BOOTSTRAP_BASE_REF -> merge base $BOOTSTRAP_BASE_COMMIT"
 
 PINS="$TOOL/pins.yaml"
 ALLOW="$TOOL/allowed-images.txt"
@@ -383,6 +432,54 @@ check "interim RBAC is documented as a temporary additive exception with the GCP
 check "resources budget is documented as untuned in README, PROVENANCE and the packaged NOTICE, with the Dev AIO observation gate" \
   bash -c "grep -qi 'untuned' '$ROOT/bootstrap-gitops/README.md' && grep -q 'OOM' '$ROOT/bootstrap-gitops/README.md' && grep -qi 'untuned' '$TOOL/chart-src/PROVENANCE.md' && grep -qi 'UNTUNED' '$T/x/gitops-operator/NOTICE' && grep -qi 'UNTUNED' '$T/x/gitops-operator-crds/NOTICE'"
 
+# ---- synthetic regressions for the bootstrap/ guard, in disposable repos under $T
+fx() { # fx <repo> <git args...>: hermetic local identity, no signing, no hooks
+  local d="$1"; shift
+  env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_AUTHOR_NAME=fixture GIT_AUTHOR_EMAIL=fixture@example.invalid \
+    GIT_COMMITTER_NAME=fixture GIT_COMMITTER_EMAIL=fixture@example.invalid \
+    git -C "$d" -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"
+}
+new_fixture() { # new_fixture <dir>: main with bootstrap/a.txt and other/x.txt, then branch feature
+  rm -rf "$1"; mkdir -p "$1"
+  fx "$1" init -q -b main
+  mkdir "$1/bootstrap" "$1/other"; echo base > "$1/bootstrap/a.txt"; echo base > "$1/other/x.txt"
+  fx "$1" add -A; fx "$1" commit -q -m base
+  fx "$1" checkout -q -b feature
+}
+fixture_guard() { # fixture_guard <dir> <ref>: the real helpers, exactly as the suite uses them
+  local b
+  b="$(resolve_bootstrap_base "$1" "$2")" || return 1
+  bootstrap_unchanged "$1" "$b"
+}
+FXD="$T/fx"
+new_fixture "$FXD"
+check "guard passes on a clean synthetic bootstrap" fixture_guard "$FXD" main
+echo more > "$FXD/other/y.txt"; fx "$FXD" add -A; fx "$FXD" commit -q -m unrelated
+check "guard passes with only an unrelated committed change" fixture_guard "$FXD" main
+check "guard also accepts the base given as a commit SHA" fixture_guard "$FXD" "$(fx "$FXD" rev-parse main)"
+echo changed > "$FXD/bootstrap/a.txt"; fx "$FXD" add -A; fx "$FXD" commit -q -m "edit bootstrap"
+check "fixture: the committed bootstrap edit leaves the working tree clean (the old HEAD-only guard would pass)" \
+  bash -c "[[ -z \$(git -C '$FXD' status --porcelain) ]] && git -C '$FXD' diff --quiet HEAD -- bootstrap"
+expect_fail "guard fails on a COMMITTED bootstrap edit even with a clean working tree" "differs from merge base" fixture_guard "$FXD" main
+new_fixture "$FXD"
+echo wip >> "$FXD/bootstrap/a.txt"
+expect_fail "guard fails on an unstaged bootstrap edit" "differs from merge base" fixture_guard "$FXD" main
+fx "$FXD" add -A
+expect_fail "guard fails on a staged bootstrap edit" "differs from merge base" fixture_guard "$FXD" main
+new_fixture "$FXD"
+echo new > "$FXD/bootstrap/untracked.txt"
+expect_fail "guard fails on an untracked bootstrap file" "untracked changes" fixture_guard "$FXD" main
+new_fixture "$FXD"
+expect_fail "guard fails clearly on an unresolvable base ref" "does not resolve to a commit" fixture_guard "$FXD" no-such/main
+expect_fail "guard treats an option-looking base ref as unresolvable, not as a flag" "does not resolve to a commit" fixture_guard "$FXD" --all
+fx "$FXD" branch unrelated "$(fx "$FXD" commit-tree "$(fx "$FXD" hash-object -t tree -w /dev/null)" -m orphan)"
+expect_fail "guard fails clearly when the base shares no history with HEAD" "shares no history" fixture_guard "$FXD" unrelated
+# The runner itself aborts before any test, quickly and without network, for a bad base.
+BOOTSTRAP_BASE_REF=no-such/base "$HERE/run-step2-tests.sh" > "$T/bad-base.out" 2>&1; bad_rc=$?
+check "the runner aborts early (nonzero) for a nonexistent BOOTSTRAP_BASE_REF" test "$bad_rc" -ne 0
+check "the early abort names the base problem, says it aborted before any test, and ran no test" \
+  bash -c "grep -q 'does not resolve to a commit' '$T/bad-base.out' && grep -q 'aborting before any test' '$T/bad-base.out' && ! grep -q '^ok ' '$T/bad-base.out'"
+
 # --------------------------------------------------------- repo-level
 check "committed MC bundle equals a fresh deterministic assembly" \
   bash -c "diff -r '$ROOT/bootstrap-gitops/workloads/synthetic/mc' '$T/mc'"
@@ -392,8 +489,8 @@ check "committed shared-CRD parent artifact equals a fresh extraction" \
   cmp "$ROOT/bootstrap-gitops/parent-artifacts/shared-crds.yaml" "$T/mc-shared.yaml"
 check "committed bundles use only the synthetic project and no real identifiers" \
   bash -c "! grep -rEi 'gcp-hcp-commons|rflores|-gke|dev-mgt|dev-reg' '$ROOT/bootstrap-gitops' '$TOOL/pins.yaml' '$TOOL/bundle-templates' --include='*.yaml' --include='*.tmpl'"
-check "active bootstrap/ is unchanged (no diff, no untracked files)" \
-  bash -c "cd '$ROOT' && git diff --quiet HEAD -- bootstrap && [[ -z \$(git status --porcelain -- bootstrap) ]]"
+check "active bootstrap/ is unchanged since the merge base with $BOOTSTRAP_BASE_REF (committed, staged, unstaged, untracked)" \
+  bootstrap_unchanged "$ROOT" "$BOOTSTRAP_BASE_COMMIT"
 check "nothing outside the new subtrees references bootstrap-gitops (inactive)" \
   bash -c "cd '$ROOT' && ! grep -rIl 'bootstrap-gitops/' --exclude-dir=.git --exclude-dir=bootstrap-gitops --exclude-dir=gitops-bootstrap . | grep -q ."
 check "shell scripts pass bash -n" \
