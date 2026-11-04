@@ -8,8 +8,10 @@
 # gitops-operator/prototype/update.sh (that script and its sibling YAML are
 # read-only research input and are not modified or executed by this tool).
 #
-# See README.md for the pin/input contract, scope, and known limitations
-# (in particular: no reviewed/deployable chart pin ships with this tool).
+# See README.md for the pin/input contract, scope and limitations. The reviewed
+# OpenShift GitOps 1.22.2 chart pins are in pins.yaml, with their provenance and
+# documented differences in chart-src/PROVENANCE.md; that is engineering pin
+# resolution, not certification or runtime proof.
 set -euo pipefail
 
 usage() {
@@ -181,7 +183,7 @@ done
 
 read_pin() {
   local jq_path="$1"
-  yq eval -o=json "$PINS_FILE" | jq -er "$jq_path" 2>/dev/null || true
+  yq eval -o=json "$PINS_FILE" | jq -r "($jq_path) // empty" 2>/dev/null || true
 }
 
 CRDS_CHART_PATH="$(read_pin '.crdsChart.path')"

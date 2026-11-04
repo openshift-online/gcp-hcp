@@ -285,6 +285,29 @@ expect_failure "rejects checksum mismatch" "checksum mismatch" \
 expect_failure "rejects chart version mismatch" "version mismatch" \
   "$TMP_DIR/bad-version.log" --pins "$TMP_DIR/bad-version-pins.yaml" --output-dir "$TMP_DIR/out-bad-version" "${COMMON_ARGS[@]}"
 
+# Required pin fields that are absent or explicitly null must be reported as
+# missing (not as a "null" path/checksum), and must publish nothing.
+for pair in crdsChart.path:CRDS_CHART_PATH crdsChart.version:CRDS_CHART_VERSION crdsChart.checksum:CRDS_CHART_CHECKSUM \
+  operatorChart.path:OPERATOR_CHART_PATH operatorChart.version:OPERATOR_CHART_VERSION operatorChart.checksum:OPERATOR_CHART_CHECKSUM; do
+  field="${pair%%:*}"; var="${pair##*:}"
+  for mode in absent null; do
+    tag="${field//./-}-$mode"
+    if [[ "$mode" == absent ]]; then
+      yq eval "del(.$field)" "$TMP_DIR/good-pins.yaml" > "$TMP_DIR/pins-$tag.yaml"
+    else
+      yq eval ".$field = null" "$TMP_DIR/good-pins.yaml" > "$TMP_DIR/pins-$tag.yaml"
+    fi
+    expect_failure "rejects a pin with $field $mode as a missing required field ($var)" \
+      "pins file missing required field (resolved empty): $var" \
+      "$TMP_DIR/pins-$tag.log" --pins "$TMP_DIR/pins-$tag.yaml" --output-dir "$TMP_DIR/out-pins-$tag" "${COMMON_ARGS[@]}"
+    if [[ -e "$TMP_DIR/out-pins-$tag" ]]; then
+      bad "no output directory published for $field $mode"
+    else
+      ok "no output directory published for $field $mode"
+    fi
+  done
+done
+
 expect_failure "rejects floating/malformed manager image reference" "floating/malformed image" \
   "$TMP_DIR/bad-image.log" --pins "$TMP_DIR/bad-image-pins.yaml" --output-dir "$TMP_DIR/out-bad-image" "${COMMON_ARGS[@]}"
 
