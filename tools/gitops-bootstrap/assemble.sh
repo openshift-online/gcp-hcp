@@ -225,9 +225,9 @@ jq -e --arg ns "$NAMESPACE" '
 jq -e 'all(.[]; .kind != "Secret")' <<<"$PREVIEW_JSON" >/dev/null || die "bundle declares a Secret"
 jq -e 'all(.[]; (has("data") or has("stringData")) | not)' <<<"$PREVIEW_JSON" >/dev/null || die "bundle declares object data/stringData"
 
-# Every *IMAGE* env on every container must be an allowlisted reference
-# (render.sh's own pattern is *_IMAGE / RELATED_IMAGE_*; this also covers
-# names such as GITOPS_CONSOLE_PLUGIN_IMAGE_PF5), plus the container images.
+# Recheck on the final composed bundle: every env whose name contains the
+# uppercase string IMAGE on every container, and every container image, must be
+# an allowlisted reference (render.sh applies the same rule to its own output).
 declare -a ALLOWED=()
 while IFS= read -r line; do
   [[ -z "$line" || "$line" == \#* ]] && continue

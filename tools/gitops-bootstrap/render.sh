@@ -46,12 +46,14 @@ Required:
 
 At least one approved image must be supplied via --allowed-image and/or a
 non-empty --image-allowlist; there is no default allowlist and no bypass for
-omitting it. Every container/initContainer image and every *_IMAGE /
-RELATED_IMAGE_* environment value (manager and operand images) in the
-rendered operator manifest must be digest-pinned (...@sha256:<64 hex>) AND
-present in the supplied allowlist, or the render fails closed. An image env
-var set via valueFrom (not a literal value) also fails closed, since it
-cannot be verified statically.
+omitting it. Every container/initContainer image and every environment
+variable on those containers whose name contains the uppercase string IMAGE
+(e.g. ARGOCD_IMAGE, RELATED_IMAGE_*, GITOPS_CONSOLE_PLUGIN_IMAGE_PF5) in the
+rendered operator manifest must be a literal digest-pinned (...@sha256:<64 hex>)
+reference AND present in the supplied allowlist, or the render fails closed.
+Such an env var set via valueFrom (not a literal value) also fails closed,
+since it cannot be verified statically. Names without the uppercase string
+IMAGE (including lowercase variants) are not inspected.
 EOF
 }
 
@@ -415,13 +417,15 @@ pull_secret_referenced="$(
 [[ "$pull_secret_referenced" == "true" ]] || die "the manager Deployment does not reference --image-pull-secret-name $IMAGE_PULL_SECRET_NAME"
 
 # Reject floating/malformed image references and unreviewed image tuples.
-# This covers manager and initContainer images directly, plus operand image
-# overrides conventionally passed as *_IMAGE / RELATED_IMAGE_* env values
-# (e.g. ARGOCD_IMAGE, ARGOCD_REPOSERVER_IMAGE, ARGOCD_DEX_IMAGE,
-# ARGOCD_REDIS_IMAGE, BACKEND_IMAGE, RELATED_IMAGE_*). Every candidate must
-# be digest-pinned AND present in the mandatory --allowed-image /
-# --image-allowlist set; an image env set via valueFrom cannot be verified
-# statically and fails closed too.
+# This covers manager and initContainer images directly, plus every env var on
+# those containers whose name contains the (case-sensitive, uppercase) string
+# IMAGE, the conventional way charts pass operand image overrides (e.g.
+# ARGOCD_IMAGE, BACKEND_IMAGE, RELATED_IMAGE_*, GITOPS_CONSOLE_PLUGIN_IMAGE_PF5).
+# Every candidate must be a digest-pinned literal AND present in the mandatory
+# --allowed-image / --image-allowlist set; such an env set via valueFrom cannot
+# be verified statically and fails closed too. Env names without uppercase
+# IMAGE are not inspected, and a non-image variable whose name contains IMAGE
+# (for example IMAGE_PULL_POLICY) is rejected rather than ignored.
 declare -a RENDERED_IMAGES=()
 while IFS= read -r image; do
   [[ -n "$image" ]] && RENDERED_IMAGES+=("$image")
@@ -441,7 +445,7 @@ done < <(
   yq eval -o=json -I=0 '.' "$WORK_DIR/rendered/operator.yaml" |
     jq -sr '
       [.[] | (.spec.template.spec.containers // [])[], (.spec.template.spec.initContainers // [])[]]
-      | .[].env[]? | select(.name | test("_IMAGE$|^RELATED_IMAGE_"))
+      | .[].env[]? | select(.name | test("IMAGE"))
       | [.name, (has("value") | tostring), (.value // "")] | @tsv
     '
 )

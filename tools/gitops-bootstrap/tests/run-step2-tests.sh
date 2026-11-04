@@ -137,9 +137,9 @@ RENDER_ARGS=(--pins "$PINS" --namespace gitops-operator --instance-namespace arg
   --service-account openshift-gitops-operator-controller-manager --image-pull-secret-name redhat-registry-pull-secret
   --image-allowlist "$ALLOW")
 if "$TOOL/render.sh" "${RENDER_ARGS[@]}" --output-dir "$T/render" >/dev/null 2>&1; then
-  pass "render.sh renders the real pinned charts under all existing guardrails"
+  pass "render.sh renders the real pinned charts under all existing guardrails (positive path, includes the approved PF5 image)"
 else
-  fail "render.sh renders the real pinned charts under all existing guardrails"
+  fail "render.sh renders the real pinned charts under all existing guardrails (positive path, includes the approved PF5 image)"
 fi
 yq eval -o=json -I=0 '.' "$CSV" > "$T/csv.json"
 j "$T/render/operator.yaml" > "$T/op.json"
@@ -199,21 +199,52 @@ check "packaged chart renders the literal \"false\" by default, for string \"fal
 expect_fail "operator chart refuses env keys that overlap imageEnv" "also an imageEnv key" \
   helm template x "$T/x/gitops-operator" --namespace gitops-operator --set-string env.ARGOCD_IMAGE=registry.redhat.io/a/b@sha256:$(printf '0%.0s' {1..64})
 
-# The step-1 renderer only inspects *_IMAGE / RELATED_IMAGE_* env names, so a
-# changed GITOPS_CONSOLE_PLUGIN_IMAGE_PF5 would pass render.sh; assemble.sh
-# must catch it. Build a tampered copy of the real operator chart to prove it.
+# Real-chart tamper cases for an IMAGE-named env that is NOT *_IMAGE / RELATED_IMAGE_*
+# (GITOPS_CONSOLE_PLUGIN_IMAGE_PF5): the renderer must reject each variant and
+# publish nothing; assemble.sh propagates the renderer's failure. The positive
+# path (the unchanged pinned chart with the approved PF5 image) is the real-render
+# check above.
+tamper_pins() { # tamper_pins <tag> <PF5 values.yaml line, or "" to drop it> [extra deployment.yaml env item]
+  local tag="$1" line="$2" extra="${3:-}" d
+  d="$T/tamper-$tag"
+  mkdir -p "$d/gitops-operator" "$d/pkg"
+  cp -R "$T/x/gitops-operator/." "$d/gitops-operator/"
+  python3 -I - "$d/gitops-operator" "$line" "$extra" <<'PY'
+import re, sys
+chart, line, extra = sys.argv[1:4]
+vp = chart + "/values.yaml"
+v = open(vp).read()
+pat = r"^  GITOPS_CONSOLE_PLUGIN_IMAGE_PF5: .*\n"
+v = re.sub(pat, (("  GITOPS_CONSOLE_PLUGIN_IMAGE_PF5: " + line + "\n") if line else ""), v, count=1, flags=re.M)
+open(vp, "w").write(v)
+if extra:
+    tp = chart + "/templates/deployment.yaml"
+    t = open(tp).read()
+    t = t.replace("          env:\n", "          env:\n" + extra, 1)
+    open(tp, "w").write(t)
+PY
+  python3 -I "$TOOL/chart-src/package-chart.py" "$d/gitops-operator" "$d/pkg" >/dev/null 2>&1
+  yq eval ".operatorChart.path = \"$d/pkg/gitops-operator-0.1.0.tgz\" | .operatorChart.checksum = \"sha256:$(sha "$d/pkg/gitops-operator-0.1.0.tgz")\" | .crdsChart.path = \"$TOOL/charts/gitops-operator-crds-0.1.0.tgz\"" "$PINS" > "$d/pins.yaml"
+}
+tamper_render() { "$TOOL/render.sh" --pins "$T/tamper-$1/pins.yaml" --namespace gitops-operator --instance-namespace argocd \
+  --service-account openshift-gitops-operator-controller-manager --image-pull-secret-name redhat-registry-pull-secret \
+  --image-allowlist "$ALLOW" --output-dir "$T/tamper-$1/render"; }
 BAD_REF="registry.redhat.io/openshift-gitops-1/console-plugin-4-18-rhel9@sha256:$(printf 'a%.0s' {1..64})"
-mkdir -p "$T/tamper/gitops-operator" "$T/tamper-pkg"
-cp -R "$T/x/gitops-operator/." "$T/tamper/gitops-operator/"
-sed "s|^  GITOPS_CONSOLE_PLUGIN_IMAGE_PF5: .*|  GITOPS_CONSOLE_PLUGIN_IMAGE_PF5: $BAD_REF|" "$T/x/gitops-operator/values.yaml" > "$T/tamper/gitops-operator/values.yaml"
-python3 -I "$TOOL/chart-src/package-chart.py" "$T/tamper/gitops-operator" "$T/tamper-pkg" >/dev/null 2>&1
-yq eval ".operatorChart.path = \"$T/tamper-pkg/gitops-operator-0.1.0.tgz\" | .operatorChart.checksum = \"sha256:$(sha "$T/tamper-pkg/gitops-operator-0.1.0.tgz")\" | .crdsChart.path = \"$TOOL/charts/gitops-operator-crds-0.1.0.tgz\"" "$PINS" > "$T/pins-tamper.yaml"
-check "tampered chart passes step-1 render.sh alone (documents the *_IMAGE_PF5 pattern gap)" \
-  "$TOOL/render.sh" --pins "$T/pins-tamper.yaml" --namespace gitops-operator --instance-namespace argocd \
-    --service-account openshift-gitops-operator-controller-manager --image-pull-secret-name redhat-registry-pull-secret \
-    --image-allowlist "$ALLOW" --output-dir "$T/tamper-render"
-expect_fail "assemble.sh rejects the unreviewed GITOPS_CONSOLE_PLUGIN_IMAGE_PF5 value render.sh cannot see" "not in the reviewed allowlist" \
-  "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJECT" --pins "$T/pins-tamper.yaml" --output-dir "$T/tamper-out"
+tamper_pins unreviewed "$BAD_REF"
+tamper_pins floating "registry.redhat.io/openshift-gitops-1/console-plugin-4-18-rhel9:latest"
+tamper_pins valuefrom "" "            - name: GITOPS_CONSOLE_PLUGIN_IMAGE_PF5
+              valueFrom:
+                configMapKeyRef:
+                  name: unreviewed
+                  key: image
+"
+expect_fail "renderer rejects a well-formed but unreviewed GITOPS_CONSOLE_PLUGIN_IMAGE_PF5 digest" "unreviewed image tuple" tamper_render unreviewed
+expect_fail "renderer rejects a floating GITOPS_CONSOLE_PLUGIN_IMAGE_PF5 reference" "floating/malformed image" tamper_render floating
+expect_fail "renderer rejects GITOPS_CONSOLE_PLUGIN_IMAGE_PF5 set via valueFrom (not statically verifiable)" "does not set a literal value" tamper_render valuefrom
+check "no output was published by any rejected PF5 render" bash -c "[[ ! -e '$T/tamper-unreviewed/render' && ! -e '$T/tamper-floating/render' && ! -e '$T/tamper-valuefrom/render' ]]"
+expect_fail "assemble.sh fails for the unreviewed PF5 digest (renderer rejection propagated) and publishes nothing" "unreviewed image tuple" \
+  "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJECT" --pins "$T/tamper-unreviewed/pins.yaml" --output-dir "$T/tamper-out" --shared-crds-output "$T/tamper-shared.yaml"
+check "no bundle or shared artifact was published for the rejected PF5 assembly" bash -c "[[ ! -e '$T/tamper-out' && ! -e '$T/tamper-shared.yaml' ]]"
 
 # ------------------------------------------------------------- assembly
 check "assemble mc" "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJECT" --output-dir "$T/mc" --shared-crds-output "$T/mc-shared.yaml"

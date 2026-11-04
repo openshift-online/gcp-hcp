@@ -137,13 +137,17 @@ This check covers:
 
 - every container/initContainer `image:` field (the manager image and any
   others the chart renders), and
-- every `*_IMAGE` / `RELATED_IMAGE_*` environment value on those containers
-  — the conventional way Operator-SDK-style charts (including this one)
-  pass operand image overrides, e.g. `ARGOCD_IMAGE`,
-  `ARGOCD_REPOSERVER_IMAGE`, `ARGOCD_DEX_IMAGE`, `ARGOCD_REDIS_IMAGE`,
-  `BACKEND_IMAGE`, `RELATED_IMAGE_*`. An env var matching that pattern must
-  set a literal `value`; one set via `valueFrom` cannot be verified
-  statically and is rejected.
+- every environment variable on those containers whose name contains the
+  uppercase string `IMAGE` (case-sensitive, anywhere in the name) — the
+  conventional way Operator-SDK-style charts (including this one) pass operand
+  image overrides, e.g. `ARGOCD_IMAGE`, `ARGOCD_REPOSERVER_IMAGE`,
+  `ARGOCD_DEX_IMAGE`, `BACKEND_IMAGE`, `RELATED_IMAGE_*` and
+  `GITOPS_CONSOLE_PLUGIN_IMAGE_PF5`. Such an env var must set a literal
+  `value` that is an approved digest-pinned reference; one set via `valueFrom`
+  cannot be verified statically and is rejected. Names without uppercase
+  `IMAGE` (including lowercase variants) are not inspected, and a non-image
+  variable whose name contains `IMAGE` (for example `IMAGE_PULL_POLICY`) is
+  rejected rather than ignored.
 
 This tool ships no default allowlist and bakes in no default image pin —
 there is no bypass for omitting the check, and an empty `--image-allowlist`
@@ -160,12 +164,10 @@ differences from the official bundle are in `chart-src/PROVENANCE.md`.
 `assemble.sh` composes the inactive MC/region bundles from this output (see
 `bootstrap-gitops/README.md`); its tests are `tests/run-step2-tests.sh`.
 Resolving usable pins is engineering work; GCP-1286 separately owns certifying
-a chosen release as supported, and nothing here is that certification. Note
-that the renderer's image-env detection covers only `*_IMAGE` and
-`RELATED_IMAGE_*` names (e.g. not `GITOPS_CONSOLE_PLUGIN_IMAGE_PF5`);
-`assemble.sh` additionally checks every env name containing `IMAGE`, and
-(with `python3`, via `check-depends-on.py`) the bundle's Config Sync
-`depends-on` graph.
+a chosen release as supported, and nothing here is that certification.
+`assemble.sh` rechecks every `IMAGE`-named env value and container image on the
+final composed bundle, and (with `python3`, via `check-depends-on.py`) validates
+the bundle's Config Sync `depends-on` graph.
 
 ### What this renderer guarantees about its output
 
