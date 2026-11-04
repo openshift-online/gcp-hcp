@@ -171,7 +171,7 @@ check "assemble mc" "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJ
 check "assemble region" "$TOOL/assemble.sh" --type region --global-project-id "$SYN_PROJECT" --output-dir "$T/region" --shared-crds-output "$T/region-shared.yaml"
 check "assembly is deterministic (mc twice, byte-identical)" bash -c "'$TOOL/assemble.sh' --type mc --global-project-id $SYN_PROJECT --output-dir '$T/mc2' >/dev/null && diff -r '$T/mc' '$T/mc2'"
 check "mc and region differ only by the target-type label" \
-  bash -c "sed 's/target-type: mc/target-type: region/' '$T/mc/registry.yaml' | diff - '$T/region/registry.yaml' && sed 's/target-type: mc/target-type: region/' '$T/mc/gitops-instance.yaml' | diff - '$T/region/gitops-instance.yaml' && sed 's/target-type: mc/target-type: region/' '$T/mc/controller-rbac.yaml' | diff - '$T/region/controller-rbac.yaml' && cmp '$T/mc/crds.yaml' '$T/region/crds.yaml' && cmp '$T/mc/operator.yaml' '$T/region/operator.yaml' && cmp '$T/mc/kustomization.yaml' '$T/region/kustomization.yaml'"
+  bash -c "sed 's/target-type: mc/target-type: region/' '$T/mc/registry.yaml' | diff - '$T/region/registry.yaml' && sed 's/target-type: mc/target-type: region/' '$T/mc/networkpolicy.yaml' | diff - '$T/region/networkpolicy.yaml' && sed 's/target-type: mc/target-type: region/' '$T/mc/gitops-instance.yaml' | diff - '$T/region/gitops-instance.yaml' && sed 's/target-type: mc/target-type: region/' '$T/mc/controller-rbac.yaml' | diff - '$T/region/controller-rbac.yaml' && cmp '$T/mc/crds.yaml' '$T/region/crds.yaml' && cmp '$T/mc/operator.yaml' '$T/region/operator.yaml' && cmp '$T/mc/kustomization.yaml' '$T/region/kustomization.yaml'"
 check "shared CRD artifact identical for mc and region" cmp "$T/mc-shared.yaml" "$T/region-shared.yaml"
 
 for bad in global Global GLOBAL "" mc2 regions " mc"; do
@@ -218,12 +218,19 @@ CustomResourceDefinition/-/rolloutmanagers.argoproj.io
 Deployment/gitops-operator/openshift-gitops-operator-controller-manager
 ExternalSecret/gitops-operator/redhat-registry-pull-secret
 Namespace/-/gitops-operator
+NetworkPolicy/gitops-operator/operator-default-deny-ingress
 Role/gitops-operator/openshift-gitops-operator-leader-election
 RoleBinding/gitops-operator/openshift-gitops-operator-leader-election
 SecretStore/gitops-operator/gitops-registry-bootstrap-gcpsm
 ServiceAccount/gitops-operator/openshift-gitops-operator-controller-manager
 EOF
-check "child inventory is exactly the 17 reviewed identities" bash -c "diff <(sed -n '1,\$p' '$T/expected-ids.txt' | LC_ALL=C sort) <(jq -r '.[] | [.kind, (.metadata.namespace // \"-\"), .metadata.name] | join(\"/\")' '$T/mc-built.json' | LC_ALL=C sort)"
+check "child inventory is exactly the 18 reviewed identities" bash -c "diff <(sed -n '1,\$p' '$T/expected-ids.txt' | LC_ALL=C sort) <(jq -r '.[] | [.kind, (.metadata.namespace // \"-\"), .metadata.name] | join(\"/\")' '$T/mc-built.json' | LC_ALL=C sort)"
+check "MC and region both carry exactly one ingress-only default-deny NetworkPolicy (no Egress isolation, no allow rules)" \
+  bash -c "for t in mc region; do kubectl kustomize '$T/'\$t | yq eval -o=json -I=0 '.' - | jq -se '[.[] | select(.kind==\"NetworkPolicy\")] | length == 1 and .[0].metadata.name == \"operator-default-deny-ingress\" and .[0].metadata.namespace == \"gitops-operator\" and .[0].spec == {podSelector:{}, policyTypes:[\"Ingress\"], ingress:[]}' >/dev/null || exit 1; done"
+check "the empty podSelector selects the manager: same namespace, not hostNetwork, no other NetworkPolicy" \
+  bash -c "jq -e '([.[] | select(.kind==\"NetworkPolicy\")][0].metadata.namespace) as \$ns | [.[] | select(.kind==\"Deployment\")] | length == 1 and .[0].metadata.namespace == \$ns and (.[0].spec.template.spec.hostNetwork // false) == false' '$T/mc-built.json'"
+check "the NetworkPolicy adds no depends-on edge and carries no lifecycle annotation" \
+  bash -c "jq -e '.[] | select(.kind==\"NetworkPolicy\") | (.metadata.annotations // {}) | length == 0' '$T/mc-built.json'"
 check "child declares none of the parent-owned identities (argocd Namespace, ESO, stores, metadata template, root-app, shared CRDs)" \
   bash -c "jq -e 'all(.[];
       (.kind == \"Namespace\" and .metadata.name == \"argocd\" | not)
@@ -309,6 +316,28 @@ sed -i.bak '/depends-on/d' "$T/tpl-nodeps/registry.yaml.tmpl" "$T/tpl-nodeps/git
 expect_fail "assembler rejects a bundle with zero depends-on edges" "invalid depends-on graph" \
   "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJECT" --template-dir "$T/tpl-nodeps" --output-dir "$T/tpl-nodeps-out"
 check "no output was published for the zero-edge template" test ! -e "$T/tpl-nodeps-out"
+copy_templates "$T/tpl-egress"
+python3 -I - "$T/tpl-egress/networkpolicy.yaml.tmpl" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("    - Ingress\n", "    - Ingress\n    - Egress\n")
+open(p, "w").write(s)
+PY
+expect_fail "assembler rejects a NetworkPolicy template that adds Egress isolation" "not exactly the ingress-only default deny" \
+  "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJECT" --template-dir "$T/tpl-egress" --output-dir "$T/tpl-egress-out" --shared-crds-output "$T/tpl-egress-shared.yaml"
+check "nothing was published for the Egress template" bash -c "[[ ! -e '$T/tpl-egress-out' && ! -e '$T/tpl-egress-shared.yaml' ]]"
+copy_templates "$T/tpl-allow"
+python3 -I - "$T/tpl-allow/networkpolicy.yaml.tmpl" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("  ingress: []\n", "  ingress:\n    - from:\n        - podSelector: {}\n")
+open(p, "w").write(s)
+PY
+expect_fail "assembler rejects a NetworkPolicy template with an ingress allow rule" "not exactly the ingress-only default deny" \
+  "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJECT" --template-dir "$T/tpl-allow" --output-dir "$T/tpl-allow-out" --shared-crds-output "$T/tpl-allow-shared.yaml"
+check "nothing was published for the allow-rule template" bash -c "[[ ! -e '$T/tpl-allow-out' && ! -e '$T/tpl-allow-shared.yaml' ]]"
 
 # seed settings, validated against the actual CRD schema
 yq eval -o=json -I=0 'select(.kind=="ArgoCD")' "$T/mc/gitops-instance.yaml" > "$T/seed.json"

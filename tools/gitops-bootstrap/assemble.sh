@@ -176,11 +176,11 @@ render_template() {
     -e "s|__INSTANCE_DEPENDS_ON__|$INSTANCE_DEPENDS_ON|g" \
     "$TEMPLATE_DIR/$1.tmpl"
 }
-for t in registry gitops-instance controller-rbac kustomization; do
+for t in registry networkpolicy gitops-instance controller-rbac kustomization; do
   render_template "$t.yaml" > "$WORK_DIR/$t.yaml"
 done
 rm -rf "$WORK_DIR/rendered"
-! grep -q '__[A-Z_]*__' "$WORK_DIR"/registry.yaml "$WORK_DIR"/gitops-instance.yaml \
+! grep -q '__[A-Z_]*__' "$WORK_DIR"/registry.yaml "$WORK_DIR"/networkpolicy.yaml "$WORK_DIR"/gitops-instance.yaml \
   "$WORK_DIR"/controller-rbac.yaml "$WORK_DIR"/kustomization.yaml \
   || die "unreplaced template placeholder remains"
 
@@ -204,12 +204,21 @@ expected_ids="$(
     for n in "${CHILD_CRDS[@]}"; do printf 'CustomResourceDefinition/-/%s\n' "$n"; done
     printf 'SecretStore/%s/%s\n' "$NAMESPACE" "$REGISTRY_STORE_NAME"
     printf 'ExternalSecret/%s/%s\n' "$NAMESPACE" "$PULL_SECRET_NAME"
+    printf 'NetworkPolicy/%s/operator-default-deny-ingress\n' "$NAMESPACE"
     printf 'ArgoCD/%s/%s\n' "$INSTANCE_NAMESPACE" "$INSTANCE_NAME"
     printf 'ClusterRole/-/%s-application-controller-interim-parity\n' "$INSTANCE_NAME"
     printf 'ClusterRoleBinding/-/%s-application-controller-interim-parity\n' "$INSTANCE_NAME"
   } | LC_ALL=C sort
 )"
 [[ "$actual_ids" == "$expected_ids" ]] || die "bundle identity set differs from the reviewed child inventory"
+
+# The single NetworkPolicy is exactly the ingress-only default deny: no Egress
+# isolation, no allow rules, no extra fields.
+jq -e --arg ns "$NAMESPACE" '
+  [.[] | select(.kind == "NetworkPolicy")]
+  | length == 1 and (.[0].metadata.name == "operator-default-deny-ingress") and (.[0].metadata.namespace == $ns)
+    and (.[0].spec == {podSelector: {}, policyTypes: ["Ingress"], ingress: []})' <<<"$PREVIEW_JSON" >/dev/null \
+  || die "the NetworkPolicy is not exactly the ingress-only default deny"
 
 # No credential-bearing or parent-owned object. The child declares no Secret
 # of any kind (the pull secret is created by ESO at runtime).

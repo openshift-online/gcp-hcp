@@ -21,6 +21,7 @@ bootstrap-gitops/
 Each bundle directory is a self-contained kustomization:
 `crds.yaml` (5 child CRDs), `operator.yaml` (operator namespace, ServiceAccount,
 RBAC, Deployment), `registry.yaml` (bootstrap SecretStore + ExternalSecret),
+`networkpolicy.yaml` (ingress default-deny for the operator namespace),
 `gitops-instance.yaml` (ArgoCD seed), `controller-rbac.yaml` (temporary additive parity
 RBAC) and `kustomization.yaml` (lifecycle and ordering patches).
 
@@ -47,7 +48,7 @@ Chart provenance, the official image tuple and every digest are in
 | Owner | Objects |
 | --- | --- |
 | **Parent** (Fleet root-sync, Step 3, retained as-is) | `argocd` Namespace; ESO installation and CRDs; `argocd-local-gcpsm` SecretStore; `argocd-secrets` ServiceAccount; `cluster-metadata-annotations-template`; `argocd-cluster` and git-credentials ExternalSecrets; `root-app` ApplicationSet; **`applications`, `applicationsets`, `appprojects` CRDs** (`parent-artifacts/shared-crds.yaml`) |
-| **Child** (this bundle, 17 objects) | `gitops-operator` Namespace, ServiceAccount, leader-election Role/RoleBinding, controller ClusterRole/ClusterRoleBinding (official CSV rules), manager Deployment; CRDs `argocds` (v1beta1-only), `rolloutmanagers`, `notificationsconfigurations`, `namespacemanagements`, `controllerconfigurations.promoter.argoproj.io` (required dependency API, mutation-managed, `deletion: detach`); registry SecretStore + ExternalSecret; ArgoCD seed `argocd/gitops`; interim ClusterRole/ClusterRoleBinding |
+| **Child** (this bundle, 18 objects) | `gitops-operator` Namespace, ServiceAccount, leader-election Role/RoleBinding, controller ClusterRole/ClusterRoleBinding (official CSV rules), manager Deployment; CRDs `argocds` (v1beta1-only), `rolloutmanagers`, `notificationsconfigurations`, `namespacemanagements`, `controllerconfigurations.promoter.argoproj.io` (required dependency API, mutation-managed, `deletion: detach`); registry SecretStore + ExternalSecret; operator-namespace ingress default-deny NetworkPolicy; ArgoCD seed `argocd/gitops`; interim ClusterRole/ClusterRoleBinding |
 | **Day-two** (private chart, later) | the full ArgoCD spec after handoff, `argocd-cm` family, notifications configuration, `argocd-global-secret-store` and `argocd-oauth-secret-accessor` |
 
 The child declares none of the parent identities and the parent must not
@@ -61,7 +62,7 @@ This is a design inventory from the repository source at the pinned base, not
 live-cluster proof.
 
 - **Retained** by the parent, unchanged: the parent column above.
-- **Child-added:** the 17 identities above.
+- **Child-added:** the 18 identities above.
 - **Released** (Config Sync stops owning; objects remain under the
   operator/day-two owner via the existing Protect → Release → Adopt → Retire
   handoff in `docs/openshift-gitops-configuration-handoff.md`): the
@@ -179,6 +180,11 @@ Additional later Dev AIO acceptance checks:
   guarantee; adjust through the reviewed values only after observation.
 - Interim controller RBAC: confirm the effective controller permissions on the
   target and track GCP-1285 for the scoped replacement.
+- NetworkPolicy: verify the target cluster enforces NetworkPolicy, the effective
+  policy set for the operator namespace, the manager's own-kubelet probe health
+  and readiness, reconcile and API/DNS connectivity with the policy in place.
+- Operator RBAC: complete the pre-activation risk and permission review of the
+  operator ClusterRole (bind/escalate on RBAC resources) and assign an owner.
 - The `argocds` CRD is about 912 KB (911,547 bytes as compact JSON). Whether
   Config Sync's server-side-apply managedFields leave headroom under the etcd
   1.5 MiB object limit is **unproven**; confirm it on a real cluster before
@@ -211,6 +217,30 @@ Additional later Dev AIO acceptance checks:
   `tools/gitops-bootstrap/chart-src/PROVENANCE.md`). **Exit criterion: GCP-1285**
   supplies and validates scoped permissions covering the managed workloads
   before the grant can be removed or narrowed; it is not redesigned here.
+- **Operator-namespace NetworkPolicy (ingress default-deny only).** One
+  child-owned, prunable `operator-default-deny-ingress` NetworkPolicy selects all
+  pods in the operator namespace with `policyTypes: [Ingress]` and no allow
+  rules. It is **not a complete network lockdown**: there is no Egress isolation,
+  so outbound API and DNS traffic is unchanged by this policy; Kubernetes
+  allows traffic from a pod's own node, and policies are additive, so other
+  policies and host-network exceptions still matter, and it does not mean no
+  other pod could ever reach the manager. The manager is not `hostNetwork` and
+  its probes are its own kubelet `httpGet` on 8081. No metrics Service,
+  ServiceMonitor or scraper is shipped, so no allow rule is added; a future
+  metrics consumer or webhook needs a separately reviewed allow policy. It is part
+  of the child sync and adds no ordering edge, so it does not prove the CNI
+  programmed it before the manager started. NetworkPolicy has no effect unless
+  the cluster's network plugin enforces it (GKE: Dataplane V2 or Calico; Autopilot
+  uses Dataplane V2), so enforcement must be verified before activation. Docs:
+  <https://kubernetes.io/docs/concepts/services-networking/network-policies/>,
+  <https://docs.cloud.google.com/kubernetes-engine/docs/how-to/network-policy>.
+- **Operator RBAC is official-CSV parity, not least privilege.** The operator
+  ServiceAccount's ClusterRole (unchanged from the CSV) has `bind`/`escalate` on
+  wildcard `rbac.authorization.k8s.io` resources, so it is cluster-admin
+  equivalent in practice. This exception is distinct from the application
+  controller grant: GCP-1285 covers that grant only. Owner and ticket for the
+  operator grant are unassigned pending a pre-activation risk and permission
+  review; no approval is claimed (see `PROVENANCE.md`).
 - **Manager resources are an untuned initial budget.** The operator Deployment
   requests cpu `100m` / memory `256Mi` and is limited to cpu `1` / memory `1Gi`
   (the official CSV sets none). The numbers have no verified source and no

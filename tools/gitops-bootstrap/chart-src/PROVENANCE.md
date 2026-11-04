@@ -184,6 +184,40 @@ role's rules and that its binding subject matches the operator's service-account
 naming; the manager's `ARGOCD_CLUSTER_CONFIG_NAMESPACES` is checked as the
 instance namespace. No runtime closure is claimed.
 
+## Official operator RBAC exception (separate from the controller grant above)
+
+The generated `gitops-operator/templates/rbac.yaml` carries the official CSV's
+operator ClusterRole unchanged (rule-for-rule parity, asserted by the offline
+tests). Among those rules (about lines 408-424) it grants
+`rbac.authorization.k8s.io` resources `*`, `clusterroles` and `clusterrolebindings`
+the verbs `bind`, `create`, `delete`, `deletecollection`, `escalate`, `get`,
+`list`, `patch`, `update` and `watch`, and the Role/RoleBinding rule that follows
+adds create/update/delete. It is bound to the **operator** ServiceAccount
+(`openshift-gitops-operator-controller-manager`, in the operator namespace, with
+the default names).
+
+`bind` and `escalate` on wildcard RBAC resources let that ServiceAccount create
+arbitrary privileged roles and bind them, or bind `cluster-admin`, so the
+operator is **cluster-admin-equivalent in practice**. Official CSV parity is **not
+least privilege**. Kubernetes' privilege-escalation prevention normally stops a
+subject from granting permissions it does not hold, and `bind`/`escalate` are
+exactly the verbs that waive that check:
+<https://kubernetes.io/docs/reference/access-authn-authz/rbac/#privilege-escalation-prevention-and-bootstrapping>.
+
+Status and boundaries:
+
+- It is retained unchanged **for upstream CSV parity in inactive engineering
+  artifacts**. No rule or binding was redesigned or narrowed here.
+- It is a **different exception** from the additive Argo CD application
+  controller grant in the previous section. GCP-1285 is the exit criterion for
+  that application-controller grant **only**; nothing here claims GCP-1285 owns,
+  scopes or removes the operator grant.
+- Owner and ticket for this exception: **unassigned**, pending a pre-activation
+  review.
+- Before any activation, a risk and permission review of the operator grant is
+  required (including whether upstream supports a narrower role for this
+  deployment). No production risk acceptance or approval is claimed or implied.
+
 ## Controller-dependency evidence (selected-release assumptions)
 
 Read anonymously at the commits the bundle and its `go.mod` pin
