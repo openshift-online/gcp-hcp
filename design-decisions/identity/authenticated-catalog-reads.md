@@ -4,6 +4,10 @@
 
 **Date**: 2026-10-06
 
+**Status**: Superseded
+
+**Superseded by**: [Authorize Platform-Scoped Resources Through Role Bindings](platform-scoped-cedar-authorization.md)
+
 ## Decision
 
 Version, Channel, and PlatformRole collection and item reads require a valid
