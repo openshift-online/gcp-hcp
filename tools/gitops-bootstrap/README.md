@@ -248,8 +248,8 @@ exactly). The last few host/path-only cases reuse one
 time (`package_chart_with_image`) rather than adding a new fixture source
 tree per image value.
 
-Manager-identity and postcondition-binding coverage: an absent or ambiguous
-`manager` container (including two Deployments each owning one), a decoy
+Manager-identity and postcondition-binding coverage: a missing `manager`
+container or two `manager` containers in one Deployment, a decoy
 sidecar/initContainer carrying the correct env while the manager container
 does not, and a decoy Deployment carrying the correct `imagePullSecrets`
 while the manager's own Deployment does not (rejected) alongside the
