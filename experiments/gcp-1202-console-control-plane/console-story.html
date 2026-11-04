@@ -149,6 +149,9 @@
   #downloads-control { opacity: 0; visibility: hidden; transition: opacity 0.35s ease; }
   body.downloads.moved #downloads-control { opacity: 1; visibility: visible; }
 
+  #custom-host { opacity: 0; visibility: hidden; transition: opacity 0.35s ease; }
+  body.custom #custom-host { opacity: 1; visibility: visible; }
+
   body.no-anim * { transition: none !important; }
 
   @media (max-width: 1080px) {
@@ -354,6 +357,14 @@
         <text class="t-red" x="292" y="496" text-anchor="end">platform wildcard</text>
         <text class="t-small" x="292" y="512" text-anchor="end">external-api-cert · mounted in pod</text>
       </g>
+
+      <g id="custom-host">
+        <text class="t-sub" x="700" y="64" text-anchor="middle">console.acmecorp.com</text>
+        <text class="t-small" x="310" y="251" text-anchor="middle">sni: console.acmecorp.com</text>
+        <rect class="cert-ring" x="184" y="314" width="252" height="172" rx="14"/>
+        <text class="t-red" x="292" y="500" text-anchor="end">customer certificate</text>
+        <text class="t-small" x="292" y="516" text-anchor="end">guest → HCP sync · served by the console</text>
+      </g>
     </svg>
   </div>
 
@@ -438,7 +449,15 @@
     </section>
 
     <section data-step="11">
-      <div class="step-no">11 · THE TRADE</div>
+      <div class="step-no">11 · CUSTOM NAME</div>
+      <h2>A customer hostname and its certificate</h2>
+      <p>Customers ask for the console on their own name — <strong>console.acmecorp.com</strong> — with their own certificate. We keep the standard configuration location: the guest cluster's <strong>Ingress.spec.componentRoutes[]</strong>, a hostname and a <strong>servingCertKeyPairSecret</strong> in <strong>openshift-config</strong>.</p>
+      <p>The certificate has to move. Upstream the ingress router terminates it; the HCP router passes SNI through and terminates nothing, so the secret must be synced into the HCP namespace and served by the console. The console-operator — adapted for this control-plane-side deployment, or replaced by an equivalent component — reads the hostname and the secret, configures the console with them, and creates the Route that gives the router its SNI match.</p>
+      <p>Untested, but feasible in principle. Open: how the console picks a certificate per name, and whether the custom name replaces <strong>console.&lt;domain&gt;</strong> or serves beside it.</p>
+    </section>
+
+    <section data-step="12">
+      <div class="step-no">12 · THE TRADE</div>
       <h2>What changes, and what does not</h2>
       <p>Unlocked: zero-worker clusters; no customer ingress, load balancer, DNS record or certificate on the console's path; the console under the same SLO ownership as the API.</p>
       <p>Unchanged: the console binary, its UI, the plugin model, and RBAC and identity semantics.</p>
@@ -475,6 +494,7 @@
     { mode: 'control', hot: ['console', 'konn', 'workers', 'p-console-konn', 'p-tunnel', 'p-console-mon'], dim: ['ingress'] },
     { mode: 'control', auth: true, hot: ['browser', 'idp', 'console', 'kas', 'edge-auth', 'p-console-kas'], dim: ['ingress', 'mon', 'plugins', 'konn'] },
     { mode: 'control', downloads: true, hot: ['downloads-control', 'router', 'console'], dim: ['ingress', 'mon', 'plugins', 'konn'] },
+    { mode: 'control', custom: true, hot: ['browser', 'router', 'console', 'p-browser-psc', 'p-router-console', 'custom-host'], dim: ['ingress', 'mon', 'plugins', 'konn', 'kas'] },
     { mode: 'control', hot: [], dim: ['ingress'] }
   ];
 
@@ -525,6 +545,7 @@
     body.classList.toggle('moved', mode === 'control');
     body.classList.toggle('auth', !!step.auth);
     body.classList.toggle('cert', !!step.cert);
+    body.classList.toggle('custom', !!step.custom);
     body.classList.toggle('downloads', !!step.downloads);
 
     document.querySelectorAll('.hot').forEach((el) => el.classList.remove('hot'));
