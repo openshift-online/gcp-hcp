@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "mappings": [
+    {
+      "id": "cloudarmor.waf",
+      "requirement_id": "EXAMPLE-WAF-POC-1"
+    }
+  ]
+}

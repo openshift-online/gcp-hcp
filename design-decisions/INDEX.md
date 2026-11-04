@@ -9,6 +9,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [gke-container-platform](infrastructure/gke-container-platform.md) | GKE as the container platform (not OpenShift) |
 | [gcp-folder-project-hierarchy](infrastructure/gcp-folder-project-hierarchy.md) | Environment-first GCP folder and project hierarchy |
 | [regional-independence-architecture](infrastructure/regional-independence-architecture.md) | Regions operate independently with minimal cross-region dependencies |
+| [zero-egress-worker-nodes](infrastructure/zero-egress-worker-nodes.md) | Proposed: zero-egress worker nodes using GAR, VM identity and credential helpers |
 | [gke-fleet-management](infrastructure/gke-fleet-management.md) | GKE Fleet for cluster bootstrap without external network access |
 | [shared-node-pools](infrastructure/shared-node-pools.md) | Shared node pool architecture for management cluster control plane components |
 | [hosted-cluster-upgrade-policy](infrastructure/hosted-cluster-upgrade-policy.md) | Mandatory platform-managed control plane upgrades with customer timing controls |
@@ -52,6 +53,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | Decision | Summary |
 |----------|---------|
 | [observability-google-managed-prometheus](observability/observability-google-managed-prometheus.md) | Hybrid GMP architecture for HCP component metrics with regional data isolation |
+| [hypershift-gmp-native-monitoring](observability/hypershift-gmp-native-monitoring.md) | GMP-native monitoring resources in HyperShift via the `--enable-gmp-monitoring` flag with a CPO image compatibility gate (evolves the hybrid approach) |
 | [integrated-alerting-framework](observability/integrated-alerting-framework.md) | Cloud Monitoring routing to PagerDuty and Cloud Run diagnosis agent |
 | [data-lake-for-diagnostics-and-compliance](observability/data-lake-for-diagnostics-and-compliance.md) | Two-tier data lake: BigQuery for real-time data, Log Analytics for compliance |
 
@@ -66,6 +68,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [hcp-terraform-workload-identity-federation](automation/hcp-terraform-workload-identity-federation.md) | HCP Terraform WIF with dedicated access projects per environment |
 | [argocd-sync-wave-standardization](automation/argocd-sync-wave-standardization.md) | Standardized ArgoCD sync wave annotations using minimal 3-wave system |
 | [deployment-tooling-swim-lanes](automation/deployment-tooling-swim-lanes.md) | Configuration management swim lanes defining tool-specific resource lifecycle |
+| [operator-managed-argocd-configuration](automation/operator-managed-argocd-configuration.md) | Proposed CR-owned HCP settings and drop-in Argo replacement after old-runtime scale-down; opt-in only |
 | [openfeature-feature-flag-management](automation/openfeature-feature-flag-management.md) | OpenFeature with GitOps-managed flagd initially; ALM deferred as a future provider |
 | [pipeline-automation-tooling](automation/pipeline-automation-tooling.md) | Tekton as general-purpose pipeline automation for scheduled/event-driven workflows |
 | [cloud-workflows-automation-platform](automation/cloud-workflows-automation-platform.md) | Google Cloud Workflows for Zero Operator remediation with Vertex AI and PAM gates |

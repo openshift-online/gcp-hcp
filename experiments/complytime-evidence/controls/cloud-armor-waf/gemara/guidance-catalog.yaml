@@ -1,0 +1,39 @@
+metadata:
+  id: example-waf-guidance
+  type: GuidanceCatalog
+  gemara-version: v1.0.0
+  version: "0.1.0"
+  description: Non-normative example guidance for the Cloud Armor assessment prototype.
+  author:
+    id: complytime-waf-prototype
+    name: ComplyTime WAF Prototype
+    type: Software Assisted
+title: Example WAF Configuration Guidance
+type: Framework
+front-matter: |
+  This catalog is a learning example, not an approved organizational control
+  or compliance interpretation.
+groups:
+  - id: web-application-firewall
+    title: Web application firewall
+    description: Example guidance for collecting Cloud Armor configuration evidence.
+guidelines:
+  - id: EXAMPLE-WAF-GUIDE-1
+    group: web-application-firewall
+    title: Collect evidence of Cloud Armor policy configuration
+    objective: >
+      For this prototype, configuration evidence should identify the selected
+      application backend, the Cloud Armor policy attached to that backend, any
+      active policy actions, and the backend request-logging configuration. These
+      observations are a limited configuration signal; they do not demonstrate
+      attack-detection effectiveness or end-to-end alert delivery.
+    rationale:
+      importance: >
+        Clear configuration evidence helps reviewers understand which policy and
+        logging settings were evaluated for a selected backend.
+      goals:
+        - Link a selected backend to its attached Cloud Armor policy.
+        - Report whether an active policy action and backend request logging are configured.
+    state: Draft
+    recommendations:
+      - Assess attack-detection behavior, alert delivery, and rule freshness separately before drawing broader conclusions.
