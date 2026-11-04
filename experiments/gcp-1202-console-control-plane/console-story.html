@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console on the control plane — the story</title>
+<style>
+  :root {
+    --red: #ee0000;
+    --red-soft: #ff4d4d;
+    --bg: #090909;
+    --text: #f4f4f4;
+    --muted: #9a9a9a;
+    --font: "Red Hat Display", "Red Hat Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 34% 30%, rgba(238, 0, 0, 0.05), transparent 56%),
+      linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+    background-size: auto, 48px 48px, 48px 48px;
+    pointer-events: none;
+  }
+
+  header.top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 16px clamp(16px, 2vw, 56px) 12px;
+    background: rgba(9, 9, 9, 0.84);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #1b1b1b;
+  }
+  .eyebrow { color: var(--red-soft); font-size: clamp(10px, 0.5vw, 13px); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+  h1 { margin: 6px 0 0; font-size: clamp(27px, 1.6vw, 44px); font-weight: 600; letter-spacing: 0.01em; }
+
+  main.story {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 26vw, 620px);
+    gap: 32px;
+    align-items: start;
+    padding: 10px clamp(16px, 2vw, 56px) 60px;
+  }
+  .stage {
+    position: sticky;
+    top: calc(var(--hdr, 0px) + 12px);
+    height: calc(100vh - var(--hdr, 0px) - 28px);
+    display: flex;
+    align-items: center;
+  }
+  .stage svg { display: block; width: 100%; height: 100%; }
+
+  .text { padding: 40px 0 160px; }
+  section { min-height: max(620px, 70vh); display: flex; flex-direction: column; justify-content: center; padding: 24px 0; }
+  body.ready section { opacity: 0.3; transition: opacity 0.4s ease; }
+  body.ready section.current { opacity: 1; }
+  body.ready section.current .step-no { color: var(--red-soft); }
+  section .step-no { color: #6d6d6d; font-size: clamp(10.5px, 0.5vw, 13px); font-weight: 600; letter-spacing: 0.16em; }
+  section h2 { margin: 7px 0 12px; font-size: clamp(20px, 1.15vw, 32px); font-weight: 600; line-height: 1.25; }
+  section p { margin: 0 0 12px; color: #c6c6c6; font-size: clamp(14px, 0.78vw, 20px); line-height: 1.62; }
+  section p:last-child { margin-bottom: 0; }
+  section strong { color: #fff; font-weight: 600; }
+  section em { color: var(--red-soft); font-style: normal; }
+
+  footer {
+    position: relative;
+    z-index: 2;
+    padding: 0 32px 28px;
+    color: #6f6f6f;
+    font-size: 11.5px;
+  }
+
+  /* ---------- diagram ---------- */
+  .band { fill: rgba(255,255,255,0.012); stroke: #3a3a3a; stroke-width: 1.2; stroke-dasharray: 8 7; }
+  .band-label { fill: #8f8f8f; font-size: 10px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
+  .band-sub { fill: #5f5f5f; font-size: 9px; letter-spacing: 0.04em; }
+
+  .box { fill: #171717; stroke: #3d3d3d; stroke-width: 1.4; }
+  .box.red { fill: var(--red); stroke: #ff6b6b; stroke-width: 1.6; }
+  .box.api { fill: #101010; stroke: #777; stroke-width: 1.4; }
+  .t-title { fill: var(--text); font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
+  .t-sub { fill: #b8b8b8; font-size: 11px; font-weight: 400; }
+  .t-label { fill: #8f8f8f; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+  .t-small { fill: #8f8f8f; font-size: 9px; font-weight: 400; }
+  .t-red { fill: var(--red-soft); font-size: 9px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  .arrow { fill: none; stroke: #8a8a8a; stroke-width: 1.8; marker-end: url(#arrow); }
+  .arrow.dashed { stroke-dasharray: 6 5; }
+  .arrow.red { stroke: var(--red-soft); marker-end: url(#arrow-red); }
+  .arrow.soft { opacity: 0.55; }
+
+  .elem { transition: opacity 0.45s ease; }
+  .dim { opacity: 0.2 !important; transition: opacity 0.35s ease; }
+
+  .hot .box, .hot.box { stroke: var(--red-soft); stroke-width: 2.2; }
+  .hot > path, path.hot { stroke: var(--red-soft); marker-end: url(#arrow-red); }
+  .hot .t-title, .hot .t-sub, .hot .t-small, .hot .t-label { fill: #f4f4f4; }
+
+  #edges-classic { transition: opacity 0.35s ease; }
+  body.moved #edges-classic { opacity: 0; }
+  #edges-control { opacity: 0; transition: opacity 0.5s ease 0.55s; }
+  body.moved #edges-control { opacity: 1; }
+
+  .ghost { fill: none; stroke: var(--red-soft); stroke-width: 1.4; stroke-dasharray: 6 6; }
+  .ghost-target { opacity: 0.22; transition: opacity 0.35s ease; }
+  body.moved .ghost-target { opacity: 0; }
+  .ghost-origin { opacity: 0; transition: opacity 0.5s ease 0.85s; }
+  body.moved .ghost-origin { opacity: 0.65; }
+  .ghost-label { fill: #cfcfcf; }
+
+  #ingress { transition: opacity 0.45s ease; }
+  body.moved #ingress { opacity: 0.2; }
+  #ingress-off { opacity: 0; transition: opacity 0.4s ease 0.5s; }
+  body.moved #ingress-off { opacity: 1; }
+
+  #konn { opacity: 0.3; transition: opacity 0.45s ease; }
+  body.moved #konn { opacity: 1; }
+
+  .sni-alt { opacity: 0.3; transition: opacity 0.45s ease; }
+  body.moved .sni-alt { opacity: 1; }
+
+  .member-control { opacity: 0; transition: opacity 0.3s ease; }
+  .member-classic { opacity: 1; transition: opacity 0.3s ease; }
+  body.moved .member-control { opacity: 1; }
+  body.moved .member-classic { opacity: 0; }
+
+  #idp, #edge-auth { opacity: 0; visibility: hidden; transition: opacity 0.35s ease; }
+  body.auth #idp, body.auth #edge-auth { opacity: 1; visibility: visible; }
+
+  #cert-classic, #cert-control { opacity: 0; visibility: hidden; transition: opacity 0.3s ease; }
+  body.cert:not(.moved) #cert-classic { opacity: 1; visibility: visible; }
+  body.cert.moved #cert-control { opacity: 1; visibility: visible; }
+  .cert-ring { fill: none; stroke: var(--red-soft); stroke-width: 1.5; stroke-dasharray: 6 6; opacity: 0.7; }
+
+  #downloads-control { opacity: 0; visibility: hidden; transition: opacity 0.35s ease; }
+  body.downloads.moved #downloads-control { opacity: 1; visibility: visible; }
+
+  body.no-anim * { transition: none !important; }
+
+  @media (max-width: 1080px) {
+    main.story { display: block; padding: 0 16px 40px; }
+    .stage {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      height: auto;
+      padding: 8px 0;
+      background: var(--bg);
+      border-bottom: 1px solid #1e1e1e;
+    }
+    .stage svg { height: auto; max-height: 56vh; }
+    .text { padding: 0; }
+    section { min-height: 70vh; padding: 30px 0; }
+    header.top, footer { padding-left: 16px; padding-right: 16px; }
+    header.top { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="eyebrow">GCP-1202 · HyperShift on GCP</div>
+  <h1>Console on the control plane</h1>
+</header>
+
+<main class="story">
+  <div class="stage">
+    <svg id="diagram" viewBox="0 0 1400 800" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Control plane and data plane diagram; the console moves from the guest workers to the HostedControlPlane namespace">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#8a8a8a"/>
+        </marker>
+        <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#ff4d4d"/>
+        </marker>
+        <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#ee0000" flood-opacity="0.75"/>
+        </filter>
+      </defs>
+
+      <rect class="band" x="60" y="90" width="600" height="690" rx="18"/>
+      <text class="band-label" x="82" y="116">Control plane · HCP namespace</text>
+      <text class="band-sub" x="82" y="133">management cluster</text>
+
+      <rect class="band" x="740" y="90" width="600" height="690" rx="18"/>
+      <text class="band-label" x="762" y="116">Data plane · guest cluster</text>
+      <text class="band-sub" x="762" y="133">customer project · workers</text>
+
+      <g id="browser">
+        <rect class="box" x="610" y="8" width="180" height="66" rx="10"/>
+        <text class="t-title" x="700" y="48" text-anchor="middle">Browser</text>
+      </g>
+
+      <g id="idp">
+        <rect class="box api" x="90" y="8" width="200" height="66" rx="10"/>
+        <text class="t-title" x="190" y="38" text-anchor="middle">Identity provider</text>
+        <text class="t-sub" x="190" y="58" text-anchor="middle">external · customer</text>
+      </g>
+
+      <g id="router">
+        <rect class="box" x="200" y="150" width="220" height="110" rx="10"/>
+        <text class="t-title" x="310" y="182" text-anchor="middle">HCP router</text>
+        <text class="t-sub" x="310" y="201" text-anchor="middle">SNI passthrough</text>
+        <text class="t-small" x="310" y="219" text-anchor="middle">api · oauth · ignition</text>
+        <text class="t-small sni-alt" x="310" y="235" text-anchor="middle">konnectivity · console</text>
+      </g>
+
+      <g id="psc">
+        <rect class="box api" x="490" y="165" width="160" height="80" rx="10"/>
+        <text class="t-title" x="570" y="197" text-anchor="middle">PSC endpoint</text>
+        <text class="t-sub" x="570" y="219" text-anchor="middle">private LB</text>
+      </g>
+
+      <g id="kas">
+        <rect class="box api" x="480" y="330" width="180" height="140" rx="10"/>
+        <text class="t-title" x="570" y="387" text-anchor="middle">Guest</text>
+        <text class="t-title" x="570" y="405" text-anchor="middle">kube-apiserver</text>
+        <text class="t-sub" x="570" y="427" text-anchor="middle">in HCP namespace</text>
+      </g>
+
+      <g id="konn">
+        <rect class="box" x="200" y="560" width="220" height="120" rx="10"/>
+        <text class="t-title" x="310" y="605" text-anchor="middle">konnectivity-server</text>
+        <text class="t-sub" x="310" y="626" text-anchor="middle">control-plane side</text>
+      </g>
+
+      <g id="ingress">
+        <rect class="box" x="900" y="150" width="220" height="100" rx="10"/>
+        <text class="t-title" x="1010" y="190" text-anchor="middle">Default ingress</text>
+        <text class="t-sub" x="1010" y="211" text-anchor="middle">guest router · reencrypt</text>
+        <text class="t-small" x="1010" y="230" text-anchor="middle">*.apps.&lt;domain&gt;</text>
+      </g>
+      <text id="ingress-off" class="t-red" x="1010" y="300" text-anchor="middle">ingress capability off</text>
+
+      <g id="mon">
+        <rect class="box" x="780" y="600" width="180" height="90" rx="10"/>
+        <text class="t-title" x="870" y="634" text-anchor="middle">Monitoring</text>
+        <text class="t-sub" x="870" y="656" text-anchor="middle">Thanos · Alertmanager</text>
+      </g>
+
+      <g id="plugins">
+        <rect class="box" x="980" y="600" width="180" height="90" rx="10"/>
+        <text class="t-title" x="1070" y="634" text-anchor="middle">Dynamic plugins</text>
+        <text class="t-sub" x="1070" y="656" text-anchor="middle">monitoring-plugin</text>
+      </g>
+
+      <g id="workers">
+        <rect class="box" x="1180" y="600" width="150" height="90" rx="10"/>
+        <text class="t-title" x="1255" y="634" text-anchor="middle">Workers</text>
+        <text class="t-sub" x="1255" y="656" text-anchor="middle">pod network</text>
+      </g>
+
+      <g id="downloads-control">
+        <rect class="box" x="480" y="500" width="180" height="90" rx="10"/>
+        <text class="t-title" x="570" y="532" text-anchor="middle">Downloads</text>
+        <text class="t-sub" x="570" y="552" text-anchor="middle">oauth-proxy :8443</text>
+        <text class="t-sub" x="570" y="570" text-anchor="middle">downloads.&lt;domain&gt;</text>
+      </g>
+
+      <g id="console" filter="url(#glow)">
+        <rect class="box red" x="900" y="330" width="220" height="140" rx="10"/>
+        <text class="t-title" x="1010" y="377" text-anchor="middle">Console pod</text>
+        <text class="t-sub member-classic" x="1010" y="399" text-anchor="middle">guest Deployment</text>
+        <text class="t-sub member-control" x="1010" y="399" text-anchor="middle">HCP Deployment</text>
+        <text class="t-sub" x="1010" y="421" text-anchor="middle">bridge :8443</text>
+        <text class="t-sub" x="1010" y="443" text-anchor="middle">serves TLS</text>
+      </g>
+
+      <g class="ghost-target">
+        <rect class="ghost" x="200" y="330" width="220" height="140" rx="10"/>
+        <text class="t-small" x="310" y="496" text-anchor="middle">console will run here</text>
+      </g>
+      <g class="ghost-origin">
+        <rect class="ghost" x="900" y="330" width="220" height="140" rx="10"/>
+        <text class="t-small ghost-label" x="1010" y="496" text-anchor="middle">console was here</text>
+      </g>
+
+      <!-- shared: PSC into the HCP router, router into the API -->
+      <g id="p-psc-router"><path class="arrow" d="M 490 205 H 424"/></g>
+      <g id="p-router-kas">
+        <path class="arrow dashed soft" d="M 380 260 V 290 H 570 V 326"/>
+        <text class="t-small" x="475" y="282" text-anchor="middle">api.&lt;domain&gt;</text>
+      </g>
+
+      <g id="edges-classic">
+        <g id="p-browser-ingress"><path class="arrow" d="M 700 74 V 82 H 1010 V 146"/></g>
+        <g id="p-ingress-console">
+          <path class="arrow" d="M 1010 250 V 326"/>
+          <text class="t-label" x="1022" y="292">Route</text>
+        </g>
+        <g id="p-console-psc"><path class="arrow red" d="M 900 400 H 690 V 205 H 654"/></g>
+        <g id="p-console-mon">
+          <path class="arrow" d="M 940 470 V 596"/>
+          <text class="t-small" x="950" y="540">/api/prometheus</text>
+        </g>
+        <g id="p-console-plugins">
+          <path class="arrow" d="M 1080 470 V 596"/>
+          <text class="t-small" x="1090" y="540">/api/plugins</text>
+        </g>
+      </g>
+
+      <g id="edges-control">
+        <g id="p-browser-psc"><path class="arrow" d="M 700 74 V 82 H 570 V 161"/></g>
+        <g id="p-router-console">
+          <path class="arrow" d="M 310 260 V 326"/>
+          <text class="t-label" x="322" y="310">console.&lt;domain&gt;</text>
+        </g>
+        <g id="p-console-kas">
+          <path class="arrow red" d="M 420 400 H 476"/>
+          <text class="t-small" x="450" y="388" text-anchor="middle">NO_PROXY</text>
+        </g>
+        <g id="p-console-konn">
+          <path class="arrow" d="M 310 470 V 556"/>
+          <text class="t-small" x="322" y="520">socks5 :8090</text>
+        </g>
+        <g id="p-tunnel">
+          <path class="arrow" d="M 420 620 H 776"/>
+          <text class="t-small" x="600" y="607" text-anchor="middle">reverse tunnel · agent dials out</text>
+        </g>
+      </g>
+
+      <g id="edge-auth">
+        <path class="arrow red" d="M 606 33 H 296"/>
+        <path class="arrow red" d="M 296 49 H 606"/>
+        <text class="t-small" x="450" y="24" text-anchor="middle">login</text>
+        <text class="t-small" x="450" y="64" text-anchor="middle">code</text>
+      </g>
+
+      <g id="cert-classic">
+        <rect class="cert-ring" x="888" y="138" width="244" height="124" rx="14"/>
+        <text class="t-red" x="1144" y="176">day-0 dependency</text>
+        <text class="t-small" x="1144" y="194">Route: reencrypt</text>
+        <text class="t-small" x="1144" y="209">real cert in spec.tls</text>
+        <text class="t-small" x="1144" y="224">ACME CNAME → central zone</text>
+        <text class="t-small" x="895" y="492" text-anchor="end">service-ca · automatic cert</text>
+      </g>
+
+      <g id="cert-control">
+        <rect class="cert-ring" x="188" y="318" width="244" height="164" rx="14"/>
+        <text class="t-red" x="292" y="496" text-anchor="end">platform wildcard</text>
+        <text class="t-small" x="292" y="512" text-anchor="end">external-api-cert · mounted in pod</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="text">
+
+    <section data-step="0">
+      <div class="step-no">00 · OVERVIEW</div>
+      <h2>The console is the last guest-side dependency</h2>
+      <p>Today the console runs as a Deployment on the guest workers, behind the default ingress. That is what makes it unavailable on a cluster with zero workers, and what exposes it to customer-side ingress, DNS and certificate changes.</p>
+      <p>Move it to the HostedControlPlane namespace and it becomes another control-plane operand: reached through the same exposure as the API, served by the platform certificate, and independent of the customer's ingress.</p>
+    </section>
+
+    <section data-step="1">
+      <div class="step-no">01 · CLASSIC</div>
+      <h2>The console lives on the workers</h2>
+      <p>A guest Deployment in <strong>openshift-console</strong>, two replicas, reconciled by the console-operator. Workers are a hard dependency: no workers, no console.</p>
+      <p>Everything it talks to is either on the same pod network — Thanos, Alertmanager, plugin backends — or reached through the cluster's API endpoint. In this model the console is a guest workload with a guest URL.</p>
+    </section>
+
+    <section data-step="2">
+      <div class="step-no">02 · CLASSIC</div>
+      <h2>Entry through the default ingress</h2>
+      <p>Browser → default ingress controller → console. The ingress capability is mandatory: with no router there is no console Route, and without the <strong>*.apps.&lt;domain&gt;</strong> record in the customer's DNS there is no hostname to reach. The ingress operator publishes that zone.</p>
+      <p>In a private cluster the ingress load balancer is customer-side and internal, so the browser must already be inside the VPC.</p>
+    </section>
+
+    <section data-step="3">
+      <div class="step-no">03 · CLASSIC</div>
+      <h2>The certificate crosses two projects</h2>
+      <p>cert-manager runs on the management cluster and cannot write the customer's ingress zone. A DNS-01 CNAME delegates the ACME challenge from <strong>*.apps</strong> to the central zone that hosts the API record, so cert-manager can solve it. That delegation is a day-0 requirement.</p>
+      <p>The issued certificate lands in the guest as a secret — visible, and modifiable, on the customer side. The console-operator copies it onto the Route (<strong>spec.tls</strong>, reencrypt), the router terminates the browser TLS and re-encrypts to the console Service, and the backend certificate is issued automatically by service-ca.</p>
+    </section>
+
+    <section data-step="4">
+      <div class="step-no">04 · CLASSIC</div>
+      <h2>API through PSC, plugins direct</h2>
+      <p>The guest kube-apiserver runs in the HCP namespace, so nodes and pods — including the console — always reach it through the <strong>PSC endpoint</strong>, the private LB and the HCP router. GCP HCP uses <strong>PublicAndPrivate</strong>, never the full Public mode, so this is true in every cluster mode and lets a cluster move to Private without changing the path.</p>
+      <p>Monitoring and plugin backends are different: Thanos, Alertmanager and plugin Services are ClusterIPs in the guest pod network. The console reaches them directly, with no tunnel and no proxy.</p>
+    </section>
+
+    <section data-step="5">
+      <div class="step-no">05 · TRANSITION</div>
+      <h2>The move</h2>
+      <p>The console becomes a Deployment in the <strong>HostedControlPlane namespace</strong> on the management cluster. Two things leave the path: the guest ingress and the <strong>*.apps</strong> record.</p>
+      <p>The hostname changes from <strong>console-openshift-console.apps.&lt;domain&gt;</strong> to <strong>console.&lt;domain&gt;</strong>, a sibling of the API. Bookmarks, runbooks and the customer's IdP redirect URI follow it.</p>
+    </section>
+
+    <section data-step="6">
+      <div class="step-no">06 · CONTROL PLANE</div>
+      <h2>Entry alongside the API</h2>
+      <p>Same exposure machinery as the API: PSC endpoint and a control-plane-side private LB for private clusters, a control-plane-side public LB for public clusters. No customer ingress, no customer load balancer.</p>
+      <p>The HCP router is SNI passthrough. It forwards <strong>console.&lt;domain&gt;</strong> to the console Service without terminating TLS, so the certificate is served by the pod itself — the platform wildcard that already covers the API, mounted from <strong>external-api-cert</strong>.</p>
+    </section>
+
+    <section data-step="7">
+      <div class="step-no">07 · CONTROL PLANE</div>
+      <h2>The API is in the same namespace</h2>
+      <p>The guest kube-apiserver is a ClusterIP Service beside the console: <strong>kube-apiserver.&lt;hcp-namespace&gt;.svc:6443</strong>. No PSC, no router, no tunnel; <strong>NO_PROXY</strong> keeps this path out of the proxy.</p>
+      <p>The console trusts the control-plane root CA for that hop, and needs a guest service-account identity for its own backend calls — dashboards, plugin metrics. The PoC mints and refreshes one with a token-minter sidecar.</p>
+    </section>
+
+    <section data-step="8">
+      <div class="step-no">08 · CONTROL PLANE</div>
+      <h2>Plugins and metrics take the tunnel</h2>
+      <p>Thanos, Alertmanager and plugin backends stay on the workers' pod network. The console reaches them through a socks5 sidecar → konnectivity-server → reverse tunnel → guest agent.</p>
+      <p>The agent dials out; the control plane never initiates into the customer VPC. Names resolve through the guest KAS ClusterIP, so no DNS is involved. The console trusts the guest service-ca for these backends, and the tunnel itself is mTLS. The pod terminal does not use it — that rides the direct KAS path.</p>
+    </section>
+
+    <section data-step="9">
+      <div class="step-no">09 · AUTH</div>
+      <h2>Same intent, different plumbing</h2>
+      <p>The cluster authenticates with external OIDC today, and the console does too. On the worker side the component operator writes the console's client entry into the guest API, and the authentication operator feeds the accepted client ID to the KAS.</p>
+      <p>In the split topology there is no component operator in the guest. The PoC mounted the client secret into the pod and added the client ID to the KAS audiences by hand. What is not automated is the registration itself — something has to write the console's client into the guest and get it accepted. The KAS mechanics are the same.</p>
+      <p>Moving to the integrated OAuth server is under discussion; it would replace the client-ID list with OAuthClient registration. Either way the console's public URL changes, so customer-side configuration that names it — the IdP redirect URI today — has to be updated.</p>
+    </section>
+
+    <section data-step="10">
+      <div class="step-no">10 · DOWNLOADS</div>
+      <h2>Downloads follows the console</h2>
+      <p>Core downloads move with the console: a separate Deployment in the HCP namespace with an oauth-proxy sidecar — the SNI-passthrough router cannot terminate the Route TLS — on <strong>downloads.&lt;domain&gt;</strong> and the same platform wildcard.</p>
+      <p>Additional download extensions can stay on the workers. Those are the exception: they keep an ingress dependency of their own.</p>
+    </section>
+
+    <section data-step="11">
+      <div class="step-no">11 · THE TRADE</div>
+      <h2>What changes, and what does not</h2>
+      <p>Unlocked: zero-worker clusters; no customer ingress, load balancer, DNS record or certificate on the console's path; the console under the same SLO ownership as the API.</p>
+      <p>Unchanged: the console binary, its UI, the plugin model, and RBAC and identity semantics.</p>
+      <p>Open: the auth model (external OIDC or the OAuth server), session stickiness across console replicas (<strong>openshift/console#17420</strong>, under review), and whether the console-operator evolves to a dual-API design or is replaced by a new operator using the existing one as a library. The runtime path is proven; the remaining decisions are product and upstream consensus.</p>
+    </section>
+
+  </div>
+</main>
+
+<footer>Paths and ownership follow the GCP-1202 spike. Open items are collected in the last section.</footer>
+
+<script>
+  const body = document.body;
+  const consoleEl = document.getElementById('console');
+  const sections = Array.from(document.querySelectorAll('section[data-step]'));
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const header = document.querySelector('header.top');
+  function syncHeader() {
+    document.documentElement.style.setProperty('--hdr', header.offsetHeight + 'px');
+  }
+  syncHeader();
+  window.addEventListener('resize', syncHeader);
+
+  const STEPS = [
+    { mode: 'classic', hot: ['console'], dim: ['konn'] },
+    { mode: 'classic', hot: ['console', 'workers'], dim: ['konn'] },
+    { mode: 'classic', hot: ['ingress', 'browser', 'p-browser-ingress', 'p-ingress-console'], dim: ['konn', 'mon', 'plugins'] },
+    { mode: 'classic', cert: true, hot: ['ingress', 'cert-classic'], dim: ['konn', 'mon', 'plugins'] },
+    { mode: 'classic', hot: ['console', 'kas', 'psc', 'router', 'mon', 'plugins', 'p-console-psc', 'p-psc-router', 'p-router-kas', 'p-console-mon', 'p-console-plugins'], dim: ['ingress'] },
+    { mode: 'control', hot: ['console'], dim: ['ingress', 'mon', 'plugins', 'konn'] },
+    { mode: 'control', cert: true, hot: ['browser', 'psc', 'router', 'console', 'p-browser-psc', 'p-psc-router', 'p-router-console', 'cert-control'], dim: ['ingress', 'mon', 'plugins', 'konn'] },
+    { mode: 'control', hot: ['console', 'kas', 'p-console-kas'], dim: ['ingress', 'mon', 'plugins', 'konn'] },
+    { mode: 'control', hot: ['console', 'konn', 'workers', 'p-console-konn', 'p-tunnel', 'p-console-mon'], dim: ['ingress'] },
+    { mode: 'control', auth: true, hot: ['browser', 'idp', 'console', 'kas', 'edge-auth', 'p-console-kas'], dim: ['ingress', 'mon', 'plugins', 'konn'] },
+    { mode: 'control', downloads: true, hot: ['downloads-control', 'router', 'console'], dim: ['ingress', 'mon', 'plugins', 'konn'] },
+    { mode: 'control', hot: [], dim: ['ingress'] }
+  ];
+
+  let mode = 'classic';
+  let consoleX = 0;
+  let anim = null;
+
+  function moveConsole(to) {
+    if (anim) cancelAnimationFrame(anim);
+    if (reduceMotion || body.classList.contains('no-anim')) {
+      consoleX = to;
+      consoleEl.setAttribute('transform', 'translate(' + consoleX + ',0)');
+      return;
+    }
+    const from = consoleX;
+    const start = performance.now();
+    const duration = 950;
+    const settle = setTimeout(() => {
+      if (anim) cancelAnimationFrame(anim);
+      anim = null;
+      consoleX = to;
+      consoleEl.setAttribute('transform', 'translate(' + consoleX + ',0)');
+    }, duration + 250);
+    function frame(now) {
+      const raw = Math.min(1, (now - start) / duration);
+      const t = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
+      consoleX = from + (to - from) * t;
+      consoleEl.setAttribute('transform', 'translate(' + consoleX + ',0)');
+      if (raw < 1) {
+        anim = requestAnimationFrame(frame);
+      } else {
+        clearTimeout(settle);
+        consoleX = to;
+        anim = null;
+      }
+    }
+    anim = requestAnimationFrame(frame);
+  }
+
+  function apply(index) {
+    const step = STEPS[index];
+    if (!step) return;
+
+    if (step.mode !== mode) {
+      mode = step.mode;
+      moveConsole(mode === 'control' ? -700 : 0);
+    }
+    body.classList.toggle('moved', mode === 'control');
+    body.classList.toggle('auth', !!step.auth);
+    body.classList.toggle('cert', !!step.cert);
+    body.classList.toggle('downloads', !!step.downloads);
+
+    document.querySelectorAll('.hot').forEach((el) => el.classList.remove('hot'));
+    document.querySelectorAll('.dim').forEach((el) => el.classList.remove('dim'));
+    step.hot.forEach((id) => { const el = document.getElementById(id); if (el) el.classList.add('hot'); });
+    step.dim.forEach((id) => { const el = document.getElementById(id); if (el) el.classList.add('dim'); });
+
+    sections.forEach((section, i) => section.classList.toggle('current', i === index));
+  }
+
+  let active = -1;
+
+  function activeStep() {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    if (window.scrollY >= max - 1) return sections.length - 1;
+    /* reading line: 40% down the part of the viewport the text can actually use,
+       below the sticky header on wide layouts and below the diagram on narrow ones */
+    const covered = window.matchMedia('(max-width: 1080px)').matches
+      ? document.querySelector('.stage').getBoundingClientRect().bottom
+      : header.offsetHeight;
+    const line = window.scrollY + covered + Math.max(80, window.innerHeight - covered) * 0.4;
+    let index = 0;
+    sections.forEach((section, i) => {
+      const top = section.getBoundingClientRect().top + window.scrollY;
+      if (top <= line) index = i;
+    });
+    return index;
+  }
+
+  let frozen = false;
+
+  function onScroll() {
+    if (frozen) return;
+    const index = activeStep();
+    if (index === active) return;
+    active = index;
+    apply(index);
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+
+  const params = new URLSearchParams(location.search);
+  if (params.has('step')) {
+    const n = Math.max(0, Math.min(STEPS.length - 1, Number(params.get('step')) || 0));
+    body.classList.add('no-anim');
+    if (params.has('still')) frozen = true;
+    active = n;
+    apply(n);
+    if (!params.has('still')) {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const rect = sections[n].getBoundingClientRect();
+        const y = window.scrollY + rect.top - (window.innerHeight - rect.height) / 2;
+        document.documentElement.style.scrollBehavior = 'auto';
+        window.scrollTo(0, Math.max(0, y));
+      }));
+    }
+  } else {
+    onScroll();
+  }
+
+  body.classList.add('ready');
+</script>
+</body>
+</html>
