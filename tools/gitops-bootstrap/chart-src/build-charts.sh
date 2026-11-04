@@ -10,6 +10,7 @@
 #
 # Usage: build-charts.sh --bundle-dir <dir containing manifests/>
 set -euo pipefail
+export LC_ALL=C
 
 die() { echo "build-charts.sh: $*" >&2; exit 1; }
 
