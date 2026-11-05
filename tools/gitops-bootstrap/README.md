@@ -162,7 +162,12 @@ beside it: locally maintained, checksum-pinned chart archives (`pins.yaml`,
 allowlist (`allowed-images.txt`). Their provenance, digests and the documented
 differences from the official bundle are in `chart-src/PROVENANCE.md`.
 `assemble.sh` composes the inactive MC/region bundles from this output (see
-`bootstrap-gitops/README.md`); its tests are `tests/run-step2-tests.sh`.
+`bootstrap-gitops/README.md`); no assembled bundle or shared-CRD artifact is
+committed, and its tests (`tests/run-step2-tests.sh`) assemble both types fresh
+and compare them with `tests/golden.sha256`. `.gitattributes` marks only the
+chart archives (`charts/*.tgz`) as `linguist-generated`; the generated chart
+`rbac.yaml`, `values.yaml` and `allowed-images.txt` stay visible because they are
+review gates.
 Resolving usable pins is engineering work; GCP-1286 separately owns certifying
 a chosen release as supported, and nothing here is that certification.
 `assemble.sh` rechecks every `IMAGE`-named env value and container image on the

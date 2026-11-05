@@ -1,0 +1,5 @@
+# Mark only outputs written by chart-src/build-charts.sh that no reviewer needs
+# line by line. The generated chart rbac.yaml (operator ClusterRole with
+# bind/escalate, a pre-activation permission-review item), values.yaml (image pins,
+# resource budget) and allowed-images.txt are deliberately left visible.
+charts/*.tgz linguist-generated=true

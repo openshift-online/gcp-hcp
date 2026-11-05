@@ -107,7 +107,7 @@ bundle when `GITOPS_BUNDLE_DIR` is given). Consequence: v1alpha1 `ArgoCD`
 resources cannot be served; the seed and the private chart use v1beta1.
 
 Selected CRDs: `applications`, `applicationsets`, `appprojects` (shared with the
-parent; extracted to `bootstrap-gitops/parent-artifacts/shared-crds.yaml`),
+parent; extracted by `assemble.sh --shared-crds-output`, see `bootstrap-gitops/README.md`),
 `argocds`, `rolloutmanagers`, `notificationsconfigurations`,
 `namespacemanagements`, and `controllerconfigurations.promoter.argoproj.io` (a
 required dependency API, see `bootstrap-gitops/README.md`). Excluded: ImageUpdater,
@@ -144,7 +144,8 @@ exempted field (delta 5). Documented deltas:
 
 ## Interim controller RBAC (temporary additive migration-parity exception)
 
-`bootstrap-gitops/.../controller-rbac.yaml` grants the application controller
+The generated bundle's `controller-rbac.yaml` (from
+`bundle-templates/controller-rbac.yaml.tmpl`) grants the application controller
 ServiceAccount the legacy bootstrap controller's wildcard rules
 (`*/*/*` and `nonResourceURLs *`). It is a **temporary, additive
 migration-parity exception, not least privilege**, with the exit criterion
