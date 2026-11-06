@@ -1,0 +1,14 @@
+apiVersion: v2
+name: gitops-operator
+description: >-
+  Locally maintained operator packaging for OpenShift GitOps 1.22.2
+  (GCP-1280): Deployment, ServiceAccount and RBAC authored around the manifests
+  of the official operator bundle CSV. Not a vendor-supported or certified
+  chart; see chart-src/PROVENANCE.md.
+type: application
+version: 0.1.0
+appVersion: "1.22.2"
+annotations:
+  gke-bootstrap/source-bundle: registry.redhat.io/openshift-gitops-1/gitops-operator-bundle@sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d
+  gke-bootstrap/upstream-source: https://github.com/redhat-developer/gitops-operator.git@cf32771491be2ed7f03d43d279171d6c265f2d2b
+  gke-bootstrap/license: Apache-2.0 (upstream gitops-operator repository LICENSE)

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-missing-sa
+description: Synthetic fixture whose Deployment references a ServiceAccount that is never declared, used to test render.sh's ServiceAccount consistency check. Not a real product chart.
+version: 0.1.0

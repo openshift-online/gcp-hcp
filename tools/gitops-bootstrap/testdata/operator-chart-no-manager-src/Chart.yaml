@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-no-manager
+description: Synthetic fixture with no container named 'manager' at all, used to test render.sh's absent-manager-identity rejection. Not a real product chart.
+version: 0.1.0

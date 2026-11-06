@@ -1,0 +1,49 @@
+# Bootstrap-owned registry access for the operator namespace. Uses the ESO
+# controller's own identity (no workloadIdentity stanza, no cluster IDs, no
+# service-account keys) against the explicit global project. The store is
+# namespaced and uniquely named; it does not depend on any Argo CD-managed
+# (day-two) store. Only the reference lives here: the credential is fetched
+# by ESO at runtime and never appears in Git.
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: __REGISTRY_STORE_NAME__
+  namespace: __OPERATOR_NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+spec:
+  provider:
+    gcpsm:
+      projectID: __GLOBAL_PROJECT_ID__
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: __PULL_SECRET_NAME__
+  namespace: __OPERATOR_NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+  annotations:
+    config.kubernetes.io/depends-on: external-secrets.io/namespaces/__OPERATOR_NAMESPACE__/SecretStore/__REGISTRY_STORE_NAME__
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: __REGISTRY_STORE_NAME__
+    kind: SecretStore
+  target:
+    name: __PULL_SECRET_NAME__
+    creationPolicy: Owner
+    template:
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        labels:
+          # The operator copies Secrets carrying this label from its own
+          # namespace into every Argo CD instance namespace.
+          operator.argoproj.io/propagate-image-pull-secret: "true"
+  data:
+    - secretKey: .dockerconfigjson
+      remoteRef:
+        key: default-openshift-pull-secret
+        decodingStrategy: None
