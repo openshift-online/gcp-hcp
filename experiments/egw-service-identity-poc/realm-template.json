@@ -1,0 +1,37 @@
+{
+  "realm": "poc",
+  "enabled": true,
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "gecko-poc",
+      "name": "EGW POC - direct Google JWKS",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-jwt",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "jwks.url": "__JWKS_URL__",
+        "use.jwks.url": "true"
+      }
+    },
+    {
+      "clientId": "gecko-poc-refetch",
+      "name": "EGW POC - refetch proxy JWKS",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-jwt",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "jwks.url": "__PROXY_JWKS_URL__",
+        "use.jwks.url": "true"
+      }
+    }
+  ]
+}
