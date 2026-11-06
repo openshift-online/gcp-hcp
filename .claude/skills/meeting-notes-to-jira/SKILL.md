@@ -32,6 +32,7 @@ Read the full transcript file provided by the user. These are typically Gemini-g
 
 Extract all Jira-actionable items:
 - **Fix version changes** — tickets moving between milestones (private-preview, public-preview, GA, future-consideration)
+- **Size field updates** — T-shirt sizing changes (XS, S, M, L, XL) for Features or Initiatives (customfield_10795)
 - **Comments to add** — meeting discussion context to capture on specific tickets
 - **Title or description updates** — when meeting decisions make existing card content inaccurate (e.g., scope changed, milestone reference is stale)
 - **New tickets to create** — new features, initiatives, epics, or tasks identified during the meeting
@@ -56,6 +57,7 @@ For each ticket, retrieve:
 - Description
 - Status and resolution
 - Fix version (`fixVersions`)
+- Size (`customfield_10795`) — for Features and Initiatives only
 - Issue type
 - Labels
 - Parent issue (if any)
@@ -92,13 +94,21 @@ For each, show:
 - Current value → proposed new value
 - Reason (who said it, why)
 
-### 3b. Title and Description Updates
+### 3b. Size Field Changes
+For each Feature or Initiative, show:
+- Ticket key and summary
+- Current Size value → proposed new Size value (XS, S, M, L, XL)
+- Reason (who said it, why)
+
+**Format:** Set using `{"value": "M"}` single-select format in `customfield_10795`
+
+### 3c. Title and Description Updates
 For each, show:
 - Ticket key
 - Current title → proposed new title (if changing)
 - The specific description text being replaced and the replacement text (show old vs new)
 
-### 3c. Comments to Add
+### 3d. Comments to Add
 For each, show the **exact comment text** that will be posted. Use this format:
 
 ```
@@ -115,7 +125,7 @@ Where `@[owner]` is the ticket's assignee, or reporter if no assignee is set. If
 
 For each comment in the preview, also show: `Owner tag: @[name] (assignee)` or `Owner tag: @[name] (reporter fallback)` or `⚠️ No assignee or reporter — no owner tag`.
 
-### 3d. New Tickets to Create
+### 3e. New Tickets to Create
 For each, show:
 - Issue type (Feature, Initiative, Epic, Task)
 - Summary
@@ -128,7 +138,7 @@ When creating new tickets, invoke the `gcp-hcp` skill for templates and required
 - Security: `{"name": "Red Hat Employee"}`
 - Follow the appropriate template (Feature, Initiative, Epic, Story, Task) from the gcp-hcp skill
 
-### 3e. Cascading Impacts
+### 3f. Cascading Impacts
 For any ticket being closed or obsoleted, list child items that may also need action (close, re-parent, or ask owner). Present these in a **separate table** from the main changes — do not bury them in the summary:
 
 ```
@@ -138,7 +148,7 @@ For any ticket being closed or obsoleted, list child items that may also need ac
 
 Each cascading item must show a proposed action: **close** (if clearly obsolete with the parent), **re-parent** (if the work is still valid under another parent), or **ask owner** (if ambiguous — post a comment tagging the assignee/reporter). The user approves the cascading batch as a group, not per-item.
 
-### 3f. Bulk Operations
+### 3g. Bulk Operations
 For bulk milestone moves, separate into:
 - **Clear moves** (parent milestone matches target) — list as a batch for approval
 - **Need input** (parent has different milestone, no parent, or ambiguous) — do **not** move automatically; post a comment tagging the assignee/reporter to ask which milestone
@@ -173,10 +183,11 @@ Present the final plan and wait for user approval. Do NOT proceed to execution u
 Once approved, execute changes in this order:
 
 1. **Fix version changes** (field updates on existing tickets)
-2. **Title and description updates** (edits to existing tickets)
-3. **Comments** (can be parallelized across tickets)
-4. **New ticket creation**
-5. **Bulk operations** (query affected tickets, list for confirmation, then apply)
+2. **Size field updates** (set `customfield_10795` using `{"value": "XS"}` format for Features/Initiatives)
+3. **Title and description updates** (edits to existing tickets)
+4. **Comments** (can be parallelized across tickets)
+5. **New ticket creation**
+6. **Bulk operations** (query affected tickets, list for confirmation, then apply)
 
 **MCP tools to use:**
 - `editJiraIssue` — for field updates (fix version, summary, description)
@@ -196,7 +207,7 @@ Generate a **Slack message** the user can post to inform the team of the changes
 ```
 **[Meeting Name] (YYYY-MM-DD) — Jira Updates Applied**
 
-[Organized by change type: version changes, title/description updates, comments added, new tickets created, bulk operations. Keep it scannable — one line per change, grouped under headers.]
+[Organized by change type: version changes, Size updates, title/description updates, comments added, new tickets created, bulk operations. Keep it scannable — one line per change, grouped under headers.]
 
 **Follow-up Action Items (not yet in Jira)**
 

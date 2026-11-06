@@ -51,6 +51,7 @@ Setting Priority and Fix Version depends on whether the work is customer-facing 
 |-------|---------------------------|-----------------------------------|
 | **Priority** | Product Manager | Architect |
 | **Fix Version** | Product Manager | Architect |
+| **Size** | Architect | Architect |
 
 > **Fix Version is the source of truth for milestone assignment.** Target Version is deprecated — do not use it.
 >
@@ -63,6 +64,19 @@ Setting Priority and Fix Version depends on whether the work is customer-facing 
 > **When Fix Version changes:** Always have a conversation before adding or removing items from a Fix Version.
 > Ensure mutual awareness of scope changes (Slack for PM visibility, or raise in refinement sessions).
 > Add a comment explaining the scope/timeline shift for the audit trail.
+>
+> **Size field:** T-shirt sizing (XS, S, M, L, XL) is **required for Definition of Ready**. The
+> Architect sets Size during refinement based on scope and complexity assessment. This is a rough
+> estimate for planning context, not a commitment. Consider: number of Epics anticipated, cross-team
+> dependencies, architectural unknowns, and breadth of customer impact. May be used for future
+> throughput analysis but is currently informational only.
+>
+> **Sizing guidance:**
+> - **XS** — Single Epic, well-understood, minimal dependencies (e.g., small config change, isolated enhancement)
+> - **S** — 1-2 Epics, low complexity, few dependencies (e.g., day-2 operation, straightforward feature)
+> - **M** — 2-3 Epics, moderate complexity or cross-team coordination (e.g., new API endpoint with docs and tests)
+> - **L** — 3-5 Epics, significant complexity or multiple dependencies (e.g., major integration, new subsystem)
+> - **XL** — 5+ Epics, high complexity, architectural changes, or extensive unknowns (e.g., platform redesign, multi-quarter initiative)
 
 ---
 
@@ -148,6 +162,7 @@ proceed.
 - [ ] Scope is defined: what's included, what's not
 - [ ] Acceptance Criteria are defined and specific
 - [ ] Priority set (not Undefined) — see [Priority Scheme](https://github.com/openshift-online/ai-helpers/blob/main/plugins/jira/reference/gcp-hcp.md)
+- [ ] Size set (XS, S, M, L, XL) by Architect
 - [ ] At least one Epic identified for breakdown
 - [ ] Dependencies documented (blocking issues linked)
 - [ ] Architect named in Jira

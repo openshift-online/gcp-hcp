@@ -40,7 +40,7 @@ The GCP project has 8 automation rules that manage Team field population:
 
 **Conditions:**
 - For Rule 4: Issue Type equals Epic AND Parent matches JQL "Team is not EMPTY" AND Team is EMPTY
-- For Rule 5: Issue Type is one of (Story, Task, Bug, Spike) AND Parent matches JQL "Team is not EMPTY" AND Team is EMPTY
+- For Rule 5: Issue Type is one of (Story, Task, Bug, Spike) AND Issue Type does not equal Sub-task AND Parent matches JQL "Team is not EMPTY" AND Team is EMPTY
 
 **Action:** Copy Team from parent work item
 
@@ -49,6 +49,8 @@ The GCP project has 8 automation rules that manage Team field population:
 - **Rule 5:** Story/Task/Bug/Spike inherits Team from parent Epic (when child is created/updated and child's Team is empty)
 
 **Note:** These rules trigger when the **child** issue is created or updated, not when the parent's Team value changes. If you change a parent's Team value, existing children will not be updated automatically.
+
+**Subtask Inheritance:** Subtask issue types are excluded from Rule 5 because Jira has built-in behavior where subtasks automatically inherit the Team field from their parent issue. The Team field cannot be explicitly set on subtasks via automation or API — attempting to do so will trigger an error. This inheritance happens automatically without requiring any automation rule.
 
 ### Rules 6-8: Auto-assign Team to Orphaned Items
 
