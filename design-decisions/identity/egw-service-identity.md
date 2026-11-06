@@ -18,7 +18,7 @@ Gecko authenticates to the Entitlement Gateway (EGW) using the OAuth2 client cre
 
 **D4 — Placement and access.** The signer is a dedicated service account in the environment's global project and holds no roles. Signing access is granted to gecko's Kubernetes workload identities per regional cluster, via `roles/iam.serviceAccountTokenCreator` on the signer, declared by each region's Terraform following the established per-region grant pattern.
 
-**D5 — Credential lifecycle.** Key rotation is owned by Google. Revoking a consumer is removing its grant on the signer; recovering from the loss of the signer is recreating it, which yields the same identity and JWKS URL with new keys. Signing calls are recorded in Cloud Audit Logs, provided Data Access logs are enabled for the IAM Credentials API.
+**D5 — Credential lifecycle.** Key rotation is owned by Google. Revoking a consumer is removing its grant on the signer; recovering from the loss of the signer is recreating it, which yields the same identity and JWKS URL with new keys. Signing calls are recorded in Cloud Audit Logs, provided Data Access logs are enabled for the IAM API (`iam.googleapis.com`) or all services.
 
 ```mermaid
 flowchart LR
@@ -66,7 +66,7 @@ flowchart LR
 
 ### Negative
 
-* Token refresh depends on the IAM Credentials API, SSO, and Google's JWKS endpoint being reachable; short token lifetimes bound the impact.
+* Token refresh depends on the IAM Credentials API, SSO, and Google's JWKS endpoint; if refresh is unavailable when the cached token expires, EGW reads fail until it recovers.
 * Non-production environments issue their tokens from the production SSO, coupling them to its availability.
 
 ## Cross-Cutting Concerns
@@ -78,7 +78,7 @@ flowchart LR
 
 ### Reliability:
 
-* An outage of the token refresh path is bounded by the short token lifetime.
+* A refresh outage is tolerated only until the cached token expires — the short lifetime bounds the grace window, not the outage.
 * Signer recovery is recreation in place — same identity, same JWKS URL, new keys — with no external coordination.
 
 ### Operability:
