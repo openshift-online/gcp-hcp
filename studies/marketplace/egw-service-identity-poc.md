@@ -79,7 +79,7 @@ demonstrated.
 
 ## Results (2026-11-04)
 
-Run against a local Keycloak 26.8 with a throwaway signer in `cveiga-gcp-hcp-1`. **All criteria
+Run against a local Keycloak 26.8 with a throwaway signer in a scratch GCP project. **All criteria
 met**, with one caveat worth designing around:
 
 | # | Question | Result |
@@ -109,7 +109,7 @@ JWKS refetch behaviour and accept the googleapis.com URL.
 ## If it passes
 
 Create the real signer GSAs in `<env>-global` (Terraform, gcp-hcp-infra) and file the CIAM
-enablement with the Google JWKS URLs — the weeks of lead time can run while the remaining
+enablement with the Google JWKS URLs while the remaining
 questions (URL acceptance, validation rules) are answered.
 
 ## If it fails

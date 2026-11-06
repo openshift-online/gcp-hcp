@@ -25,7 +25,7 @@ Design and pass criteria: [studies/marketplace/egw-service-identity-poc.md](../.
 ## Usage
 
 ```bash
-cp env.example .env        # defaults target the throwaway project cveiga-gcp-hcp-1
+cp env.example .env        # then set POC_PROJECT_ID to your scratch project
 source .env
 ./1-setup-gcp.sh           # create the signer SA
 ./2-run-keycloak.sh        # local Keycloak (first image pull is slow)
