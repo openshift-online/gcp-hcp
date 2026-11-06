@@ -52,7 +52,7 @@ flowchart LR
 ## Decision Rationale
 
 * **Justification**: no secret or key material is held, distributed, or rotated anywhere in the platform; revocation granularity is per consumer rather than per credential; and the access model reuses established infra patterns unchanged.
-* **Evidence**: a POC validated the full exchange — signing with `signJwt` preserves the required claims, SSO verifies assertions against Google's JWKS and picks up newly rotated keys, and Google publishes keys for a new signer immediately.
+* **Evidence**: a [POC](https://github.com/openshift-online/gcp-hcp/pull/169) validated the full exchange — signing with `signJwt` preserves the required claims, SSO verifies assertions against Google's JWKS and picks up newly rotated keys, and Google publishes keys for a new signer immediately.
 * **Comparison**: every rejected alternative requires holding key or secret material and adds rotation procedures; only the self-managed keypair offers custody independent of Google, at the cost of all-or-nothing revocation.
 
 ## Consequences
