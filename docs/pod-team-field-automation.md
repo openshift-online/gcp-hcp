@@ -40,24 +40,26 @@ The GCP project has 8 automation rules that manage Team field population:
 
 **Conditions:**
 - For Rule 4: Issue Type equals Epic AND Parent matches JQL "Team is not EMPTY" AND Team is EMPTY
-- For Rule 5: Issue Type is one of (Story, Task, Bug, Spike) AND Parent matches JQL "Team is not EMPTY" AND Team is EMPTY
+- For Rule 5: Issue Type is one of (Story, Task, Bug, Spike, Risk) AND Parent matches JQL "Team is not EMPTY" AND Team is EMPTY
 
 **Action:** Copy Team from parent work item
 
 **Rule details:**
 - **Rule 4:** Epic inherits Team from parent Feature or Initiative (when Epic is created/updated and Epic's Team is empty)
-- **Rule 5:** Story/Task/Bug/Spike inherits Team from parent Epic (when child is created/updated and child's Team is empty)
+- **Rule 5:** Story/Task/Bug/Spike/Risk inherits Team from parent Epic (when child is created/updated and child's Team is empty)
 
 **Note:** These rules trigger when the **child** issue is created or updated, not when the parent's Team value changes. If you change a parent's Team value, existing children will not be updated automatically.
 
+**Subtask Inheritance:** Subtask issue types are excluded from Rule 5 because Jira has built-in behavior where subtasks automatically inherit the Team field from their parent issue. The Team field cannot be explicitly set on subtasks via automation or API — attempting to do so will trigger an error. This inheritance happens automatically without requiring any automation rule.
+
 ### Rules 6-8: Auto-assign Team to Orphaned Items
 
-**Purpose:** Automatically populate Team field for orphaned Epics/Stories/Tasks (items without a parent) when assigned to a pod member.
+**Purpose:** Automatically populate Team field for orphaned Epics/Stories/Tasks/Risks (items without a parent) when assigned to a pod member.
 
 **Trigger:** Issue updated
 
 **Conditions:**
-1. Issue Type is one of: Story, Task, Bug, Spike, Epic
+1. Issue Type is one of: Story, Task, Bug, Spike, Risk, Epic
 2. Parent does not exist
 3. Assignee is one of: [pod members]
 4. Team is EMPTY
@@ -92,10 +94,11 @@ Feature/Initiative (Rules 1-3: assignee-based)
   │     ├── Story (Rule 5: inherit from Epic)
   │     ├── Task (Rule 5: inherit from Epic)
   │     ├── Bug (Rule 5: inherit from Epic)
-  │     └── Spike (Rule 5: inherit from Epic)
+  │     ├── Spike (Rule 5: inherit from Epic)
+  │     └── Risk (Rule 5: inherit from Epic)
   └── Orphaned Epic (Rules 6-8: assignee-based)
 
-Orphaned Story/Task/Bug/Spike (Rules 6-8: assignee-based)
+Orphaned Story/Task/Bug/Spike/Risk (Rules 6-8: assignee-based)
 ```
 
 **Inheritance strategy:** Child issues inherit Team from their parent. This ensures that all work under a Feature shows on that pod's board, even if the child issues are unassigned or assigned to members of other pods.
@@ -205,17 +208,17 @@ This identifies items actively being worked on that are missing Team assignment.
 
 **Pod A:**
 ```
-project = GCP AND type in (Story, Task, Bug, Spike, Epic) AND parent is EMPTY AND assignee IN (557058:f58d285f-ca16-4196-98ae-c8576387a7a8, 712020:05660a16-5e3f-4d3e-bd7e-b8f0bc0ab8ca, 712020:53e74065-a06d-48da-91ec-95dd01f59f18, 712020:b2c7df9f-43dd-4999-a8a7-d1bbb73c1b85) AND Team is EMPTY AND resolution = Unresolved
+project = GCP AND type in (Story, Task, Bug, Spike, Risk, Epic) AND parent is EMPTY AND assignee IN (557058:f58d285f-ca16-4196-98ae-c8576387a7a8, 712020:05660a16-5e3f-4d3e-bd7e-b8f0bc0ab8ca, 712020:53e74065-a06d-48da-91ec-95dd01f59f18, 712020:b2c7df9f-43dd-4999-a8a7-d1bbb73c1b85) AND Team is EMPTY AND resolution = Unresolved
 ```
 
 **Pod B:**
 ```
-project = GCP AND type in (Story, Task, Bug, Spike, Epic) AND parent is EMPTY AND assignee IN (71e7cb8b-69d6-4f1a-bc99-c0dd159b44cd, 712020:cb8b470b-78d3-4bb3-87e7-e0303090dd22, 712020:e08ab655-a58a-44ba-a6f9-ce604be36de3, 712020:8fe92d81-e996-45c1-bfc8-c40af89ddd05) AND Team is EMPTY AND resolution = Unresolved
+project = GCP AND type in (Story, Task, Bug, Spike, Risk, Epic) AND parent is EMPTY AND assignee IN (71e7cb8b-69d6-4f1a-bc99-c0dd159b44cd, 712020:cb8b470b-78d3-4bb3-87e7-e0303090dd22, 712020:e08ab655-a58a-44ba-a6f9-ce604be36de3, 712020:8fe92d81-e996-45c1-bfc8-c40af89ddd05) AND Team is EMPTY AND resolution = Unresolved
 ```
 
 **Pod C:**
 ```
-project = GCP AND type in (Story, Task, Bug, Spike, Epic) AND parent is EMPTY AND assignee IN (5c23e222b92be60d8040734f, 63d898f889bf35bcc8cf08ea, 712020:adf0b2e3-0ac6-40aa-a97a-a4c4f7cc2656, 712020:19a8c82b-ec27-404c-877e-3ef8f06cd756) AND Team is EMPTY AND resolution = Unresolved
+project = GCP AND type in (Story, Task, Bug, Spike, Risk, Epic) AND parent is EMPTY AND assignee IN (5c23e222b92be60d8040734f, 63d898f889bf35bcc8cf08ea, 712020:adf0b2e3-0ac6-40aa-a97a-a4c4f7cc2656, 712020:19a8c82b-ec27-404c-877e-3ef8f06cd756) AND Team is EMPTY AND resolution = Unresolved
 ```
 
 ### View all work for a specific pod
