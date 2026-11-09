@@ -245,6 +245,6 @@ When creating a Feature or Initiative in Jira to track work identified by this a
 - `M` → Consider Size: M or L (refine based on Epic breakdown)
 - `L` → Consider Size: L or XL (significant work, validate Epic count)
 - `XL` → Size: XL (upstream dependencies, multi-stage work)
-- `UNVERIFIED` → Do not set Size until effort is determined
+- `UNVERIFIED` → Architect estimates Size based on Epic breakdown and scope evidence when available; leave unset only if sizing evidence is insufficient. Record uncertainty in ticket description.
 
 **Rationale:** LEVEL OF EFFORT reflects implementation complexity; Size reflects total scope (Epic count + complexity + dependencies). Use LEVEL OF EFFORT as initial guidance, then refine based on expected Epic breakdown and playbook criteria during Feature/Initiative refinement. This ensures Size accurately represents the full scope and satisfies the Definition of Ready requirement.
