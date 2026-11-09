@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-separator-grammar-image
+description: Synthetic fixture whose manager image repository path uses a dash, a single underscore, and a double underscore, used as a positive regression for render.sh's supported separator grammar. Not a real product chart.
+version: 0.1.0

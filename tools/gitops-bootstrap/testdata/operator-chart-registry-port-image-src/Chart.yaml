@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-registry-port-image
+description: Synthetic fixture whose manager image uses an explicit registry:port and multi-segment path, used as a positive regression for render.sh's image-reference grammar. Not a real product chart.
+version: 0.1.0

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-bare-digest-image
+description: Synthetic fixture whose manager image is a bare "@sha256:<digest>" with no repository, used to test render.sh's repository-less image rejection. Not a real product chart.
+version: 0.1.0

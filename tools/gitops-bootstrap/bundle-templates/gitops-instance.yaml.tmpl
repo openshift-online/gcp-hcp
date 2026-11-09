@@ -1,0 +1,37 @@
+# Create-if-absent ArgoCD seed. The operator reconciles it once; after the
+# later configuration handoff the day-two configuration owns the spec, so
+# Config Sync must not overwrite it (mutation: ignore) and must not delete it
+# when this declaration is released (deletion: detach). No argocd-cm seed.
+apiVersion: argoproj.io/v1beta1
+kind: ArgoCD
+metadata:
+  name: __INSTANCE_NAME__
+  namespace: __INSTANCE_NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+  annotations:
+    client.lifecycle.config.k8s.io/mutation: ignore
+    client.lifecycle.config.k8s.io/deletion: detach
+    config.kubernetes.io/depends-on: __INSTANCE_DEPENDS_ON__
+spec:
+  disableAdmin: true
+  usersAnonymousEnabled: false
+  resourceTrackingMethod: annotation
+  applicationSet:
+    enabled: true
+  notifications:
+    enabled: true
+  # Same authproxy connector as the existing bootstrap argocd-cm seed.
+  sso:
+    provider: dex
+    dex:
+      config: |
+        connectors:
+          - type: authproxy
+            id: iap
+            name: Google Cloud IAP
+            config:
+              userHeader: X-Goog-Authenticated-User-Email
+              allowedDomains:
+                - redhat.com

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-crds-chart
+description: Synthetic fixture for tools/gitops-bootstrap offline checks. Not a real product chart.
+version: 0.1.0

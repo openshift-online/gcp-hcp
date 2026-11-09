@@ -1,0 +1,37 @@
+Locally maintained OpenShift GitOps 1.22.2 chart packaging (GCP-1280)
+
+The CustomResourceDefinitions (gitops-operator-crds) and the operator RBAC
+rules, Deployment shape, environment and image references (gitops-operator)
+are taken from the official OpenShift GitOps operator bundle
+registry.redhat.io/openshift-gitops-1/gitops-operator-bundle@sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d
+(appVersion 1.22.2), which declares its upstream source as
+https://github.com/redhat-developer/gitops-operator.git at commit
+cf32771491be2ed7f03d43d279171d6c265f2d2b. That repository is licensed under
+the Apache License 2.0; the LICENSE file shipped in this chart is a verbatim
+copy of that commit's LICENSE (sha256
+43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1).
+Licenses of individual upstream dependencies that the CRDs originate from were
+not separately verified.
+
+CHANGES MADE TO UPSTREAM FILES (Apache License 2.0, section 4(b)):
+
+  * crds/argocds.argoproj.io.yaml (gitops-operator-crds) is a MODIFIED copy of
+    the bundle file manifests/argoproj.io_argocds.yaml (sha256
+    7b812b76b4e89b58df34cb34a47e4d97bc91ea13a1c7340148905a44a71843ef): the
+    v1alpha1 entry of spec.versions and the whole spec.conversion block (the
+    Webhook conversion) were REMOVED. The v1beta1 version entry is unchanged.
+    The file was re-serialized by yq, so its bytes differ from the original.
+  * The other seven CRD files in gitops-operator-crds are unmodified copies of
+    the corresponding bundle files.
+  * gitops-operator/templates/rbac.yaml and gitops-operator/values.yaml are
+    GENERATED from the bundle's ClusterServiceVersion (rules, environment and
+    image references); the default of ENABLE_CONVERSION_WEBHOOK was changed from
+    "true" to "false", WATCH_NAMESPACE was added as an empty value, and the
+    manager `resources` (the official CSV sets `resources: {}`) default to an
+    UNTUNED INITIAL BUDGET with no performance or sizing guarantee: requests
+    cpu 100m / memory 256Mi, limits cpu 1 / memory 1Gi.
+
+The Helm scaffolding (Chart.yaml, other templates, packaging) was written
+independently for this repository. This is a local packaging for GKE bootstrap
+use: it is not a Red Hat-published, supported, or certified chart. See
+chart-src/PROVENANCE.md in the gcp-hcp repository.

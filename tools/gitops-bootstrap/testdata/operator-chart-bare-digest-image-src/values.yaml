@@ -1,0 +1,10 @@
+pullSecret:
+  create: true
+serviceAccount:
+  name: synthetic-operator-controller-manager
+image: "@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+imagePullSecrets:
+  - name: ""
+env:
+  ENABLE_CONVERSION_WEBHOOK: "true"
+  ARGOCD_CLUSTER_CONFIG_NAMESPACES: ""
