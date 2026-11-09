@@ -28,3 +28,7 @@ spec:
               value: {{ .Values.env.ARGOCD_CLUSTER_CONFIG_NAMESPACES | quote }}
             - name: ARGOCD_IMAGE
               value: {{ .Values.operandImages.argocd | quote }}
+            {{- if .Values.env.CONTROLLER_CLUSTER_ROLE }}
+            - name: CONTROLLER_CLUSTER_ROLE
+              value: {{ .Values.env.CONTROLLER_CLUSTER_ROLE | quote }}
+            {{- end }}

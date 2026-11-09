@@ -34,6 +34,7 @@ Usage: assemble.sh --type mc|region --global-project-id <project-id> \
                           `argocd` (the operator would create an `argocd-cluster`
                           admin Secret colliding with the ESO metadata Secret).
   --instance-namespace   Argo CD instance namespace. Default: argocd.
+  --controller-cluster-role  Optional reviewed controller namespace role.
 EOF
 }
 
@@ -53,6 +54,7 @@ TEMPLATE_DIR="$SCRIPT_DIR/bundle-templates"
 NAMESPACE="gitops-operator"
 INSTANCE_NAME="gitops"
 INSTANCE_NAMESPACE="argocd"
+CONTROLLER_CLUSTER_ROLE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -66,6 +68,7 @@ while [[ $# -gt 0 ]]; do
     --namespace) NAMESPACE="$2"; shift 2 ;;
     --instance-name) INSTANCE_NAME="$2"; shift 2 ;;
     --instance-namespace) INSTANCE_NAMESPACE="$2"; shift 2 ;;
+    --controller-cluster-role) CONTROLLER_CLUSTER_ROLE="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
@@ -133,6 +136,7 @@ trap 'rm -rf "$WORK_DIR"' EXIT
   --output-dir "$WORK_DIR/rendered" \
   --namespace "$NAMESPACE" \
   --instance-namespace "$INSTANCE_NAMESPACE" \
+  --controller-cluster-role "$CONTROLLER_CLUSTER_ROLE" \
   --service-account "$SERVICE_ACCOUNT" \
   --image-pull-secret-name "$PULL_SECRET_NAME" \
   --image-allowlist "$ALLOWLIST_FILE" >/dev/null

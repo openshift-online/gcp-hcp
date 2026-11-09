@@ -23,6 +23,10 @@ Usage: render.sh --pins <pins.yaml> --output-dir <dir> \
          --image-pull-secret-name <name> \
          (--allowed-image <image-ref> | --image-allowlist <file>)...
 
+Optional:
+  --controller-cluster-role NAME  Reviewed controller namespace role; the role
+                                  must be supplied separately by its owner.
+
 Required:
   --pins FILE                 Pin/input contract (see pins.example.yaml).
   --output-dir DIR            Destination directory; must not already exist.
@@ -125,6 +129,7 @@ OUTPUT_DIR=""
 NAMESPACE=""
 INSTANCE_NAMESPACE=""
 SERVICE_ACCOUNT=""
+CONTROLLER_CLUSTER_ROLE=""
 IMAGE_PULL_SECRET_NAME=""
 ALLOWLIST_FILE=""
 declare -a ALLOWED_IMAGES=()
@@ -136,6 +141,7 @@ while [[ $# -gt 0 ]]; do
     --namespace) NAMESPACE="$2"; shift 2 ;;
     --instance-namespace) INSTANCE_NAMESPACE="$2"; shift 2 ;;
     --service-account) SERVICE_ACCOUNT="$2"; shift 2 ;;
+    --controller-cluster-role) CONTROLLER_CLUSTER_ROLE="$2"; shift 2 ;;
     --image-pull-secret-name) IMAGE_PULL_SECRET_NAME="$2"; shift 2 ;;
     --allowed-image) ALLOWED_IMAGES+=("$2"); shift 2 ;;
     --image-allowlist) ALLOWLIST_FILE="$2"; shift 2 ;;
@@ -161,6 +167,9 @@ done
 for n in "$SERVICE_ACCOUNT" "$IMAGE_PULL_SECRET_NAME"; do
   valid_dns_subdomain "$n" || die "not a valid Kubernetes object name (DNS-1123 subdomain, max 253 chars): $n"
 done
+if [[ -n "$CONTROLLER_CLUSTER_ROLE" ]]; then
+  valid_dns_subdomain "$CONTROLLER_CLUSTER_ROLE" || die "invalid --controller-cluster-role (DNS-1123 subdomain, max 253 chars)"
+fi
 
 [[ -z "$OUTPUT_DIR" || "$OUTPUT_DIR" != "/" ]] || die "refusing to use / as --output-dir"
 [[ -e "$OUTPUT_DIR" ]] && die "output directory already exists, refusing to overwrite: $OUTPUT_DIR"
@@ -240,8 +249,8 @@ check_chart_version() {
 }
 
 # The archive's top-level directory name is the authoritative chart name.
-CRDS_CHART_NAME="$(tar -tzf "$CRDS_CHART_PATH" | head -1 | cut -d/ -f1)"
-OPERATOR_CHART_NAME="$(tar -tzf "$OPERATOR_CHART_PATH" | head -1 | cut -d/ -f1)"
+CRDS_CHART_NAME="$(tar -tzf "$CRDS_CHART_PATH" | sed -n '1p' | cut -d/ -f1)"
+OPERATOR_CHART_NAME="$(tar -tzf "$OPERATOR_CHART_PATH" | sed -n '1p' | cut -d/ -f1)"
 CRDS_CHART_DIR="$WORK_DIR/charts/$CRDS_CHART_NAME"
 OPERATOR_CHART_DIR="$WORK_DIR/charts/$OPERATOR_CHART_NAME"
 [[ -f "$CRDS_CHART_DIR/Chart.yaml" ]] || die "CRDs archive did not extract a valid chart: $CRDS_CHART_PATH"
@@ -279,6 +288,10 @@ strip_top_level_status "$WORK_DIR/rendered/crds.yaml"
 # Never render a Docker config Secret or any other credential-bearing object
 # into the output; imagePullSecrets is a reference to a Secret supplied
 # independently by the caller, not a value rendered here.
+declare -a CONTROLLER_ROLE_ARGS=()
+if [[ -n "$CONTROLLER_CLUSTER_ROLE" ]]; then
+  CONTROLLER_ROLE_ARGS=(--set-string "env.CONTROLLER_CLUSTER_ROLE=$CONTROLLER_CLUSTER_ROLE")
+fi
 helm template gitops-operator "$OPERATOR_CHART_DIR" \
   --namespace "$NAMESPACE" \
   --set pullSecret.create=false \
@@ -286,6 +299,7 @@ helm template gitops-operator "$OPERATOR_CHART_DIR" \
   --set-string env.ENABLE_CONVERSION_WEBHOOK=false \
   --set-string env.ARGOCD_CLUSTER_CONFIG_NAMESPACES="$INSTANCE_NAMESPACE" \
   --set-string "imagePullSecrets[0].name=$IMAGE_PULL_SECRET_NAME" \
+  ${CONTROLLER_ROLE_ARGS[@]+"${CONTROLLER_ROLE_ARGS[@]}"} \
   > "$WORK_DIR/operator-overlay/operator-helm.yaml"
 
 # Helm's release namespace is not emitted in most of this chart's manifests;
@@ -409,6 +423,9 @@ assert_manager_env_value() {
 }
 assert_manager_env_value ENABLE_CONVERSION_WEBHOOK false
 assert_manager_env_value ARGOCD_CLUSTER_CONFIG_NAMESPACES "$INSTANCE_NAMESPACE"
+if [[ -n "$CONTROLLER_CLUSTER_ROLE" ]]; then
+  assert_manager_env_value CONTROLLER_CLUSTER_ROLE "$CONTROLLER_CLUSTER_ROLE"
+fi
 
 pull_secret_referenced="$(
   jq -r --arg n "$IMAGE_PULL_SECRET_NAME" \

@@ -548,5 +548,47 @@ rendered_mixed_case_host_image="$(
 assert_eq "mixed-case host image reference round-trips exactly" "$MIXED_CASE_HOST_IMAGE" "$rendered_mixed_case_host_image"
 
 echo
+OUT_ROLE="$TMP_DIR/controller-role"
+if run_render --pins "$TMP_DIR/good-pins.yaml" --output-dir "$OUT_ROLE" "${COMMON_ARGS[@]}" --controller-cluster-role gitops-hcp-controller-local >"$TMP_DIR/controller-role.log" 2>&1; then
+  ok "reviewed controller role renders"
+else
+  bad "reviewed controller role renders"
+  cat "$TMP_DIR/controller-role.log" >&2
+fi
+rendered_role="$(yq eval -o=json -I=0 '.' "$OUT_ROLE/operator.yaml" | jq -sr '[.[] | select(.kind == "Deployment") | .spec.template.spec.containers[] | select(.name == "manager") | .env[] | select(.name == "CONTROLLER_CLUSTER_ROLE") | .value] | join(",")')"
+assert_eq "controller role is bound to the manager env" "gitops-hcp-controller-local" "$rendered_role"
+default_role_count="$(yq eval -o=json -I=0 '.' "$OUT1/operator.yaml" | jq -s '[.[] | select(.kind == "Deployment") | .spec.template.spec.containers[] | .env[] | select(.name == "CONTROLLER_CLUSTER_ROLE")] | length')"
+assert_eq "default output adds no controller role override" "0" "$default_role_count"
+expect_failure "invalid controller role fails closed" "invalid --controller-cluster-role" "$TMP_DIR/bad-controller-role.log" --pins "$TMP_DIR/good-pins.yaml" --output-dir "$TMP_DIR/bad-controller-role" "${COMMON_ARGS[@]}" --controller-cluster-role bad/role
+
+# Long archive listings must be drained with pipefail enabled (GNU tar SIGPIPE).
+mkdir -p "$TMP_DIR/large-chart"
+cp -R "$TOOL_DIR/testdata/crds-chart-src" "$TMP_DIR/large-chart/chart"
+mkdir -p "$TMP_DIR/large-chart/chart/files"
+for ((i=0; i<3000; i++)); do
+  : > "$TMP_DIR/large-chart/chart/files/${i}-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.txt"
+done
+helm package "$TMP_DIR/large-chart/chart" -d "$TMP_DIR/large-chart" >/dev/null
+LARGE_TGZ="$TMP_DIR/large-chart/synthetic-crds-chart-0.1.0.tgz"
+write_pins "$TMP_DIR/large-listing-pins.yaml" "$LARGE_TGZ" "$(sha256_of "$LARGE_TGZ")" "$OPERATOR_TGZ" "$OPERATOR_SUM"
+if run_render --pins "$TMP_DIR/large-listing-pins.yaml" --output-dir "$TMP_DIR/large-listing-out" "${COMMON_ARGS[@]}" >"$TMP_DIR/large-listing.log" 2>&1; then
+  ok "large archive listing does not fail with SIGPIPE"
+else
+  bad "large archive listing does not fail with SIGPIPE"
+  cat "$TMP_DIR/large-listing.log" >&2
+fi
+
+if run_render --pins "$TMP_DIR/good-pins.yaml" --output-dir "$TMP_DIR/numeric-namespace-out" \
+    --namespace 123 --instance-namespace argocd-test \
+    --service-account test-operator-sa --image-pull-secret-name test-pull-secret \
+    --allowed-image "$GOOD_MANAGER_IMAGE" --allowed-image "$GOOD_OPERAND_IMAGE" >"$TMP_DIR/numeric-namespace.log" 2>&1; then
+  ok "numeric namespace renders as a string"
+  numeric_ns="$(yq eval -o=json -I=0 '.' "$TMP_DIR/numeric-namespace-out/operator.yaml" | jq -sr 'all(.[] | select(.kind == "Namespace"); .metadata.name == "123")')"
+  assert_eq "numeric Namespace name remains a string" true "$numeric_ns"
+else
+  bad "numeric namespace renders as a string"
+  cat "$TMP_DIR/numeric-namespace.log" >&2
+fi
+
 echo "gitops-bootstrap offline checks: $PASS passed, $FAIL failed"
 [[ "$FAIL" -eq 0 ]]

@@ -266,3 +266,14 @@ alongside malformed dot placement — leading dot, trailing dot, double dot,
 and uppercase (negative).
 
 Contacts no network and no cluster.
+
+## Controller namespace role (GCP-1285)
+
+`render.sh` and `assemble.sh` accept the optional
+`--controller-cluster-role NAME` (DNS-1123 subdomain, maximum 253 characters).
+It sets and verifies the unique manager container's `CONTROLLER_CLUSTER_ROLE`
+input. Omitting it preserves the original output. The reviewed cluster owner
+must supply that ClusterRole separately. This input replaces default namespace
+roles; it does not remove default cluster-wide or interim parity bindings, grant
+cloud access, or establish an admission-enforced permission boundary. Coordinate
+it with the reviewed ArgoCD policy and verify the effective binding inventory.
