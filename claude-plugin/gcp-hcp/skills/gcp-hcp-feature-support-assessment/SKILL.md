@@ -229,16 +229,22 @@ evidence in `UNVERIFIED LAYERS` and unanswered user questions in
 
 ## Creating Jira tickets from assessments
 
-When creating a Feature or Initiative in Jira to track work identified by this assessment, set the Size field (customfield_10795) to match the LEVEL OF EFFORT:
+When creating a Feature or Initiative in Jira to track work identified by this assessment, use LEVEL OF EFFORT as a **starting point** for the Size field (customfield_10795), then adjust based on the playbook's Epic-count criteria.
 
-| LEVEL OF EFFORT | Size Field Value |
-| --- | --- |
-| `NONE` | Do not create a ticket (work is complete) |
-| `XS` | `{"value": "XS"}` |
-| `S` | `{"value": "S"}` |
-| `M` | `{"value": "M"}` |
-| `L` | `{"value": "L"}` |
-| `XL` | `{"value": "XL"}` |
-| `UNVERIFIED` | Do not set Size until effort is determined |
+**Playbook sizing criteria** (from `docs/feature-initiative-playbook.md`):
+- **XS**: 1 Epic, well-understood, minimal dependencies
+- **S**: 1-2 Epics, low complexity, few dependencies
+- **M**: 2-3 Epics, moderate complexity or cross-team coordination
+- **L**: 3-5 Epics, significant complexity or multiple dependencies
+- **XL**: 5+ Epics, high complexity, architectural changes, or extensive unknowns
 
-**Rationale:** LEVEL OF EFFORT represents the implementation scope needed to deliver the feature, which directly maps to Feature/Initiative sizing. Setting Size based on the assessment ensures planning data is consistent between the technical assessment and the Jira ticket, and satisfies the Definition of Ready requirement for Features and Initiatives.
+**Initial mapping from LEVEL OF EFFORT:**
+- `NONE` → Do not create a ticket (work is complete)
+- `XS` → Consider Size: XS (if truly single Epic, trivial change)
+- `S` → Consider Size: S or M (depends on Epic count and complexity)
+- `M` → Consider Size: M or L (refine based on Epic breakdown)
+- `L` → Consider Size: L or XL (significant work, validate Epic count)
+- `XL` → Size: XL (upstream dependencies, multi-stage work)
+- `UNVERIFIED` → Do not set Size until effort is determined
+
+**Rationale:** LEVEL OF EFFORT reflects implementation complexity; Size reflects total scope (Epic count + complexity + dependencies). Use LEVEL OF EFFORT as initial guidance, then refine based on expected Epic breakdown and playbook criteria during Feature/Initiative refinement. This ensures Size accurately represents the full scope and satisfies the Definition of Ready requirement.
