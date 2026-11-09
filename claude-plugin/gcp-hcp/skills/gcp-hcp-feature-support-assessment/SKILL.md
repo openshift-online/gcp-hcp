@@ -174,6 +174,7 @@ Missing evidence lowers confidence; it does not automatically raise effort.
 | Level | Guideline |
 | --- | --- |
 | `NONE` | No implementation remains. |
+| `XS` | Trivial change: single config value, documentation-only, or mechanical field copy requiring no validation or new tests. |
 | `S` | Mechanical API/CLI exposure, field passthrough, docs, or local tests. |
 | `M` | Moderate validation, generated API/client changes, simple transforms, or localized Terraform/Helm changes. |
 | `L` | New HyperShift, Gecko, or kube-applier behavior; durable reconciliation; lifecycle semantics; significant infrastructure rollout; image pre-warming; or integration tests. |
@@ -203,7 +204,7 @@ SUPPORTED: TRUE|FALSE|UNVERIFIED
 SCOPE: NONE|<comma-separated scope values>|UNVERIFIED
 UNVERIFIED LAYERS: NONE|<required repository, artifact, environment, or dependency and reason>
 OPEN QUESTIONS: NONE|<material assumption awaiting user confirmation>
-LEVEL OF EFFORT: NONE|S|M|L|XL|UNVERIFIED
+LEVEL OF EFFORT: NONE|XS|S|M|L|XL|UNVERIFIED
 RISK: LOW|MEDIUM|HIGH
 CONFIDENCE: HIGH|MEDIUM|LOW
 SUMMARY: One or two sentences on current support, remaining work, and any partial assessment.
@@ -225,3 +226,19 @@ For an unanswered question that could change scope or effort, use
 same known work or bound applies under every plausible answer. Keep missing
 evidence in `UNVERIFIED LAYERS` and unanswered user questions in
 `OPEN QUESTIONS`.
+
+## Creating Jira tickets from assessments
+
+When creating a Feature or Initiative in Jira to track work identified by this assessment, set the Size field (customfield_10795) to match the LEVEL OF EFFORT:
+
+| LEVEL OF EFFORT | Size Field Value |
+| --- | --- |
+| `NONE` | Do not create a ticket (work is complete) |
+| `XS` | `{"value": "XS"}` |
+| `S` | `{"value": "S"}` |
+| `M` | `{"value": "M"}` |
+| `L` | `{"value": "L"}` |
+| `XL` | `{"value": "XL"}` |
+| `UNVERIFIED` | Do not set Size until effort is determined |
+
+**Rationale:** LEVEL OF EFFORT represents the implementation scope needed to deliver the feature, which directly maps to Feature/Initiative sizing. Setting Size based on the assessment ensures planning data is consistent between the technical assessment and the Jira ticket, and satisfies the Definition of Ready requirement for Features and Initiatives.
