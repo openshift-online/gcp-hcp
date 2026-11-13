@@ -57,7 +57,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [hypershift-gmp-native-monitoring](observability/hypershift-gmp-native-monitoring.md) | GMP-native monitoring resources in HyperShift via the `--enable-gmp-monitoring` flag with a CPO image compatibility gate (evolves the hybrid approach) |
 | [integrated-alerting-framework](observability/integrated-alerting-framework.md) | Cloud Monitoring routing to PagerDuty and Cloud Run diagnosis agent |
 | [data-lake-for-diagnostics-and-compliance](observability/data-lake-for-diagnostics-and-compliance.md) | Two-tier data lake: BigQuery for real-time data, Log Analytics for compliance |
-| [hosted-cluster-api-synthetic-monitoring](observability/hosted-cluster-api-synthetic-monitoring.md) | Batched Cloud Monitoring synthetic monitors probe every hosted cluster's /livez via PSC (and public endpoint), per-cluster api_up metric and alerts |
+| [hosted-cluster-api-synthetic-monitoring](observability/hosted-cluster-api-synthetic-monitoring.md) | Batched Cloud Monitoring synthetic monitors probe every hosted cluster's /livez via its private load balancer (and public endpoint), per-cluster api_up and certificate alerts |
 
 ## Automation & CI/CD
 
