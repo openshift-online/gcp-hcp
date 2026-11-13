@@ -76,7 +76,7 @@ Management cluster project (one per MC, every region)
 | Component | Owner / mechanism | Per |
 |---|---|---|
 | Monitoring VPC + subnet (MC region), probers' service accounts, Cloud Run functions, synthetic monitors, Service Directory namespace `hcp-uptime` | Terraform, `terraform/modules/management-cluster` (gcp-hcp-infra) | MC |
-| Prober source (one codebase, `MODE=psc\|public`) | Own repository, versioned and released through Konflux; Terraform deploys a pinned version | — |
+| Prober source (one codebase, `MODE=psc\|public`) | Node.js function source in gcp-hcp-infra (`functions/hc-api-prober`), unit-tested; Terraform deploys it as a 2nd gen Cloud Run function. Synthetic monitors require the Node.js runtime and functions built from source, not container images, so this is not a Konflux image. | — |
 | PSC endpoint (`ComputeAddress` + `ComputeForwardingRule` → `psc-<clusterID>`), Service Directory service `hc-<clusterID>` + endpoint (`addressRef` → the address) | Config Connector resources shipped by Gecko with the hosted cluster manifests; removed with the cluster | HC |
 | Service Directory service `hcpub-<clusterID>` + address-less endpoint named `<clusterName>-<slug>` | Config Connector, shipped by Gecko for PublicAndPrivate clusters only | HC |
 | Service attachment accept list includes the MC project | HyperShift change (upstream PR) | HC |
@@ -203,14 +203,17 @@ Management cluster project (one per MC, every region)
 ### Operability:
 
 * Adding a hosted cluster requires no monitoring-specific action. Monitoring follows Gecko's manifests.
-* The prober is released through Konflux; Terraform pins the version per environment and promotes it through the normal pipeline.
+* The prober source lives in gcp-hcp-infra with pinned dependencies (`package-lock.json`). Terraform builds and deploys it per MC (dedicated build service account), and changes roll out through the normal Terraform promotion pipeline.
 * Runbook: per-(cluster, path) alerts link to prober logs; the `path` label tells PSC (Red Hat side) from public (public LB/DNS/certificate) failures.
+
+## Resolved
+
+* **Prober runtime and packaging (2026-11-13):** synthetic monitors only support 2nd gen Cloud Run functions on the Node.js runtime, created from source (Google docs: the runtime "is restricted to" Node.js). We follow Google's generic "Custom synthetic monitor" template in Node.js rather than a Go/Konflux image behind Cloud Scheduler, to stay on Google's purpose-built synthetic monitoring service. Implementation: openshift-online/gcp-hcp-infra#2836.
 
 ## Open Questions
 
 1. **Multiple base domains per region/MC**: can one MC host clusters under more than one base domain? If so, public discovery must carry the domain per cluster instead of using a per-MC `BASE_DOMAIN`.
-2. **Konflux artifact vs. Cloud Run functions**: synthetic monitors target a Cloud Run function (gen2), which Google builds from source. Confirm whether a monitor can target a function deployed from a pre-built, Konflux-attested artifact, or define how a pinned, released source bundle is deployed.
-3. **HyperShift accept-list API shape**: an operator-level setting (e.g. "accept the attachment's own project") rather than a per-cluster field.
+2. **HyperShift accept-list API shape**: an operator-level setting (e.g. "accept the attachment's own project") rather than a per-cluster field.
 
 ## References
 
