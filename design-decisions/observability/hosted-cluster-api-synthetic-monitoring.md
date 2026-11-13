@@ -48,28 +48,97 @@ Both probers discover their targets from Service Directory, which Gecko populate
 
 ## Architecture
 
+### Network paths
+
+A hosted cluster's kube-apiserver is reachable three ways. The customer owns one; Red Hat owns the other two.
+
+* **Customer private path** (customer-owned, out of scope): the customer's PSC endpoint in *their* VPC connects to the cluster's PSC service attachment. Worker nodes and private clients use this path.
+* **PSC monitoring path** (this design): a separate **monitoring VPC** that Red Hat owns in the management cluster project. It holds **one platform-owned PSC endpoint per hosted cluster**, each connected to the *same* service attachment the customer's endpoint uses. The PSC prober reaches it through Direct VPC egress, so it exercises Red Hat's whole side of the private path without touching the customer project:
+  1. PSC endpoint
+  2. service attachment and PSC NAT
+  3. private-router internal load balancer
+  4. router
+  5. kube-apiserver
+* **Public path** (PublicAndPrivate clusters only): over the internet to the cluster's public load balancer.
+
+```mermaid
+flowchart LR
+    subgraph CUST["Customer project (customer-owned; out of scope)"]
+        direction TB
+        NODES["Worker nodes / private clients"]
+        CEP["Customer PSC endpoint"]
+        NODES --> CEP
+    end
+
+    subgraph MC["Management cluster project (one per MC, in its region)"]
+        direction TB
+        subgraph MON["Monitoring VPC (platform-owned, MC region)"]
+            direction TB
+            PSCFN["PSC prober<br/>Cloud Run function, MODE=psc"]
+            MEP["Platform PSC endpoint<br/>one per hosted cluster"]
+            PSCFN -- "Direct VPC egress" --> MEP
+        end
+        subgraph MCVPC["MC VPC (GKE management cluster)"]
+            direction TB
+            SA["PSC service attachment<br/>psc-&lt;clusterID&gt; + PSC NAT subnet"]
+            ILB["private-router<br/>internal load balancer"]
+            ELB["router<br/>external load balancer<br/>(PublicAndPrivate only)"]
+            RTR["HCP router"]
+            KAS["kube-apiserver /livez"]
+            SA --> ILB --> RTR --> KAS
+            ELB --> RTR
+        end
+        PUBFN["Public prober<br/>Cloud Run function, MODE=public<br/>(no VPC)"]
+        SD[("Service Directory<br/>namespace hcp-uptime")]
+        CM["Cloud Monitoring<br/>2 synthetic monitors (60s)<br/>api_up metric + alert policies"]
+    end
+
+    INTERNET(("Internet"))
+    PD["PagerDuty + diagnose agent"]
+
+    CEP -- "customer path" --> SA
+    MEP -- "PSC monitoring path" --> SA
+    PUBFN -- "public path" --> INTERNET --> ELB
+
+    CM -- "invoke every 60s" --> PSCFN
+    CM -- "invoke every 60s" --> PUBFN
+    PSCFN -. "list hc-*" .-> SD
+    PUBFN -. "list hcpub-*" .-> SD
+    PSCFN -- "write api_up{path=psc}" --> CM
+    PUBFN -- "write api_up{path=public}" --> CM
+    CM -- "per-cluster alert" --> PD
 ```
-Management cluster project (one per MC, every region)
-┌───────────────────────────────────────────────────────────────────────────────┐
-│  Cloud Monitoring                                                             │
-│   ├─ synthetic monitor "hc-api-psc"     (60s) ──► Cloud Run fn prober-psc     │
-│   └─ synthetic monitor "hc-api-public"  (60s) ──► Cloud Run fn prober-public  │
-│                                                                               │
-│  prober-psc ── Direct VPC egress ──► monitoring VPC (MC region)               │
-│      │  1. list Service Directory services hc-<clusterID>                     │
-│      │  2. GET https://<PSC endpoint IP>/livez  ──► psc-<clusterID>          │
-│      │       (service attachment → private-router ILB → kube-apiserver)       │
-│      └─ 3. write api_up{cluster_id, path="psc", management_cluster}           │
-│                                                                               │
-│  prober-public                                                                │
-│      │  1. list Service Directory services hcpub-<clusterID>                  │
-│      │  2. GET https://api.<name>-<slug>.<baseDomain>/livez (TLS verified)   │
-│      └─ 3. write api_up{cluster_id, path="public", management_cluster}        │
-│                                                                               │
-│  Alerting policy (one per MC): api_up < 1 for 60s, grouped by                 │
-│  cluster_id + path ──► PagerDuty + diagnose agent                             │
-└───────────────────────────────────────────────────────────────────────────────┘
+
+**Who creates what:**
+* **Gecko** ships per-cluster Config Connector resources for the platform PSC endpoint (`ComputeAddress` + `ComputeForwardingRule`) and the Service Directory entries.
+* **HyperShift** creates the service attachment and the internal and external load balancers, and accepts the monitoring VPC on the attachment.
+* **Terraform** creates the monitoring VPC, the two functions, the synthetic monitors and the Service Directory namespace.
+
+### One probe run (PSC prober)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant CM as Cloud Monitoring<br/>(synthetic monitor)
+    participant FN as PSC prober<br/>(Cloud Run function)
+    participant SD as Service Directory
+    participant EP as Platform PSC endpoint<br/>(monitoring VPC)
+    participant KAS as kube-apiserver<br/>(via attachment → ILB → router)
+
+    CM->>FN: invoke (every 60s)
+    FN->>SD: list services hc-* and their endpoints
+    SD-->>FN: [{cluster_id, PSC endpoint IP}, ...]
+    par for every hosted cluster
+        FN->>EP: GET https://PSC-endpoint-IP/livez
+        EP->>KAS: through the service attachment
+        KAS-->>FN: 200 "ok", or error / timeout
+    end
+    FN->>CM: write api_up{cluster_id, path="psc"} = 1 or 0
+    FN-->>CM: run result (fails only if discovery or the write failed)
+    Note over CM: Alert policy evaluates api_up per (cluster, path)<br/>and pages through PagerDuty + diagnose agent
 ```
+
+The public prober is the same, except it lists `hcpub-*` services and calls `https://api.<clusterName>-<slug>.<baseDomain>/livez` over the internet.
 
 ### Components
 
