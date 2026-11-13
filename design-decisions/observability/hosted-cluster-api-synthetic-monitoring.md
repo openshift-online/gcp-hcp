@@ -26,7 +26,6 @@ Both probers discover their targets from Service Directory, which Gecko populate
   - **Per-cluster signal.** Availability must be queryable per cluster ID, and alerts must be per cluster, never merged across clusters.
   - **Cost.** Monitoring cost must stay small relative to the revenue of small clusters.
   - **Scale.** Up to 100 hosted clusters per management cluster (one GCP project and one GKE cluster per management cluster).
-  - **Timeline.** Needed before private preview (2026-12-18).
 - **Assumptions**:
   - Every hosted cluster, in both endpoint access modes, has a PSC service attachment named `psc-<clusterID>` in the management cluster project. HyperShift creates it today.
   - `/livez` on the hosted cluster's kube-apiserver answers anonymously with `200 ok`. Verified on OCP 5.0.0-ec.6.
@@ -106,6 +105,7 @@ Management cluster project (one per MC, every region)
 * Alerts carry `cluster_id` and `path` as labels, and the policy documentation templates `${metric.label.cluster_id}`.
 * **Routing**: both paths page (PagerDuty critical) and trigger the diagnose agent, following the [integrated alerting framework](integrated-alerting-framework.md).
 * The "prober unhealthy" policy routes to the same channels.
+* **Alert latency (~4 min)** = up to 60s until the next probe run, plus a 60s policy duration (effectively two consecutive failed probes), plus about 2 min of Cloud Monitoring ingestion and alert evaluation, which we can't tune. Measured: outage at 15:07:04, first failed sample ~15:07, alert at 15:11:00. Setting the duration to 0s saves about 1 min, but a single failed probe would page, which is too noisy given frequent cluster state changes. A longer duration trades latency for fewer false pages. The floor is about 3 min.
 * SLO targets and burn-rate alerting are out of scope; they belong in a separate SLO decision that consumes `api_up`.
 
 ## Decision Rationale
