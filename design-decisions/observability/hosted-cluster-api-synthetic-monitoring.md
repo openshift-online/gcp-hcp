@@ -29,7 +29,7 @@ Both probers discover clusters from the MC's forwarding rules and learn each clu
   - **Scale.** Up to 100 hosted clusters per MC (one GCP project and one GKE cluster per MC).
 - **Assumptions**:
   - `/livez` answers anonymously with `200 ok`, on both the private ILB and the public endpoint. Verified on OCP 5.0.0-ec.6.
-  - **Endpoint choice: `/livez`.** It reports whether the API server process is healthy, and it deliberately stays healthy during graceful shutdown, which `/readyz` doesn't. That avoids false outages when a probe hits a terminating replica during a rolling restart. Note that `/livez` doesn't check etcd, so an etcd-only outage won't register as down.
+  - **Endpoint choice: `/livez`.** It reports whether the API server process is healthy, and it deliberately stays healthy during graceful shutdown, which `/readyz` doesn't. That avoids false outages when a probe hits a terminating replica during a rolling restart. Whether an etcd-only outage turns `/livez` red is **not verified** for the tested build (upstream kube-apiserver registers an etcd check under `/livez`, but we didn't confirm it for 5.0.0-ec.6). See Open Questions.
   - GKE names each hosted cluster's load balancer forwarding rules with a description containing `networking.gke.io/service-name`:
     - `clusters-<clusterID>-<name>/private-router` for the internal LB, in both access modes;
     - `clusters-<clusterID>-<name>/router` for the external LB, PublicAndPrivate only.
@@ -122,7 +122,7 @@ sequenceDiagram
     par for every hosted cluster
         opt hostname not yet known
             FN->>ILB: TLS handshake without SNI (read internal cert)
-            ILB-->>FN: cert lists api.NAME-SLUG.BASEDOMAIN
+            ILB-->>FN: cert lists api.NAME-SLUG.BASEDOMAIN (NAME must match the cluster)
         end
         FN->>ILB: new connection, SNI = hostname, GET /livez (5s hard deadline)
         ILB-->>FN: trusted cert + 200 "ok", or error / timeout / cert problem
@@ -150,6 +150,7 @@ Nothing is created per hosted cluster. A new cluster appears in the next run (�
 ### Probe semantics
 
 * **Up** = full TLS verification (chain, expiry, hostname) with SNI = the cluster's API hostname, **and** HTTP 200 with body `ok` from `/livez`.
+* **Hostname identity:** the API hostname learned from the certificate must be `api.<name>-<slug>.<baseDomain>`, where `<name>` is the cluster name from the forwarding rule's namespace (`clusters-<clusterID>-<name>`). A load balancer that reaches another cluster presents that cluster's name, so it is reported down (`HOSTNAME_NOT_IN_CERT`) instead of being verified against the wrong cluster's valid certificate.
 * Each probe has a **hard 5s deadline** (not a socket-idle timeout) and opens a **fresh connection** with no keep-alive and no TLS session cache. A resumed TLS session returns an empty peer certificate, and reused connections can hide failures that only affect new connections.
 * One result per cluster per path per run. The failure reason (`TIMEOUT`, `ECONNREFUSED`, `CERT_HAS_EXPIRED`, `HOSTNAME_MISMATCH`, `HTTP_503`, …) is logged.
 * A run **fails** only when discovery or the metric write fails (prober health), never because a cluster is down.
@@ -179,22 +180,41 @@ All policies are PromQL (`conditionPrometheusQueryLanguage`), one set per MC pro
     or vector(0)
   ```
   This also needs the misspelled GMP allowlist entry fixed and `hypershift_cluster_deleting_duration_seconds` added (Open Questions).
-* **Per-cluster API down (page):** one alert per (`_id`, `path`). It's suppressed for silenced or limited-support clusters, for clusters being created or deleted, and while the MC-wide condition holds:
+* **Eligible probes.** In the queries below, `ELIGIBLE` is the per-(cluster, path) `api_up` series for clusters that should page. It fails open: a cluster is dropped only when eligibility telemetry positively says so, never because that telemetry is missing.
   ```promql
-  (label_replace(min by (cluster_id, path) (UP), "_id", "$1", "cluster_id", "(.*)") == 0)
-    and on(_id) (hcp:cluster:alertable == 1)
-    unless on(_id) (hcp:cluster:probe_suppressed == 1)
-    unless on() (sum(UP == bool 0) / count(UP) > 0.5 and count(UP) >= 3)
+  ELIGIBLE =
+    label_replace(min by (cluster_id, path) (UP), "_id", "$1", "cluster_id", "(.*)")
+      unless on(_id) (hcp:cluster:alertable == 0)
+      unless on(_id) (hcp:cluster:probe_suppressed == 1)
+  ```
+  `hcp:cluster:alertable` carries an explicit `0` for silenced and limited-support clusters (tested), so `unless … == 0` is equivalent to `and … == 1` while the metric is healthy. The difference is during an eligibility-telemetry outage: with `and … == 1`, every `api_up == 0` would lose its join and a real outage would page nobody. With `unless … == 0`, clusters page as normal (and silenced clusters page too, which is the safer error).
+* **Per-cluster API down (page):** one alert per (`_id`, `path`), suppressed for silenced, limited-support, creating and deleting clusters, and while the MC-wide condition holds:
+  ```promql
+  (ELIGIBLE == 0)
+    unless on() (sum(ELIGIBLE == bool 0) / count(ELIGIBLE) > 0.5 and count(ELIGIBLE) >= 3)
   ```
   The condition duration is 60s, effectively two consecutive failed probes.
-* **MC-wide probe failure (page, once):** `sum(UP == bool 0) / count(UP) > 0.5 and count(UP) >= 3`. This points at the prober, the egress path or the MC rather than individual clusters. Per-cluster pages are inhibited while it holds, so the diagnose agent and on-call get one alert, not up to 100 per path.
-* **Coverage (ticket/warning):** a cluster that should be monitored but has no recent private-path sample. This catches a missing load balancer, discovery bugs and stopped series:
+* **MC-wide probe failure (page, once):** `sum(ELIGIBLE == bool 0) / count(ELIGIBLE) > 0.5 and count(ELIGIBLE) >= 3`. This points at the prober, the egress path or the MC rather than individual clusters. Per-cluster pages are inhibited while it holds, so the diagnose agent and on-call get one alert, not up to 100 per path. The page and its inhibition use the same eligible set, so clusters that are being created or are silenced can't trigger it or dilute it. It counts (cluster, path) pairs, so a PublicAndPrivate cluster counts twice, and at least 3 monitored paths are needed.
+* **Eligibility telemetry missing (ticket/warning):** a probed cluster with no `hcp:cluster:alertable` series, meaning the join data is stale or the recording rule stopped:
   ```promql
-  (hcp:cluster:alertable == 1)
-    unless on(_id) (hcp:cluster:probe_suppressed == 1)
-    unless on(_id) label_replace(present_over_time({"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global","path"="private"}[10m]), "_id", "$1", "cluster_id", "(.*)")
+  label_replace(max by (cluster_id) (present_over_time({"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global"}[10m])), "_id", "$1", "cluster_id", "(.*)")
+    unless on(_id) hcp:cluster:alertable
   ```
-  Public-path coverage can't be checked the same way, because no HyperShift metric says which clusters are PublicAndPrivate.
+  While this fires, API-down alerts still page (fail open), so this is a ticket, not a page.
+* **Coverage (ticket/warning):** a cluster that should be monitored but has no recent sample.
+  * Private path: catches a missing load balancer, discovery bugs and stopped series.
+    ```promql
+    (hcp:cluster:alertable == 1)
+      unless on(_id) (hcp:cluster:probe_suppressed == 1)
+      unless on(_id) label_replace(present_over_time({"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global","path"="private"}[10m]), "_id", "$1", "cluster_id", "(.*)")
+    ```
+  * Public path: no HyperShift metric says which clusters are PublicAndPrivate, so the expectation is learned from history. A cluster that reported a public sample in the last 24h, has none in the last 10m, and is still reporting on the private path has lost its public endpoint (a deleted or broken public load balancer disappears from discovery rather than reporting down):
+    ```promql
+    (max by (cluster_id) (present_over_time({"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global","path"="public"}[24h]))
+      unless max by (cluster_id) (present_over_time({"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global","path"="public"}[10m])))
+      and max by (cluster_id) (present_over_time({"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global","path"="private"}[10m]))
+    ```
+    It fires for 24h after an intentional PublicAndPrivate → Private change, which is acceptable for a ticket. Not yet tested: the 24h range and this expression.
 * **Certificate:**
   * `api_cert_expiry_seconds < 0` → **"API certificate expired"** (page). This fires together with API down, so the cause is explicit.
   * `< 20 days` → **"API certificate renewal stuck"** (warning). cert-manager renews at 30 days remaining.
@@ -240,7 +260,7 @@ All policies are PromQL (`conditionPrometheusQueryLanguage`), one set per MC pro
   * **Certificates:** SNI through the private ILB returns the cluster's trusted certificate and verifies. A wrong cluster returns the internal `kubernetes` certificate, so hostname verification catches mis-routed targets. A local test confirmed an expired certificate reports `CERT_HAS_EXPIRED` with negative expiry, and a byte-trickling server times out at the hard deadline.
   * **Fresh connections matter:** a spike prober reusing TLS sessions produced false `HOSTNAME_MISMATCH` failures, including a false alert on an untouched cluster during another cluster's router restart. With a fresh connection per probe, the same restart test showed no cross-cluster effect (28/28 healthy).
   * Per-cluster availability PromQL returned the expected values. Alerts carried the cluster ID and path labels.
-  * **PromQL policy tested** (the per-cluster condition above, without the not-yet-available lifecycle clause):
+  * **PromQL policy tested** (the earlier form `… and on(_id) (hcp:cluster:alertable == 1)`, without the lifecycle clause; the `ELIGIBLE` form, the eligibility-missing alert and the public coverage alert are not yet tested):
     * it fired per path with `_id` mapped from `cluster_id`: private path 5m32s after the outage, PSC path 6m34s;
     * with the cluster silenced (`hypershift.openshift.io/silence-cluster-alerts` label → `hcp:cluster:alertable` = 0), the same outage produced **no alert**;
     * a policy referencing the HyperShift creation and deletion metrics was **rejected at creation**, because they aren't exported, hence the recording rule above.
@@ -272,7 +292,7 @@ All policies are PromQL (`conditionPrometheusQueryLanguage`), one set per MC pro
 
 ### Negative
 
-* **Red Hat-side PSC data-path failures are not detected synthetically:** service attachment, PSC NAT, or firewall rules between them and the ILB. That is the path customer worker nodes use. The PSC producer metrics don't reveal such failures either (tested). This is an accepted gap; it would surface through other signals such as node or konnectivity health. Alternative 5 closes it for ~$7.30 per cluster per month.
+* **Red Hat-side PSC data-path failures are not detected synthetically:** service attachment, PSC NAT, or firewall rules between them and the ILB. That is the path customer worker nodes use. The PSC producer metrics don't reveal such failures either (tested). No alert in this design detects it, and no compensating signal has been tested. Before accepting the gap, the team must either name and test one (for example konnectivity or worker-node connectivity, which sits on the customer side and wouldn't alert Red Hat today) or choose alternative 5, which closes it for ~$7.30 per cluster per month. The question is whether the promised signal is "API reachable behind the ILB" or also includes the Red Hat-owned PSC path.
 * Probes come from a single location, the MC's region. A regional Google Cloud problem could look like an outage. This is accepted for simplicity; the MC-wide alert and prober-health alert help distinguish the two.
 * Alert latency is about 4–5.5 minutes, roughly 1–2 minutes slower than uptime checks, partly because `/livez` stays healthy during graceful shutdown.
 * We own prober code (discovery, TLS verification, metric writes), with its tests, releases and on-call runbook.
@@ -321,6 +341,7 @@ Estimates for **1,000 hosted clusters** (10 MCs × 100), half of them PublicAndP
 | Alerting (estimate) | small | ~$30 | ~$30 |
 | **Total / month** | **≈ $55,300** | **≈ $8,600** | **≈ $1,300 (≈ $1.30/HC)** |
 
+* **The $1.30 headline assumes full MCs (100 clusters).** The two monitors are a fixed ~$104 per MC per month; the rest is ~$0.27 per cluster. At 10 clusters on an MC that's ~$10.60 per cluster, at 50 it's ~$2.30, at 100 it's ~$1.30.
 * Synthetic monitors cost $1.20 per 1,000 executions, billed per execution regardless of how many clusters are probed. Uptime checks cost $0.30 per 1,000 executions per region.
 * Custom metrics are billed by ingested bytes (~8 bytes per point). The free ingestion tier is shared across the billing account, so it isn't counted on.
 * ⚠️ The PSC endpoint price (~$0.01 per endpoint-hour) is not verified; it only affects alternative 5.
@@ -347,6 +368,8 @@ Estimates for **1,000 hosted clusters** (10 MCs × 100), half of them PublicAndP
 
 1. **Multiple base domains per region/MC:** hostnames are learned from each cluster's certificate, and the prober accepts a list (`BASE_DOMAINS`). The open part is where Terraform gets that list for each MC.
 2. **GMP allowlist:** the current export allowlist entry `hypershift_cluster_waiting_initial_avaibility_duration_seconds` is misspelled (HyperShift emits `…availability…`), so the metric is not exported today. Fix it, and add `hypershift_cluster_deleting_duration_seconds`, so `hcp:cluster:probe_suppressed` can suppress creating and deleting clusters.
+3. **`/livez` and etcd:** confirm on the target build whether `/livez` fails during an etcd-only outage (for example scale etcd to 0 in dev and watch `/livez`). If it doesn't, decide whether that gap is acceptable or the probe needs `/readyz` semantics.
+4. **Compensating signal for Red Hat-side PSC failures:** name and test an alert for the gap described under Consequences, or choose alternative 5.
 
 ## References
 
