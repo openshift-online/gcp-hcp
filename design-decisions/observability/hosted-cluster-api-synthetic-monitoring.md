@@ -13,7 +13,7 @@ Monitor every hosted cluster's kube-apiserver `/livez` with **two Cloud Monitori
 - **Private prober (every hosted cluster):** probes each cluster's private-router internal load balancer from inside the MC's own VPC, in the same region.
 - **Public prober (PublicAndPrivate clusters only):** probes each cluster's public API endpoint over the internet.
 
-Both probers discover clusters from the MC's forwarding rules and learn each cluster's API hostname from its serving certificate. That means **no per-cluster resources**: no PSC endpoints, no Service Directory entries, no Gecko or HyperShift changes. Every probe sends the cluster's hostname and fully verifies TLS. Results go to `custom.googleapis.com/hcp/api_up{_id, path}` and `custom.googleapis.com/hcp/api_cert_expiry_seconds{_id, path}`. PromQL alert policies, following the [integrated alerting framework](integrated-alerting-framework.md), page once per failing cluster and path.
+Both probers discover clusters from the MC's forwarding rules and learn each cluster's API hostname from its serving certificate. That means **no per-cluster resources**: no PSC endpoints, no Service Directory entries, no Gecko or HyperShift changes. Every probe sends the cluster's hostname and fully verifies TLS. Results go to `custom.googleapis.com/hcp/api_up` and `custom.googleapis.com/hcp/api_cert_expiry_seconds`, labelled `{cluster_id, path, management_cluster}`. PromQL alert policies, following the [integrated alerting framework](integrated-alerting-framework.md), page once per failing cluster and path.
 
 ## Context
 
@@ -142,7 +142,7 @@ The public prober is the same, except:
 |---|---|---|
 | Prober egress subnet in the MC VPC, prober service accounts, custom role (`compute.forwardingRules.list`), two Cloud Run functions, two synthetic monitors | Terraform, `terraform/modules/management-cluster` (gcp-hcp-infra) | MC |
 | Prober source (one codebase, `MODE=private\|public`) | Node.js function source in gcp-hcp-infra (`functions/hc-api-prober`), unit-tested. Synthetic monitors require the Node.js runtime and functions built from source, not container images. | — |
-| Alert policies (per-cluster, coverage, MC-wide, certificate, prober health) | `MonitoringAlertPolicy` via Config Connector/ArgoCD in the alerting-policies chart, per the [integrated alerting framework](integrated-alerting-framework.md) | MC |
+| Alert policies (per-cluster, coverage, MC-wide, certificate, prober health) and the `hcp:cluster:probe_suppressed` recording rule | `MonitoringAlertPolicy` via Config Connector/ArgoCD in the alerting-policies chart, per the [integrated alerting framework](integrated-alerting-framework.md) | MC |
 | GMP export allowlist entries for the HyperShift lifecycle metrics | `helm/charts/prometheus-hcp` (gcp-hcp-infra) | — |
 
 Nothing is created per hosted cluster. A new cluster appears in the next run (≤ 60s) once GKE has created its load balancers, and disappears when they're deleted.
@@ -156,46 +156,50 @@ Nothing is created per hosted cluster. A new cluster appears in the next run (�
 
 ### Signal and reporting
 
-* **Metrics** (monitored resource `global`; labels `_id` = HyperShift cluster ID, `path` = `private` | `public`, `management_cluster`):
+* **Metrics** (monitored resource `global`; labels `cluster_id` = HyperShift cluster ID, `path` = `private` | `public`, `management_cluster`). Custom metric label keys must start with a letter, so `_id` is rejected (tested: "label key '_id' contains invalid characters"). Queries map `cluster_id` → `_id` with `label_replace` to join HyperShift/GMP metrics:
   * `custom.googleapis.com/hcp/api_up`: gauge, 1/0.
   * `custom.googleapis.com/hcp/api_cert_expiry_seconds`: seconds until the presented certificate's `notAfter`, recorded even when verification fails.
 * Endpoint IPs are deliberately not labels, so a cluster's history never splits.
 * **Per-cluster availability** (PromQL, usable from Grafana):
   ```promql
-  avg by (_id, path) (
+  avg by (cluster_id, path) (
     avg_over_time({"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global"}[30d]))
   ```
   `avg_over_time` skips gaps (minutes with no sample), so reporting must treat missing data explicitly rather than read it as up.
 
 ### Alerting
 
-All policies are PromQL (`conditionPrometheusQueryLanguage`), one set per MC project, routed to PagerDuty and the diagnose agent per the [integrated alerting framework](integrated-alerting-framework.md). Expressions below are abbreviated (`api_up` stands for the full metric selector).
+All policies are PromQL (`conditionPrometheusQueryLanguage`), one set per MC project, routed to PagerDuty and the diagnose agent per the [integrated alerting framework](integrated-alerting-framework.md). In the queries below, `UP` stands for `{"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global"}`.
 
-* **Per-cluster API down (page):** one alert per (`_id`, `path`). It's suppressed while a cluster is silenced or in limited support, still waiting for initial availability, or being deleted, and while the MC-wide alert is firing:
+* **Lifecycle suppression recording rule (prerequisite).** Cloud Monitoring rejects a policy that references a metric it has never ingested ("The following PromQL metric(s) are invalid", tested). The HyperShift creation and deletion metrics only exist while a cluster is in those states. So a new recording rule in the alerting-policies chart provides an always-present series, using the same `or vector(0)` pattern as `hcp:cluster:alertable`:
   ```promql
-  (min by (_id, path) (api_up) == 0)
+  hcp:cluster:probe_suppressed =
+      (max by (_id) (hypershift_cluster_waiting_initial_availability_duration_seconds) > bool 0)
+    or (max by (_id) (hypershift_cluster_deleting_duration_seconds) > bool 0)
+    or vector(0)
+  ```
+  This also needs the misspelled GMP allowlist entry fixed and `hypershift_cluster_deleting_duration_seconds` added (Open Questions).
+* **Per-cluster API down (page):** one alert per (`_id`, `path`). It's suppressed for silenced or limited-support clusters, for clusters being created or deleted, and while the MC-wide condition holds:
+  ```promql
+  (label_replace(min by (cluster_id, path) (UP), "_id", "$1", "cluster_id", "(.*)") == 0)
     and on(_id) (hcp:cluster:alertable == 1)
-    unless on(_id) hypershift_cluster_waiting_initial_availability_duration_seconds
-    unless on(_id) hypershift_cluster_deleting_duration_seconds
-    unless on() (mc_probe_failure_fraction > 0.5)
+    unless on(_id) (hcp:cluster:probe_suppressed == 1)
+    unless on() (sum(UP == bool 0) / count(UP) > 0.5 and count(UP) >= 3)
   ```
   The condition duration is 60s, effectively two consecutive failed probes.
-* **MC-wide probe failure (page, once):** more than half of probed clusters failing at once (and at least 3). This points at the prober, the egress path or the MC rather than individual clusters, and inhibits the per-cluster pages above, so one fault doesn't send 100 pages:
-  ```promql
-  mc_probe_failure_fraction = sum(api_up == bool 0) / count(api_up)
-  ```
+* **MC-wide probe failure (page, once):** `sum(UP == bool 0) / count(UP) > 0.5 and count(UP) >= 3`. This points at the prober, the egress path or the MC rather than individual clusters. Per-cluster pages are inhibited while it holds, so the diagnose agent and on-call get one alert, not up to 100 per path.
 * **Coverage (ticket/warning):** a cluster that should be monitored but has no recent private-path sample. This catches a missing load balancer, discovery bugs and stopped series:
   ```promql
   (hcp:cluster:alertable == 1)
-    unless on(_id) hypershift_cluster_waiting_initial_availability_duration_seconds
-    unless on(_id) hypershift_cluster_deleting_duration_seconds
-    unless on(_id) present_over_time(api_up{path="private"}[10m])
+    unless on(_id) (hcp:cluster:probe_suppressed == 1)
+    unless on(_id) label_replace(present_over_time({"__name__"="custom.googleapis.com/hcp/api_up","monitored_resource"="global","path"="private"}[10m]), "_id", "$1", "cluster_id", "(.*)")
   ```
-  Public-path coverage can't be checked the same way, because no HyperShift metric says which clusters are PublicAndPrivate. Public clusters are discovered from their external forwarding rule, so a missing external LB shows up as missing public coverage only.
+  Public-path coverage can't be checked the same way, because no HyperShift metric says which clusters are PublicAndPrivate.
 * **Certificate:**
   * `api_cert_expiry_seconds < 0` → **"API certificate expired"** (page). This fires together with API down, so the cause is explicit.
   * `< 20 days` → **"API certificate renewal stuck"** (warning). cert-manager renews at 30 days remaining.
 * **Prober unhealthy (page):** the synthetic monitor's own `uptime_check/check_passed` is failing (discovery or metric write).
+* **Paging behaviour:** Cloud Monitoring opens one incident per (`_id`, `path`) label set, which maps to one PagerDuty incident per cluster and path. A PublicAndPrivate cluster fully down opens two. MC-wide inhibition is the fan-out control for the diagnose agent.
 * **Alert latency ≈ 4–5.5 min:**
   * up to 60s until the next probe;
   * plus the 60s duration;
@@ -236,7 +240,13 @@ All policies are PromQL (`conditionPrometheusQueryLanguage`), one set per MC pro
   * **Certificates:** SNI through the private ILB returns the cluster's trusted certificate and verifies. A wrong cluster returns the internal `kubernetes` certificate, so hostname verification catches mis-routed targets. A local test confirmed an expired certificate reports `CERT_HAS_EXPIRED` with negative expiry, and a byte-trickling server times out at the hard deadline.
   * **Fresh connections matter:** a spike prober reusing TLS sessions produced false `HOSTNAME_MISMATCH` failures, including a false alert on an untouched cluster during another cluster's router restart. With a fresh connection per probe, the same restart test showed no cross-cluster effect (28/28 healthy).
   * Per-cluster availability PromQL returned the expected values. Alerts carried the cluster ID and path labels.
-  * **Public discovery from external forwarding rules has not yet been exercised end to end.** The prototype public prober used Service Directory. The external rule's description format was observed (`clusters-<clusterID>-<name>/router`), and hostname-from-certificate was tested on the private path.
+  * **PromQL policy tested** (the per-cluster condition above, without the not-yet-available lifecycle clause):
+    * it fired per path with `_id` mapped from `cluster_id`: private path 5m32s after the outage, PSC path 6m34s;
+    * with the cluster silenced (`hypershift.openshift.io/silence-cluster-alerts` label → `hcp:cluster:alertable` = 0), the same outage produced **no alert**;
+    * a policy referencing the HyperShift creation and deletion metrics was **rejected at creation**, because they aren't exported, hence the recording rule above.
+  * **Implementation prober** (gcp-hcp-infra `functions/hc-api-prober`) deployed in both modes:
+    * private mode discovered both clusters from INTERNAL forwarding rules;
+    * public mode discovered only the PublicAndPrivate cluster from EXTERNAL forwarding rules, learned its hostname from the public LB's certificate (no SNI), and probed it through public DNS with full TLS verification.
 * **Comparison** (cost at 1,000 clusters, half of them PublicAndPrivate; see Cost):
 
   | | Private clusters | RH-side PSC failures | Every region w/o ILB global access | Per-cluster resources | Cost / HC / month |
@@ -330,13 +340,13 @@ Estimates for **1,000 hosted clusters** (10 MCs × 100), half of them PublicAndP
 ## Resolved
 
 * **Prober runtime and packaging (2026-11-13):** synthetic monitors only support 2nd gen Cloud Run functions on the Node.js runtime, created from source (Google docs: the runtime "is restricted to" Node.js). We follow Google's generic "Custom synthetic monitor" template in Node.js, rather than a Go/Konflux image behind Cloud Scheduler, to stay on Google's purpose-built synthetic monitoring service.
+* **Public discovery (2026-11-13):** verified end to end with the implementation prober: EXTERNAL `*/router` forwarding rules, hostname from the public LB's certificate, probe via public DNS.
 * **PSC endpoints vs. load balancer direct (2026-11-13):** load balancer direct is chosen. Red Hat-side PSC data-path failures are an accepted, documented gap (see Negative).
 
 ## Open Questions
 
-1. **Multiple base domains per region/MC:** hostnames are learned from each cluster's certificate, so multiple base domains need no special handling as long as the prober knows the set of valid base domains to match.
-2. **Public discovery via external forwarding rules:** exercise end to end. The prototype used Service Directory; the forwarding-rule format was only observed.
-3. **GMP allowlist:** the current export allowlist entry `hypershift_cluster_waiting_initial_avaibility_duration_seconds` is misspelled (HyperShift emits `…availability…`), so the metric is not exported today. Fix it, and add `hypershift_cluster_deleting_duration_seconds`, before the alert suppression above can work.
+1. **Multiple base domains per region/MC:** hostnames are learned from each cluster's certificate, and the prober accepts a list (`BASE_DOMAINS`). The open part is where Terraform gets that list for each MC.
+2. **GMP allowlist:** the current export allowlist entry `hypershift_cluster_waiting_initial_avaibility_duration_seconds` is misspelled (HyperShift emits `…availability…`), so the metric is not exported today. Fix it, and add `hypershift_cluster_deleting_duration_seconds`, so `hcp:cluster:probe_suppressed` can suppress creating and deleting clusters.
 
 ## References
 
