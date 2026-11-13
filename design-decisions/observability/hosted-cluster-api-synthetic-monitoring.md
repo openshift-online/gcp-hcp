@@ -8,7 +8,7 @@
 
 ## Decision
 
-Monitor every hosted cluster's kube-apiserver `/readyz` with Cloud Monitoring synthetic monitors. Each management cluster runs two of them:
+Monitor every hosted cluster's kube-apiserver `/livez` with Cloud Monitoring synthetic monitors. Each management cluster runs two of them:
 
 - **PSC prober (every hosted cluster):** probes each cluster through a platform-owned Private Service Connect endpoint.
 - **Public prober (PublicAndPrivate clusters only):** probes each cluster's public API endpoint.
@@ -17,7 +17,7 @@ Both probers discover their targets from Service Directory, which Gecko populate
 
 ## Context
 
-- **Problem Statement**: We have no external, Red Hat-owned signal that a hosted cluster's API server is reachable. We need to learn that a cluster's API is unavailable before the customer does, and to report availability per cluster over time ("cluster X had Y% API availability this month"). ROSA HCP's RHOBS synthetics does not probe private clusters over the private network at all: private clusters only get an in-cluster `/livez` check. We want better coverage, using Google Cloud services.
+- **Problem Statement**: We have no external, Red Hat-owned signal that a hosted cluster's API server is reachable. We need to learn that a cluster's API is unavailable before the customer does, and to report availability per cluster over time ("cluster X had Y% API availability this month"). Private clusters must be covered over the private network, using Google Cloud services.
 - **Constraints**:
   - **Google Cloud native.** Cloud Monitoring synthetic monitoring and alerting. No in-cluster probing (blackbox exporter / Prometheus `probe_success`).
   - **Responsibility boundary.** The customer project is Red Hat's zero-responsibility line. Failures anywhere on Red Hat's side (management cluster, private router, internal load balancer, PSC service attachment and NAT, kube-apiserver) must be detected. Failures inside the customer project (their PSC endpoint, DNS) are out of scope.
@@ -29,7 +29,8 @@ Both probers discover their targets from Service Directory, which Gecko populate
   - **Timeline.** Needed before private preview (2026-12-18).
 - **Assumptions**:
   - Every hosted cluster, in both endpoint access modes, has a PSC service attachment named `psc-<clusterID>` in the management cluster project. HyperShift creates it today.
-  - `/readyz` on the hosted cluster's kube-apiserver answers anonymously with `200 ok`. Verified on OCP 5.0.0-ec.6.
+  - `/livez` on the hosted cluster's kube-apiserver answers anonymously with `200 ok`. Verified on OCP 5.0.0-ec.6.
+  - **Endpoint choice: `/livez`.** It reports whether the API server process is healthy, and it doesn't fail on purpose during graceful shutdown the way `/readyz` does. That avoids false outages when a probe hits a terminating replica during a rolling restart. It is also the conventional external liveness endpoint for hosted control planes.
   - The public API hostname is `api.<clusterName>-<slug>.<baseDomain>`, which Gecko already builds when creating the cluster.
   - Config Connector runs in cluster mode on each management cluster, with an identity that can manage compute, Service Directory and monitoring resources in the management cluster project.
 
@@ -44,7 +45,7 @@ Both probers discover their targets from Service Directory, which Gecko populate
 3. **Per-cluster private uptime check through a platform-owned PSC endpoint**: not viable. Cloud Monitoring private checkers cannot reach PSC consumer endpoints (they time out), even with PSC global access, although VMs in the same VPC reach the endpoint from any region.
 4. **Per-cluster synthetic monitors**: one Cloud Run function and monitor per cluster. Reaches PSC endpoints, but costs about $52 per cluster per month and needs one deployed function per cluster.
 5. **Batched synthetic monitors per management cluster (chosen)**: one PSC prober and one public prober per management cluster, each probing all of that management cluster's hosted clusters every minute and writing a per-cluster metric.
-6. **In-cluster probing (blackbox exporter, RHOBS-style)**: excluded by the Google-native constraint, and it would not exercise Red Hat's PSC path.
+6. **In-cluster probing (e.g. blackbox exporter)**: excluded by the Google-native constraint, and it would not exercise Red Hat's PSC path.
 
 ## Architecture
 
@@ -57,13 +58,13 @@ Management cluster project (one per MC, every region)
 │                                                                               │
 │  prober-psc ── Direct VPC egress ──► monitoring VPC (MC region)               │
 │      │  1. list Service Directory services hc-<clusterID>                     │
-│      │  2. GET https://<PSC endpoint IP>/readyz  ──► psc-<clusterID>          │
+│      │  2. GET https://<PSC endpoint IP>/livez  ──► psc-<clusterID>          │
 │      │       (service attachment → private-router ILB → kube-apiserver)       │
 │      └─ 3. write api_up{cluster_id, path="psc", management_cluster}           │
 │                                                                               │
 │  prober-public                                                                │
 │      │  1. list Service Directory services hcpub-<clusterID>                  │
-│      │  2. GET https://api.<name>-<slug>.<baseDomain>/readyz (TLS verified)   │
+│      │  2. GET https://api.<name>-<slug>.<baseDomain>/livez (TLS verified)   │
 │      └─ 3. write api_up{cluster_id, path="public", management_cluster}        │
 │                                                                               │
 │  Alerting policy (one per MC): api_up < 1 for 60s, grouped by                 │
@@ -117,7 +118,7 @@ Management cluster project (one per MC, every region)
     * costs about $1 per hosted cluster per month.
   * Discovery through Service Directory and Config Connector means no per-cluster Monitoring objects, so the 100 uptime-checks-per-project quota does not apply and there is no create/delete lifecycle to get wrong.
 * **Evidence** (GCP-346 spike, dev environment in northamerica-northeast2, 2026-11-12/13):
-  * `/readyz` answered anonymously `200 ok` on both access modes.
+  * `/livez` and `/readyz` both answered anonymously `200 ok` on both access modes. The spike's probers measured `/readyz`. Every injected failure took the API fully down or cut the network path, so `/livez` would have failed identically. Probers will use `/livez`.
   * Detection by the batched probers, measured from the start of each injected failure to the alert opening:
 
     | Injected failure | Alerts | Time to alert |
@@ -146,7 +147,7 @@ Management cluster project (one per MC, every region)
 
 ### Positive
 
-* Red Hat learns about API outages on either path within about 4–5 minutes, per cluster, before customers report them. This covers Private clusters over the private network, which ROSA does not do.
+* Red Hat learns about API outages on either path within about 4–5 minutes, per cluster, before customers report them. This includes Private clusters, probed over the private network.
 * Covers Red Hat-side PSC failures (attachment, NAT, firewall). For PublicAndPrivate clusters it also covers the node-to-control-plane PSC path, which a public-only check would miss.
 * No internal load balancer global access, and no per-cluster Monitoring objects, quota or lifecycle.
 * About $104 per MC per month for both probers, roughly $1 per cluster at 100 clusters, against roughly $3,900 per MC with per-cluster uptime checks.
@@ -189,7 +190,7 @@ Management cluster project (one per MC, every region)
 * Function builds use a dedicated build service account, not the default compute account, which stays disabled.
 * The monitoring VPC is platform-owned and contains only PSC endpoints and the probers' egress. Nothing in the customer project is touched.
 * The accept-list change only lets the MC project connect to its own attachments. It stays `ACCEPT_MANUAL`, and the customer's connection is unaffected.
-* Probes are anonymous `GET /readyz`; no credentials are needed or stored.
+* Probes are anonymous `GET /livez`; no credentials are needed or stored.
 * The public prober verifies TLS, so certificate failures count as down.
 
 ### Cost:
