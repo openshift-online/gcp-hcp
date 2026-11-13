@@ -44,7 +44,12 @@ Both probers discover their targets from Service Directory, which Gecko populate
 3. **Per-cluster private uptime check through a platform-owned PSC endpoint**: not viable. Cloud Monitoring private checkers cannot reach PSC consumer endpoints (they time out), even with PSC global access, although VMs in the same VPC reach the endpoint from any region.
 4. **Per-cluster synthetic monitors**: one Cloud Run function and monitor per cluster. Reaches PSC endpoints, but costs about $52 per cluster per month and needs one deployed function per cluster.
 5. **Batched synthetic monitors per management cluster (chosen)**: one PSC prober and one public prober per management cluster, each probing all of that management cluster's hosted clusters every minute and writing a per-cluster metric.
-6. **In-cluster probing (e.g. blackbox exporter)**: excluded by the Google-native constraint, and it would not exercise Red Hat's PSC path.
+6. **Batched synthetic monitor, load balancer direct (no PSC endpoints)**: the PSC prober uses Direct VPC egress into the **MC's own VPC** and probes each cluster's private-router internal load balancer in the same region.
+   - **No global access needed:** it is only required for clients in other regions.
+   - **No per-cluster resources:** clusters are discovered from the MC's internal forwarding rules, whose GKE description names `clusters-<clusterID>-<name>/private-router`. Each cluster's hostname is read from its internal serving certificate, which lists `api.<name>-<slug>.<baseDomain>`. So there are no PSC endpoints, no Service Directory entries and no Gecko change.
+   - **Coverage:** detects API and router outages like alternative 5, but **misses Red Hat-side PSC data-path failures** (tested, see Evidence).
+   - **Cost:** about $1.20 per cluster per month, against about $8.50 for alternative 5.
+7. **In-cluster probing (e.g. blackbox exporter)**: excluded by the Google-native constraint, and it would not exercise Red Hat's PSC path.
 
 ## Architecture
 
@@ -174,7 +179,9 @@ The public prober is the same, except it lists `hcpub-*` services and calls `htt
 * Alerts carry `cluster_id` and `path` as labels, and the policy documentation templates `${metric.label.cluster_id}`.
 * **Routing**: both paths page (PagerDuty critical) and trigger the diagnose agent, following the [integrated alerting framework](integrated-alerting-framework.md).
 * The "prober unhealthy" policy routes to the same channels.
-* **Alert latency (~4 min)** = up to 60s until the next probe run, plus a 60s policy duration (effectively two consecutive failed probes), plus about 2 min of Cloud Monitoring ingestion and alert evaluation, which we can't tune. Measured: outage at 15:07:04, first failed sample ~15:07, alert at 15:11:00. Setting the duration to 0s saves about 1 min, but a single failed probe would page, which is too noisy given frequent cluster state changes. A longer duration trades latency for fewer false pages. The floor is about 3 min.
+* **Alert latency (~4–5.5 min)**: up to 60s until the next probe run, plus a 60s policy duration (effectively two consecutive failed probes), plus about 2 min of Cloud Monitoring ingestion and alert evaluation, which we can't tune. With `/livez`, a full outage also shows ~1–2 min later than with `/readyz`, because `/livez` keeps answering `200 ok` on a kube-apiserver replica that is gracefully shutting down. That is the intended noise reduction.
+  * Measured: 3m56s with `/readyz` (outage 15:07:04, alert 15:11:00) and 5m32s with `/livez` (outage 19:12:30, first steady failure 19:14, alert 19:18:02).
+  * Setting the duration to 0s would page on a single failed probe, which is too noisy given frequent cluster state changes.
 * SLO targets and burn-rate alerting are out of scope; they belong in a separate SLO decision that consumes `api_up`.
 
 ## Decision Rationale
@@ -201,6 +208,13 @@ The public prober is the same, except it lists `hcpub-*` services and calls `htt
   * Private uptime checks against a PSC endpoint (alternative 3) timed out from every checker region, with and without PSC global access. Diagnostic VMs in the same VPC reached the endpoint from the same region and from us-central1.
   * Config Connector created the PSC endpoint and Service Directory entry end to end. `ComputeForwardingRule` needs `ipAddress.addressRef.external` set to the address URL; a name reference resolves to the raw IP and the API rejects it with a 400. The PSC connection was accepted once the MC project was on the attachment's accept list.
   * Per-cluster availability PromQL returned the expected values for both test clusters. Alerts carried `cluster_id` and `path`.
+  * **Load balancer direct (alternative 6), tested with global access off on every ILB:**
+    * Discovery from forwarding rules, hostnames from the internal cert, and full TLS verification all worked.
+    * It detected the API outage (5m32s) and the router outage (5m25s), at the same instant as the PSC prober.
+    * It **missed** the Red Hat-side PSC NAT failure, which the PSC prober caught (5m12s).
+  * **Passive PSC producer metrics don't show that failure.** During the PSC NAT block, the per-attachment `dropped_received_packets_count` and `dropped_sent_packets_count` stayed 0, and new and open connections looked normal. Passive metrics can't replace an active PSC probe.
+  * **Certificates can be checked on both paths.** Sending the cluster's hostname (SNI) through the private load balancer or PSC returns the cluster's publicly trusted certificate, which verifies fully. A wrong cluster returns the internal `kubernetes` certificate, so hostname verification catches stale or mis-routed targets.
+  * **Probers must open a fresh connection per probe** (no keep-alive, no TLS session cache). A resumed TLS session returns an empty peer certificate. That caused false failures in a spike prober, including a false alert on an untouched cluster, until each probe was given a fresh agent. Reusing connections can also hide failures that only affect new connections.
 * **Comparison**:
 
   | | Private clusters | RH-side PSC failures | Every region w/o global access | Per-cluster objects | Cost / HC / month |
@@ -209,8 +223,9 @@ The public prober is the same, except it lists `hcpub-*` services and calls `htt
   | 2. Private uptime check → ILB | yes | **missed** | **no** (needs ILB global access) | uptime check + SD (not expressible in KCC) | ~$39 |
   | 3. Private uptime check → PSC | — | — | — | not viable | — |
   | 4. Per-cluster synthetic monitor | yes | yes | yes | function + monitor | ~$52 |
-  | **5. Batched synthetic monitors** | **yes** | **yes** | **yes** | **KCC PSC + SD entries only** | **~$1** |
-  | 6. In-cluster probing | — | no | yes | — | excluded |
+  | **5. Batched synthetic monitors (PSC)** | **yes** | **yes** | **yes** | **KCC PSC endpoint + SD entries** | **~$8.50** |
+  | 6. Batched synthetic monitor, LB direct | yes | **missed** (also not visible in PSC metrics) | yes | none (public prober still needs SD entry) | ~$1.20 |
+  | 7. In-cluster probing | — | no | yes | — | excluded |
 
 ## Consequences
 
@@ -219,7 +234,7 @@ The public prober is the same, except it lists `hcpub-*` services and calls `htt
 * Red Hat learns about API outages on either path within about 4–5 minutes, per cluster, before customers report them. This includes Private clusters, probed over the private network.
 * Covers Red Hat-side PSC failures (attachment, NAT, firewall). For PublicAndPrivate clusters it also covers the node-to-control-plane PSC path, which a public-only check would miss.
 * No internal load balancer global access, and no per-cluster Monitoring objects, quota or lifecycle.
-* About $104 per MC per month for both probers, roughly $1 per cluster at 100 clusters, against roughly $3,900 per MC with per-cluster uptime checks.
+* About $8.50 per hosted cluster per month (about $8,500 per 1,000 clusters), dominated by the per-cluster PSC endpoints, against about $55 per cluster with per-cluster uptime checks. See Cost.
 * One metric gives per-cluster availability reporting, dashboards and alerting.
 * Everything per-cluster is created by Config Connector through Gecko's existing manifest transport.
 
@@ -227,7 +242,7 @@ The public prober is the same, except it lists `hcpub-*` services and calls `htt
 
 * We own prober code (discovery, probing, metric writes), with its tests, releases and on-call runbook, where uptime checks would have been configuration only.
 * Probes come from a single location, the MC's region. A regional Google Cloud problem could look like an outage. This is accepted for simplicity, and the prober-health alert helps distinguish the two.
-* Alert latency is about 4–5 minutes (60s probes plus Cloud Monitoring alert evaluation), roughly a minute slower than uptime checks.
+* Alert latency is about 4–5.5 minutes (60s probes, Cloud Monitoring evaluation, and `/livez` staying healthy during graceful shutdown), roughly 1–2 minutes slower than uptime checks.
 * Requires an upstream HyperShift change: the MC project on each service attachment's accept list.
 * Adds one PSC endpoint, and one IP in the monitoring subnet, per hosted cluster.
 * Config Connector lacks Service Directory annotations, so the public prober depends on a naming convention (endpoint name `<clusterName>-<slug>`) plus a per-MC `BASE_DOMAIN`.
@@ -264,10 +279,22 @@ The public prober is the same, except it lists `hcpub-*` services and calls `htt
 
 ### Cost:
 
-* Synthetic monitors: $1.20 per 1,000 executions, billed per execution regardless of how many clusters are probed. Two monitors × 43,200 runs/month ≈ **$104 per MC/month**.
-* Cloud Run compute (a few seconds per run): estimated a few dollars per MC per month.
-* Custom metric ingestion: about 8.6M points per MC per month at 100 clusters with both paths. Likely within or near the free ingestion tier; to be confirmed on billing.
-* Per-cluster PSC endpoints: billed per endpoint-hour. To be priced during implementation.
+Estimates for **1,000 hosted clusters** (10 MCs × 100), half of them PublicAndPrivate, all checks every 60s:
+
+| | Uptime checks (alt. 1/2) | **PSC model (chosen, alt. 5)** | LB direct (alt. 6) |
+|---|---|---|---|
+| Probing | 1,500 checks × 3 regions ≈ $55,300 | 2 synthetic monitors × 10 MCs = $1,037 | $1,037 |
+| Per-cluster PSC endpoints | — | 1,000 × ~$7.30 ≈ **$7,300** ⚠️ | — |
+| Cloud Run compute | — | ~$10 | ~$10 |
+| Custom metric `api_up` (~495 MiB/month) | — | ~$90–130 | ~$90–130 |
+| Alerting (estimate) | small | ~$30 | ~$30 |
+| **Total / month** | **≈ $55,300** | **≈ $8,500 (≈ $8.50/HC)** | **≈ $1,200 (≈ $1.20/HC)** |
+
+* Synthetic monitors cost $1.20 per 1,000 executions, billed per execution regardless of how many clusters are probed. Uptime checks cost $0.30 per 1,000 executions per region.
+* ⚠️ The PSC endpoint price (~$0.01 per endpoint-hour) is **not yet verified** against Google's pricing page. It is ~85% of the PSC model's cost. PSC data processing is negligible (~300–400 GB per month across the fleet).
+* Custom metrics are billed by ingested bytes (~8 bytes per point). The free ingestion tier is shared across the billing account, so it is not counted on.
+* Alternative 1/2's private-path checks also need ILB global access, so they are shown for comparison only.
+* The PSC model costs ~$7,300 per month more per 1,000 clusters than LB direct. That is the price of actively probing Red Hat's PSC path.
 
 ### Operability:
 
@@ -281,8 +308,10 @@ The public prober is the same, except it lists `hcpub-*` services and calls `htt
 
 ## Open Questions
 
-1. **Multiple base domains per region/MC**: can one MC host clusters under more than one base domain? If so, public discovery must carry the domain per cluster instead of using a per-MC `BASE_DOMAIN`.
-2. **HyperShift accept-list API shape**: an operator-level setting (e.g. "accept the attachment's own project") rather than a per-cluster field.
+1. **PSC model vs. load balancer direct**: the PSC model actively covers Red Hat-side PSC failures for ~$7.30 more per cluster per month. Load balancer direct needs no per-cluster resources, no PSC endpoints and no HyperShift accept-list change, but misses that failure class, and PSC producer metrics don't reveal it either. This doc chooses the PSC model; revisit if cost outweighs PSC coverage.
+
+2. **Multiple base domains per region/MC**: can one MC host clusters under more than one base domain? If so, public discovery must carry the domain per cluster instead of using a per-MC `BASE_DOMAIN`.
+3. **HyperShift accept-list API shape**: an operator-level setting (e.g. "accept the attachment's own project") rather than a per-cluster field.
 
 ## References
 
