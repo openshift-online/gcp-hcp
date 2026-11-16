@@ -48,6 +48,7 @@ Decision records organized by topic. Use [TEMPLATE.md](TEMPLATE.md) when adding 
 | [cedar-public-api-authorization](identity/cedar-public-api-authorization.md) | Cedar-based authorization for gecko public API with Helm-seeded PlatformRoles and in-process evaluation |
 | [authenticated-catalog-reads](identity/authenticated-catalog-reads.md) | ~~Authenticated Version, Channel, and PlatformRole reads outside namespace-scoped Cedar authorization~~ *(superseded by platform-scoped-cedar-authorization)* |
 | [platform-scoped-cedar-authorization](identity/platform-scoped-cedar-authorization.md) | Platform-scope authorization through role bindings, replacing exempt catalog reads |
+| [egw-service-identity](identity/egw-service-identity.md) | Gecko authenticates to the Entitlement Gateway with OAuth2 client credentials and Google-managed signing keys |
 
 ## Observability
 

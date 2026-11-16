@@ -51,3 +51,6 @@ Thumbs.db
 # EvaluationLogs may contain target identifiers; keep all generated state local.
 /experiments/complytime-evidence/controls/cloud-armor-waf/bin/
 /experiments/complytime-evidence/controls/cloud-armor-waf/.complytime/
+
+# Local git worktrees (see gcp-hcp-infra)
+.worktree/
