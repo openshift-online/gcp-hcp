@@ -2,19 +2,19 @@
 
 ## Status and exact next action
 
-**Not complete. No deployment, live API test or Phase 2 work has occurred.**
+**Not complete. API/migration deployment and initial live checks passed; public catalog routing is blocked pending a separately approved Endpoints apply. Phase 2 has not started.**
 
 Initial live preflight failed because Google credentials required interactive reauthentication. The user subsequently ran `gcloud auth login`; authentication and the live baseline now pass. Do not bypass authentication or copy credentials.
 
-Next: observe the API-only rollout from published infrastructure commit `469a838f41945807da1e92b39777aea0c9a7846f` to Gecko source `cc26254c92b64d71a0b8cf00faf955fbc8e5b925`. Require actual new migration/API success, matching running digest and unchanged Spanner before publishing/testing the retained catalog. Do not report Phase 1 complete until the required deployed tests and committed handoff exist.
+Next: await the user's decision on the completed read-only Terraform plan below. **The user explicitly selected PLAN ONLY for this Endpoints change. No Terraform apply is authorized.** API/migration rollout passed, but the public route gate failed, so no catalog entry or verification toggle has been published. Do not advance to Phase 2.
 
 ## Refreshed source baseline
 
 | Checkout | Branch / starting commit | Disposition |
 | --- | --- | --- |
 | `gcp-hcp` | `iam-bootstrap` / `425b5f1ae9156f4a72a35b24d29bc0de05192311` | User's newer `WifConfigTemplates` commit retained. Existing untracked historical plans/inventories and `.claude/settings.local.json` remain untouched. |
-| `gecko` | `main` / `492bff6092b81b9c57417531ccfdd073ac1097f3` | Initially clean; implementation branch `feat/wifconfigtemplate-api-phase1` created without resetting work. Reviewed source is now committed/published at `6cef781f18552dde10413c31c331ea0ecbaaf019`. |
-| `gcp-hcp-infra-dev-main` | `chore/dev-apahim-main-overlay` / `831338572d075d84747e9bc8ca5e00fe4d74dca9` | Clean; remote `origin/dev-apahim` readback matches this SHA. No deployment edits/publication yet. |
+| `gecko` | `main` / `492bff6092b81b9c57417531ccfdd073ac1097f3` | Initially clean; API source commit `6cef781...` followed by native-build commit `cc26254c92b64d71a0b8cf00faf955fbc8e5b925`, published on `feat/wifconfigtemplate-api-phase1`. The latter artifact is deployed. |
+| `gcp-hcp-infra-dev-main` | `chore/dev-apahim-main-overlay` / `831338572d075d84747e9bc8ca5e00fe4d74dca9` | Initially clean with matching remote. API rollout `469a838f...` is published/deployed; read-route fix `20491381...` is locally committed but not pushed/applied. |
 | `gcp-hcp-ctl` | Previously inspected `main` / `626da6d607c2529aee1ab87a9ccea212efe838c0` | No changes or artifacts in this phase. |
 
 Gecko remotes: `origin` is `apahim/gecko`, `upstream` is `openshift-online/gecko`. Infrastructure origin is `apahim/gcp-hcp-infra`. Publish only task-owned branches or the approved dev deployment ref; never force-push/reset unrelated histories.
@@ -67,7 +67,7 @@ Initial failures and disposition:
 
 Still pending at this checkpoint:
 
-- Dev deployment, observed new migration/API health, new authenticated public/private behavior and restart persistence.
+- Remaining deployed gates: public Endpoints routing, catalog publication/verification/reapply tests, API-restart persistence and final handoff. The API-only deployment itself has now passed health/storage/image checks below.
 
 ## Source commit and artifact build
 
@@ -84,9 +84,9 @@ Still pending at this checkpoint:
 
 The original amd64 compiler running inside the arm64 Podman VM was too slow. The user requested native local cross-compilation plus binary-only image packaging. The owned Podman build client PID 90614 was deliberately terminated; its background job exited 143 while compiling. It did not finish or publish the original `wif-p1-6cef781f1855-api` artifact. Do not reuse that pending tag as proof of a built image.
 
-Prepared Gecko changes (not yet committed at this checkpoint): root Makefile local binary/image targets, README instructions and `deploy/Containerfile.local`. Host Go cross-compiles with CGO disabled and explicit Linux GOARCH; separate ignored per-architecture/per-component binary contexts are packaged without any Containerfile RUN instructions. The pinned runtime base, CA trust bundle and non-root UID match the ordinary image. Existing CI/source Containerfiles are unchanged. Runtime help smoke may execute under emulation, but compilation and image assembly do not.
+The native-build change added root Makefile local binary/image targets, README instructions and `deploy/Containerfile.local`, subsequently committed as `cc26254...`. Host Go cross-compiles with CGO disabled and explicit Linux GOARCH; separate ignored per-architecture/per-component binary contexts are packaged without any Containerfile RUN instructions. The pinned runtime base, CA trust bundle and non-root UID match the ordinary image. Existing CI/source Containerfiles are unchanged. Runtime help smoke may execute under emulation, but compilation and image assembly do not.
 
-Native host builds of both linux/amd64 binaries passed. `file` independently identified both as statically linked x86-64 Linux ELF executables; Go build metadata confirmed Go 1.27.4, CGO_ENABLED=0, GOOS=linux and GOARCH=amd64. These initial test binaries correctly show dirty source and are not deployment artifacts. Invalid target architecture was rejected before building; arm64 dry-run showed matching Go target and container platform for both components. Both packaging-only images are now building under `localhost/gecko:mac-build-validation-{api,controllers}`. The generic targets default to localhost and never push; the approved deployment will explicitly select Quay.
+Native host builds of both linux/amd64 binaries passed. `file` independently identified both as statically linked x86-64 Linux ELF executables; Go build metadata confirmed Go 1.27.4, CGO_ENABLED=0, GOOS=linux and GOARCH=amd64. These initial test binaries correctly showed dirty source and were not deployment artifacts. Invalid target architecture was rejected before building; arm64 dry-run showed matching Go target and container platform for both components. Packaging-only validation images built under localhost; the generic targets default to localhost and never push. The approved clean-source API artifact was subsequently built/published to Quay as recorded below.
 
 The initial dirty validation images were not used for deployment. The clean rebuild, completed architect review and source-specific publication are recorded below.
 
@@ -102,9 +102,42 @@ The initial dirty validation images were not used for deployment. The clean rebu
 - Local image/config ID: `sha256:6b471b7f5c8f07705aa1657c9510a6625b1982407d799c8d801ff26639c80072`.
 - Anonymous registry manifest/config reads passed; content SHA matched the push digest. Registry config confirmed Linux/amd64 and exact clean source label. Actual API image help smoke passed, and Go build metadata reported `vcs.modified=false` at source `cc26254...`, host Go 1.27.4. No controller image was published/deployed for Phase 1.
 - Infrastructure commit `469a838f41945807da1e92b39777aea0c9a7846f`, `chore(dev): deploy Phase 1 WIF catalog API support`, was pushed normally to `apahim/gcp-hcp-infra:dev-apahim`. Exactly two owner/region API files changed. Source pin/tag updated to the clean native-build artifact; the reviewed API chart content is identical between `6cef781` and `cc26254`.
-- Refreshed the existing regional root Application through its Argo refresh annotation. A bounded wait is observing exact child chart revision, operation success and Deployment rollout. This publication is a deployment trigger, **not yet proof of runtime readiness**.
+- Refreshed the existing regional root Application through its Argo refresh annotation. A bounded wait observed the exact child chart revision, successful Argo operation and Deployment rollout; independent digest/health checks are recorded below.
 - No catalog entry has been intentionally published yet. IAM application writes remain disabled. ESP 2.57.1, seven old controller pins, Spanner and prune safeguards remain selected.
 - One staging command initially used root-relative git-add paths while working under `argocd/`; it failed before commit/publication. Corrected the working directory and committed/pushed once. No mutation was replayed.
+
+### API rollout observed; public routing gate failed
+
+- The exact chart revision, Argo operation success and API Deployment rollout wait all completed successfully. Re-ran root `make test` with Helm enabled on clean Gecko commit `cc26254`; all three modules passed and the checkout remained unchanged.
+- Active API Pod: `platform-api-server-6669fdd78f-p2h7x`, UID `0e9e65cb-8d95-4d2b-ba1e-78f15998985a`, Ready, running the published Quay digest `sha256:b1a477398519f3561aa080bd7deb3777c69fac32c1f74e2f524bec3fd6bb05cc`.
+- Matching migration Job replacement UID `e11cbeec-b922-465b-9bc2-73d997f21b93`, Complete with one successful Pod. Its image is the same new API tag. This was the anticipated image-driven Job replacement, not a database reset.
+- Spanner target and KCC DB UID are unchanged. New API arguments keep IAM application writes false. Private aggregated `wifconfigtemplates` get/list works and returns an empty catalog. Clusters/NodePools remain zero and old controller image pins are retained.
+- Public routing check first stopped on anonymous 404 before reaching its authenticated branch. After the user's identity-token reminder, explicitly compared both paths using the **same fresh gcloud identity token in memory**: Versions 200/21 items; WIFConfigTemplates 404 with ESP's fixed `The current request is not defined by this API.` message. This is not an authentication failure or an API persistence failure.
+- Inspected the Terraform-owned ESP OpenAPI template: it explicitly enumerates public paths and lacks the new WIF collection/item GET routes. No authentication bypass or broad catch-all route was attempted.
+
+### Endpoints source fix and user-authorized plan only
+
+- Added exactly two GET-only paths to `terraform/modules/service/templates/esp-openapi.yaml.tftpl`, inheriting the existing global OAuth2 requirement. No write routes, anonymous security override, issuer/audience changes or changes to existing routes.
+- Semantic YAML comparison passed: removing the two new routes produces the exact original configuration. Architect review approved with **no blockers**, including unique operation IDs and item path parameter validation.
+- Source fix is locally committed in the selected deployment worktree at `2049138124954c5c0e3928053f813d4f725a0e46`, `fix(api): route authenticated WIF catalog reads through ESP`. It has not been pushed/applied at this checkpoint; the watched dev ref remains the successful API rollout `469a838f`.
+- The user selected **Plan only** when asked about planning/applying the existing personal dev Endpoints service update. **Do not run apply, manually deploy an Endpoints config, change IAM, enable APIs or broaden the plan.**
+- Use the authoritative original Terraform root `/Users/asegundo/git/osd/gcp-hcp-infra/terraform/config/dev-all-in-one/apahim`; no state, tfvars, keys or other credentials were moved/copied. Its module source references the original checkout's service template, not the deployment worktree.
+- Before mirroring, verified that original service template exactly matched the selected worktree's pre-change baseline (SHA-256 `ed245f2cd232d040c5be278e8c8d69414d8e8a400a5ff90a924fcefcc7ca73ad`). Mirrored only the reviewed 23-line route addition into that previously clean source file so the existing Terraform root can plan the intended config. This is a task-owned uncommitted change in the original checkout; preserve it separately from the user's existing `terraform/modules/region/spanner.tf`, `variables.tf` edits and untracked PDF. Nothing else there was modified by this preparation.
+- Terraform 1.17.1 matches the original checkout's `.tool-versions`; a temporary official darwin/arm64 binary was downloaded and archive SHA-256 verified: `b1ecb3fe0d0a0290c1ab6f83d967d43f25da05d0b671ee0fb355252268dce95a`.
+- Terraform binary path: `/private/var/folders/f4/sf1v545n5r140_7b1swtprz40000gn/T/opencode/terraform-1.17.1`. Python remains in the dedicated venv.
+- Full non-targeted refreshed plan was started with `-input=false -no-color -detailed-exitcode -out=<restricted>/endpoints.tfplan`, from the existing root. A short-lived gcloud access token is passed only in that process environment, never logged or persisted as a credential file. Raw plan/log files are restricted under a mode-0700 temporary directory, file mode 0600, not Git; they may contain sensitive Terraform data and must never be committed or printed wholesale.
+- Original state SHA-256 before and after plan: `f8fdb0f30354bfc153d96ed5e09075bf0ccfaeeadcfca12221fb25b4608c8262`. The authoritative state bytes are unchanged.
+
+### Completed plan result — not applied
+
+- Full refreshed, non-targeted Terraform plan completed successfully, detailed exit code 2.
+- **Exactly one managed resource update:** `module.service.google_endpoints_service.hcp`, actions `["update"]`. No creates, deletes or replacements; no other managed resource changes, including no IAM or Spanner changes.
+- Target project is unchanged: `gcp-hcp-dev-svc-apahim1110`.
+- Managed service identity is unchanged: `hcp-api.endpoints.gcp-hcp-dev-svc-apahim1110.cloud.goog`.
+- Parsed the actual saved plan's before/after OpenAPI configs and independently verified that the only semantic difference is the two GET collection/item paths. All existing routes, global OAuth2, issuer, audience and other configuration are identical. No replacement paths are present.
+- Sensitive saved plan/log directory (local-only, mode 0700): `/private/var/folders/f4/sf1v545n5r140_7b1swtprz40000gn/T/opencode/wif-endpoints-plan-j_ulxnda/`. `endpoints.tfplan` and `plan.log` are mode 0600; a sanitized `summary.json` is also kept there. Never commit or print the raw plan/log.
+- Saved plan SHA-256: `f463520a8a9e4df2a6af403e37acb68c26b906b3115e2c8f1223a1492fa8e469`.
+- **No apply, manual Endpoints deployment, new service config rollout, API enablement or IAM change was executed.** The published healthy API remains in place with catalog publication and application writes disabled. Await explicit user approval; revalidate state/source and plan scope before any later apply.
 
 ## Architect review and disposition
 
@@ -146,20 +179,19 @@ Nonblocking follow-up observations: Phase 1 private Version pins are intentional
 ### Python and prepared deployment artifacts
 
 - User requires **all Python work to use a venv**. Created `/private/var/folders/f4/sf1v545n5r140_7b1swtprz40000gn/T/opencode/wif-phase1-venv`; all subsequent Python scripts/rendering use its `bin/python`. Pinned installed dependency: `PyYAML==6.0.3`. No package was installed into system Python.
-- Prepared, but not yet committed/published, exactly two files in `gcp-hcp-infra-dev-main`: owner/region `platform-api-server` override and its generated regional dev Application. No other environment/controller/management rendered files changed.
+- Initial deployment preparation changed exactly two files in `gcp-hcp-infra-dev-main`: owner/region `platform-api-server` override and its generated regional dev Application, subsequently committed/published as `469a838f...`. No other environment/controller/management rendered files changed.
 - Owner override pins API chart source to `apahim/gecko` at `6cef781...`, supplies image registry/repository/tag via Helm parameters (overriding inherited tag), keeps IAM writes and catalog publication off, preserves Spanner/prune safeguards and explicitly retains running ESP 2.57.1.
 - Chart diff against current deployed `f90f6df` was inspected: apart from the IAM additions, the only platform API chart default change is ESP 2.57.1 -> 2.57.2, intentionally neutralized by the dev override.
-- Ran the repository renderer using the venv; repeated rendering produced no additional diff. Assertions passed for exact two-file scope, source pin, image parameter precedence, disabled writes/catalog, existing sidecar, persistent storage and pruning guards. Deployment architect review found **no blockers** and confirmed both API and migration Job receive the override. Image build not yet reported complete, so no watched deployment ref was pushed.
+- Ran the repository renderer using the venv; repeated rendering produced no additional diff. Assertions passed for exact two-file scope, source pin, image parameter precedence, disabled writes/catalog, existing sidecar, persistent storage and pruning guards. Deployment architect review found **no blockers** and confirmed both API and migration Job receive the override. Publication was deferred until the native-built image passed clean-source and anonymous registry checks, then completed as recorded above.
 
-## Future dev rollout boundary
+## Remaining acceptance and safe resume
 
-1. Read fresh regional/management API state and confirm no hosted customer objects; record current eight Gecko Application/workload revisions, API image digest, DB/migration Job UIDs, Spanner target and Argo health.
-2. Confirm a new template is the only intended catalog allocation. No customer IAM or hosted resources.
-3. Publish reviewed Gecko source to a reachable fork ref; build from the exact source commit using repository-root context and `deploy/platform-api/Containerfile`. Record unique Quay tag and resolved digest. The API migration Job must use the same API image.
-4. Override only the owner/region-specific platform-api-server Application's chart repo/ref and image registry/repository/tag. The inherited `image.tag` Helm parameter takes precedence over valuesObject: replace it explicitly. Do not change global gecko_ref and unintentionally roll all controllers.
-5. First deploy API/schema support with catalog publication disabled and `iamApplications.enabled:false`. Observe migration and API health against the same Spanner DB. Then enable a real release-boundary catalog entry, initially verified false. Preserve `prune:false` and persistent resources. Do not pin live Versions while old versionsync replaces their entire spec.
-6. Test discovery, authenticated get/list, anonymous/customer write denial, immutable content/deletion rejection, no-op apply and verified toggling, finishing false. UID-guard the planned API pod restart and prove template persistence. Do not claim customer/cloud verification.
-7. Retain the explicitly published unverified catalog entry under the no-delete policy; it is not a disposable fixture. Record its UID/digest and ownership in the final handoff.
-8. Read back all health/storage/image invariants and commit evidence/handoff before Phase 2.
+1. Obtain the user's separate Endpoints apply decision. The API image/migration already rolled out successfully: do not rebuild or replay that rollout merely to resume this session.
+2. If apply is approved, revalidate the source/state/plan and require exactly the reviewed one-resource in-place service update. Stop on any additional changes. Preserve original user edits and state/credential locations.
+3. Observe the managed ESP rollout loading the new service config, then require public catalog list/get with a fresh gcloud identity token. Verify anonymous requests and public writes are denied, rather than bypassing the gateway or weakening authentication.
+4. Only after that gate, publish a real release-boundary template through dev-only GitOps, initially verified false. Keep IAM assertion writes false, the seven controller pins unchanged, Spanner/prune safeguards intact and no live Version pins. Preview sync behavior: the API chart's migration Job has Force/Replace annotations, so do not accidentally replay it during catalog-only syncs without a deliberate observed plan.
+5. Complete template discovery, content equality, authenticated reads, invalid contract/edit/delete rejection, no-op apply and GitOps verified toggling ending false. UID-guard the agreed API Pod restart and independently prove template UID/digest/content persistence. No live Cluster/NodePool or customer IAM allocation.
+6. Retain the unverified catalog entry under the no-delete policy; record its UID/digest and ownership. It is not a disposable fixture.
+7. Read back all health/storage/image invariants and commit final evidence/handoff before marking Phase 1 complete. Do not advance to Phase 2 on a partial gate.
 
-The first infrastructure publication and image digest are recorded above; actual runtime readiness and catalog test results are still pending. No customer IAM allocation, hosted Cluster operation or restoration is asserted. Do not roll back to an older API that can erase newly introduced fields; never drop stored data or switch to memory as restoration.
+The API rollout and image digest are independently verified above. Public routing and catalog/persistence acceptance remain incomplete; the Endpoints change is plan-only until separately approved. No customer IAM allocation, hosted Cluster operation or restoration is asserted. Do not roll back to an older API that can erase newly introduced fields; never drop stored data or switch to memory as restoration.

@@ -12,7 +12,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Source/image published; Mac-friendly build tested; API-only dev rollout `469a838f` published; rollout observation/live tests pending |
+| 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | API/migration healthy on new digest; public catalog blocked by ESP routes; reviewed route fix committed; user authorized Terraform plan only, NOT apply |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Not started |
 | 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Not started |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
