@@ -1,4 +1,8 @@
-# Phase 2 handoff — blocked, not complete
+# Phase 2 initial blocked handoff — historical
+
+**Superseded by the [completed Phase 2 handoff](phase-2-completion-handoff.md).**
+GCP-1452 was subsequently fixed and the user-approved replacement acceptance passed.
+Keep the following as the record of the initial stop, not the current resume action.
 
 **Stop point:** 2026-11-17, final safety readback at 18:55:39Z.
 

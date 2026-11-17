@@ -1,9 +1,14 @@
-# Phase 2 — deployed, acceptance blocked
+# Phase 2 — implementation and initial acceptance history
 
-**Incomplete. Reviewed source and clean native images are deployed in personal dev.
+**Current status: complete after the GCP-1452 fix and approved resumed acceptance.**
+Read the [completion handoff](phase-2-completion-handoff.md) and
+[fix/live acceptance evidence](gcp-1452-fix.md) for current source, deployment and
+final state. The following records the original implementation and blocked attempt.
+
+**Historical stop point:** Reviewed source and clean native images were deployed in personal dev.
 Catalog checks passed, but Cluster update validation prevented the required live IAM
 gate test. Acceptance stopped; the fixture was deleted and verified=false restored.
-Final readback: 2026-11-17T18:55:39Z. Phase 3 remains unstarted.**
+Initial readback: 2026-11-17T18:55:39Z. Phase 3 remained unstarted.
 
 ## Scope and baseline
 
