@@ -2,9 +2,9 @@
 
 ## Resume checkpoint
 
-**Phase 1 is complete (2026-11-17). Phase 2 has not started.**
+**Phase 1 is complete. Phase 2 is deployed but incomplete: live acceptance is blocked by Cluster numeric/CEL update validation.**
 
-Read the [fresh-session handoff](wifconfigtemplate-evidence/phase-1-handoff.md) before further work. It records source/artifact/deployment identities, completed live checks, retained resources, original Terraform dirty work and the exact Phase 2 starting action. Obtain Phase 2 scope agreement before implementation or deployment. Historical experiment inventories are not fresh readbacks.
+Read the [blocked Phase 2 handoff](wifconfigtemplate-evidence/phase-2-handoff.md) and [Phase 2 evidence](wifconfigtemplate-evidence/phase-2.md) before further work. Reviewed Gecko `9f7161a` and its clean native images are running in personal dev. The one API fixture was deleted normally, verification is false, application writes remain disabled, and no hosted resources or IAM were allocated. Do not start Phase 3 or rerun a fixture without addressing the recorded blocker and agreeing resumption.
 
 ## Agreed delivery contract
 
@@ -13,7 +13,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Complete: reviewed/committed source, native image, dev deployment, live negative/toggle/reapply tests, API-restart + independent Spanner persistence, clean Terraform post-plan and durable handoff |
-| 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Not started |
+| 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Blocked/incomplete: reviewed source, native builds and staged dev rollout done; catalog recovery passed; Cluster update CEL numeric error prevented the required live IAM-gate check; cleanup/restoration verified |
 | 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Not started |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
 | 5 | Monitoring, sustained-failure alerts and operational recovery | Not started |
@@ -33,8 +33,8 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 
 ## Selected checkouts and operational boundaries
 
-- Gecko implementation: `/Users/asegundo/git/osd/gecko`, branch `feat/wifconfigtemplate-api-phase1`.
-- CLI: `/Users/asegundo/git/osd/gcp-hcp-ctl`; unchanged in Phase 1.
+- Gecko implementation: `/Users/asegundo/git/osd/gecko`, branch `feat/wifconfigtemplate-phase2` at `9f7161a0f333305bad789e7283196a621ab88e14`.
+- CLI: `/Users/asegundo/git/osd/gcp-hcp-ctl`; unchanged through the blocked Phase 2 attempt. Do not run its legacy broad-role IAM path.
 - Deployment artifacts: `/Users/asegundo/git/osd/gcp-hcp-infra-dev-main`; preserve Spanner and the pruning safeguards.
 - Images: locally built API/controller artifacts in `quay.io/apahim/gecko`, using unique component-specific tags and recorded resolved digests.
 - Do not use/repair stale `.worktree/dev-apahim` or `.worktree/dev-asegundo` Git links. Do not modify unrelated Terraform changes in the original infrastructure checkout.
