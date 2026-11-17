@@ -78,6 +78,7 @@ Still pending at this checkpoint:
 - Build context is a clean `git archive` of the exact source commit, extracted under the approved temporary directory. This deliberately excludes ignored local API-test certificates/private keys and local binaries, which the repository's existing containerignore does not exclude recursively.
 - Build command: `podman build --platform linux/amd64 --label org.opencontainers.image.revision=6cef781f18552dde10413c31c331ea0ecbaaf019 --file <archive>/deploy/platform-api/Containerfile --tag quay.io/apahim/gecko:wif-p1-6cef781f1855-api <archive>`.
 - Build result, image ID, registry digest, smoke result and image publication: pending. Do not infer success from the tag or running build command.
+- User created `quay.io/apahim/gecko` as public and confirmed local Podman login. Anonymous Quay repository API readback independently returned `is_public:true`, `state:NORMAL`, with no tags yet. No image-pull secret or new cluster credentials are needed for this public repository; verify the actual tagged artifact's anonymous pull after publication.
 - No controller image is required for this Phase 1 rollout while assertions remain disabled and no Version pin is written. Do not change controller/chart refs globally; Phase 2 must deploy compatible controller builds before assertion activation.
 
 ## Architect review and disposition
