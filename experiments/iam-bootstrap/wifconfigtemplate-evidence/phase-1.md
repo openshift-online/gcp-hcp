@@ -6,7 +6,7 @@
 
 Initial live preflight failed because Google credentials required interactive reauthentication. The user subsequently ran `gcloud auth login`; authentication and the live baseline now pass. Do not bypass authentication or copy credentials.
 
-Next: observe the in-progress API image build; smoke-test and publish it if successful, finish review of the prepared two-file dev override, then commit/publish the deployment. Source validation/review/publication and live preflight are complete. Do not report Phase 1 complete until the required deployed tests and committed handoff exist.
+Next: observe the API-only rollout from published infrastructure commit `469a838f41945807da1e92b39777aea0c9a7846f` to Gecko source `cc26254c92b64d71a0b8cf00faf955fbc8e5b925`. Require actual new migration/API success, matching running digest and unchanged Spanner before publishing/testing the retained catalog. Do not report Phase 1 complete until the required deployed tests and committed handoff exist.
 
 ## Refreshed source baseline
 
@@ -67,7 +67,6 @@ Initial failures and disposition:
 
 Still pending at this checkpoint:
 
-- API container build, source/image publication, resolved digest and runtime smoke.
 - Dev deployment, observed new migration/API health, new authenticated public/private behavior and restart persistence.
 
 ## Source commit and artifact build
@@ -77,9 +76,35 @@ Still pending at this checkpoint:
 - API artifact tag being built: `quay.io/apahim/gecko:wif-p1-6cef781f1855-api`, target `linux/amd64` based on historical dev nodes; freshly verify live node architecture before rollout.
 - Build context is a clean `git archive` of the exact source commit, extracted under the approved temporary directory. This deliberately excludes ignored local API-test certificates/private keys and local binaries, which the repository's existing containerignore does not exclude recursively.
 - Build command: `podman build --platform linux/amd64 --label org.opencontainers.image.revision=6cef781f18552dde10413c31c331ea0ecbaaf019 --file <archive>/deploy/platform-api/Containerfile --tag quay.io/apahim/gecko:wif-p1-6cef781f1855-api <archive>`.
-- Build result, image ID, registry digest, smoke result and image publication: pending. Do not infer success from the tag or running build command.
+- This original emulated build was subsequently canceled; use the clean native-build artifact recorded below, not this old pending tag.
 - User created `quay.io/apahim/gecko` as public and confirmed local Podman login. Anonymous Quay repository API readback independently returned `is_public:true`, `state:NORMAL`, with no tags yet. No image-pull secret or new cluster credentials are needed for this public repository; verify the actual tagged artifact's anonymous pull after publication.
 - No controller image is required for this Phase 1 rollout while assertions remain disabled and no Version pin is written. Do not change controller/chart refs globally; Phase 2 must deploy compatible controller builds before assertion activation.
+
+### Mac-friendly build adjustment (requested by user)
+
+The original amd64 compiler running inside the arm64 Podman VM was too slow. The user requested native local cross-compilation plus binary-only image packaging. The owned Podman build client PID 90614 was deliberately terminated; its background job exited 143 while compiling. It did not finish or publish the original `wif-p1-6cef781f1855-api` artifact. Do not reuse that pending tag as proof of a built image.
+
+Prepared Gecko changes (not yet committed at this checkpoint): root Makefile local binary/image targets, README instructions and `deploy/Containerfile.local`. Host Go cross-compiles with CGO disabled and explicit Linux GOARCH; separate ignored per-architecture/per-component binary contexts are packaged without any Containerfile RUN instructions. The pinned runtime base, CA trust bundle and non-root UID match the ordinary image. Existing CI/source Containerfiles are unchanged. Runtime help smoke may execute under emulation, but compilation and image assembly do not.
+
+Native host builds of both linux/amd64 binaries passed. `file` independently identified both as statically linked x86-64 Linux ELF executables; Go build metadata confirmed Go 1.27.4, CGO_ENABLED=0, GOOS=linux and GOARCH=amd64. These initial test binaries correctly show dirty source and are not deployment artifacts. Invalid target architecture was rejected before building; arm64 dry-run showed matching Go target and container platform for both components. Both packaging-only images are now building under `localhost/gecko:mac-build-validation-{api,controllers}`. The generic targets default to localhost and never push; the approved deployment will explicitly select Quay.
+
+The initial dirty validation images were not used for deployment. The clean rebuild, completed architect review and source-specific publication are recorded below.
+
+### Completed native build and first deployment publication
+
+- Native-build source commit: `cc26254c92b64d71a0b8cf00faf955fbc8e5b925`, `build: add native cross-compiled local container images`, published normally on the same Gecko feature branch. This changes only Makefile, README and the new local Containerfile; chart/API/controller/Orlop source is unchanged from reviewed `6cef781`.
+- Final local layout is `bin/local/linux-<arch>/{api,controllers}/app/gecko`; the app directory is copied with UID/GID 65532 ownership and the executable is mode 0555. Builds disable Go workspaces and use readonly module files. Default tags include architecture and a dirty suffix where applicable; generic default repository is `localhost/gecko`; nothing pushes automatically.
+- Both validation images built successfully with no target-platform RUN instruction. Image export verified writable `/app` ownership, read-only binary and CA bundle. API and controller `--help` smoke tests passed under non-root, read-only filesystem and no-network settings. Go metadata/ELF checks confirmed Linux/amd64 static binaries. Rebuilding over existing mode-0555 outputs also passed.
+- Architect follow-up confirmed all native-build review findings addressed and **no blockers**. Existing CI Dockerfiles are unchanged; these are development artifacts, not a claim of Red Hat pipeline promotion.
+- Clean Phase 1 API build command: `make local-image-api LOCAL_ARCH=amd64 LOCAL_IMAGE_REPOSITORY=quay.io/apahim/gecko LOCAL_IMAGE_TAG=wif-p1-cc26254c92b6`, followed by explicit Podman push.
+- Published tag: `quay.io/apahim/gecko:wif-p1-cc26254c92b6-api`.
+- Published immutable manifest digest: `sha256:b1a477398519f3561aa080bd7deb3777c69fac32c1f74e2f524bec3fd6bb05cc`.
+- Local image/config ID: `sha256:6b471b7f5c8f07705aa1657c9510a6625b1982407d799c8d801ff26639c80072`.
+- Anonymous registry manifest/config reads passed; content SHA matched the push digest. Registry config confirmed Linux/amd64 and exact clean source label. Actual API image help smoke passed, and Go build metadata reported `vcs.modified=false` at source `cc26254...`, host Go 1.27.4. No controller image was published/deployed for Phase 1.
+- Infrastructure commit `469a838f41945807da1e92b39777aea0c9a7846f`, `chore(dev): deploy Phase 1 WIF catalog API support`, was pushed normally to `apahim/gcp-hcp-infra:dev-apahim`. Exactly two owner/region API files changed. Source pin/tag updated to the clean native-build artifact; the reviewed API chart content is identical between `6cef781` and `cc26254`.
+- Refreshed the existing regional root Application through its Argo refresh annotation. A bounded wait is observing exact child chart revision, operation success and Deployment rollout. This publication is a deployment trigger, **not yet proof of runtime readiness**.
+- No catalog entry has been intentionally published yet. IAM application writes remain disabled. ESP 2.57.1, seven old controller pins, Spanner and prune safeguards remain selected.
+- One staging command initially used root-relative git-add paths while working under `argocd/`; it failed before commit/publication. Corrected the working directory and committed/pushed once. No mutation was replayed.
 
 ## Architect review and disposition
 
@@ -137,4 +162,4 @@ Nonblocking follow-up observations: Phase 1 private Version pins are intentional
 7. Retain the explicitly published unverified catalog entry under the no-delete policy; it is not a disposable fixture. Record its UID/digest and ownership in the final handoff.
 8. Read back all health/storage/image invariants and commit evidence/handoff before Phase 2.
 
-No infrastructure publication commit, image digest, cloud operation, resource allocation, deployment or restoration is asserted yet. Gecko source publication alone does not deploy anything. Do not roll back to an older API that can erase newly introduced fields; never drop stored data or switch to memory as restoration.
+The first infrastructure publication and image digest are recorded above; actual runtime readiness and catalog test results are still pending. No customer IAM allocation, hosted Cluster operation or restoration is asserted. Do not roll back to an older API that can erase newly introduced fields; never drop stored data or switch to memory as restoration.
