@@ -1,12 +1,12 @@
-# Phase 1: API/catalog contracts — in progress
+# Phase 1: API/catalog contracts — complete
 
 ## Status and exact next action
 
-**Not complete. API/migration deployment and initial live checks passed; public catalog routing is blocked pending a separately approved Endpoints apply. Phase 2 has not started.**
+**Complete as of 2026-11-17 15:04:31Z.** Reviewed source, artifacts, dev deployment, catalog/API negative tests, GitOps toggling and restart/Spanner persistence passed. **Phase 2 has not started.** Read the concise [fresh-session handoff](phase-1-handoff.md) first; the rest of this document preserves the chronological evidence and resolved blockers.
 
 Initial live preflight failed because Google credentials required interactive reauthentication. The user subsequently ran `gcloud auth login`; authentication and the live baseline now pass. Do not bypass authentication or copy credentials.
 
-Next: await the user's decision on the completed read-only Terraform plan below. **The user explicitly selected PLAN ONLY for this Endpoints change. No Terraform apply is authorized.** API/migration rollout passed, but the public route gate failed, so no catalog entry or verification toggle has been published. Do not advance to Phase 2.
+Next: refresh the handoff's source/runtime baseline read-only and agree Phase 2 scope before implementation. Do not replay completed Phase 1 operations. The final retained template is verified=false; live IAM assertions remain disabled.
 
 ## Refreshed source baseline
 
@@ -65,9 +65,7 @@ Initial failures and disposition:
 - Initial API lint exposed bounds/format/complexity issues; added bounds, split validation helpers, formatted and reran successfully.
 - Catalog test cleanup intermittently exceeded its five-second shutdown deadline. The modified test now owns its HTTP transport and closes idle connections before server shutdown; the focused race-enabled server suite then passed. Do not weaken assertions/timeouts to hide a recurrence.
 
-Still pending at this checkpoint:
-
-- Remaining deployed gates: public Endpoints routing, catalog publication/verification/reapply tests, API-restart persistence and final handoff. The API-only deployment itself has now passed health/storage/image checks below.
+All Phase 1 deployed gates subsequently passed, including Endpoints routing, catalog publication/verification/reapply, restart persistence and the final handoff below. Customer IAM application and initial/upgrade dispatch enforcement remain later-phase work, not missing Phase 1 acceptance.
 
 ## Source commit and artifact build
 
@@ -128,7 +126,7 @@ The initial dirty validation images were not used for deployment. The clean rebu
 - Full non-targeted refreshed plan was started with `-input=false -no-color -detailed-exitcode -out=<restricted>/endpoints.tfplan`, from the existing root. A short-lived gcloud access token is passed only in that process environment, never logged or persisted as a credential file. Raw plan/log files are restricted under a mode-0700 temporary directory, file mode 0600, not Git; they may contain sensitive Terraform data and must never be committed or printed wholesale.
 - Original state SHA-256 before and after plan: `f8fdb0f30354bfc153d96ed5e09075bf0ccfaeeadcfca12221fb25b4608c8262`. The authoritative state bytes are unchanged.
 
-### Completed plan result — not applied
+### Completed plan-only checkpoint (before separate apply approval)
 
 - Full refreshed, non-targeted Terraform plan completed successfully, detailed exit code 2.
 - **Exactly one managed resource update:** `module.service.google_endpoints_service.hcp`, actions `["update"]`. No creates, deletes or replacements; no other managed resource changes, including no IAM or Spanner changes.
@@ -137,7 +135,41 @@ The initial dirty validation images were not used for deployment. The clean rebu
 - Parsed the actual saved plan's before/after OpenAPI configs and independently verified that the only semantic difference is the two GET collection/item paths. All existing routes, global OAuth2, issuer, audience and other configuration are identical. No replacement paths are present.
 - Sensitive saved plan/log directory (local-only, mode 0700): `/private/var/folders/f4/sf1v545n5r140_7b1swtprz40000gn/T/opencode/wif-endpoints-plan-j_ulxnda/`. `endpoints.tfplan` and `plan.log` are mode 0600; a sanitized `summary.json` is also kept there. Never commit or print the raw plan/log.
 - Saved plan SHA-256: `f463520a8a9e4df2a6af403e37acb68c26b906b3115e2c8f1223a1492fa8e469`.
-- **No apply, manual Endpoints deployment, new service config rollout, API enablement or IAM change was executed.** The published healthy API remains in place with catalog publication and application writes disabled. Await explicit user approval; revalidate state/source and plan scope before any later apply.
+- At this plan-only checkpoint, no apply had occurred. The separate dev-only approval and exact one-resource apply are recorded below; this historical checkpoint is not the final state.
+
+### Subsequent dev-only apply approval and guarded execution
+
+- User approved: "as long as we only touch the dev environment, you can apply". This supersedes the earlier plan-only restriction for **this exact one-resource personal dev service update**, not any other environment or IAM/resource expansion.
+- Before apply, independently rechecked the saved-plan hash, unchanged authoritative state hash, original module template equality with source commit `20491381...`, one update/no replacement, exact dev project/service identity and the two-GET-only semantic delta.
+- Read the live managed service rollout before apply: SUCCESS, 100% on `2026-11-10r0`, matching the reviewed plan's previous config ID.
+- Applied `terraform apply -input=false -no-color <restricted>/endpoints.tfplan` once from the authoritative dev root, with a fresh short-lived token only in process environment. Exit 0; exact summary **0 added, 1 changed, 0 destroyed**. Restricted `apply.log` and sanitized outcome summary remain beside the saved plan. State SHA-256 after the approved update is `83d8674e0d9af29574eb4cd354a289c532e45917a9bebc7190b4db82bc3ebcb6`; this intentional Terraform state update was not a state relocation or database change.
+- Public routing now independently passes with fresh credentials: template list 200 authenticated, empty items; 401 anonymous. No authentication bypass, manual service deployment, API enablement, new resource or IAM mutation occurred.
+- Full refreshed non-targeted Terraform post-plan passed with exit 0: no changes. The post-apply state bytes remained unchanged; raw output stays restricted in `post-plan.log`. No further apply occurred.
+- Catalog change architect review found **no blockers**. Before publication, independently confirmed that the migration Job was `Synced` in Argo.
+- Published source commit `f8b25d3104c6fc040fdc3819e05aafea1e321a4e` to the personal `dev-apahim` branch. It includes the previously committed route fix `20491381...` and a two-file owner/region GitOps change for exactly one retained `5.0.0` template, verified false. API source/image, assertion-write gate, seven controller pins, Spanner and pruning safeguards are unchanged.
+- Added `ApplyOutOfSyncOnly=true` alongside `CreateNamespace=true` to avoid replaying the unchanged Force/Replace migration Job during catalog-only changes. Creation/Synced and actual unchanged Job UID were subsequently verified, not assumed.
+
+### Live catalog tests and verification transition
+
+- The initial catalog creation/Synced waits passed. Retained template `5.0.0` UID is `fb623828-d923-4540-82f1-df5c01503823`; executable digest is the baseline `sha256:c0b4c3dbdd48d1925bf7c172ac0385639d00092f083b5cac11865e83c3acea71`.
+- Private/public reads independently matched all typed IAM data and the same UID. An independent Python implementation of the documented canonical ordering reproduced the Go golden digest; no second permission catalog was introduced.
+- Public collection and item GETs: authenticated 200, anonymous 401. Public POST/PUT/PATCH/DELETE: 405. Private malformed-permission create: 422; valid-shape immutable permission removal: 422; UID/resource-version-guarded DELETE: 400 with the explicit retention denial; exact no-op PUT: 200 with unchanged UID/content/verification. Negative tests left the resource version unchanged before the deliberate no-op PUT.
+- The malformed-create probe reused the existing name, so a validation regression could not silently allocate an extra undeletable catalog object. No extra live catalog fixture was created.
+- Migration Job UID remained `e11cbeec-b922-465b-9bc2-73d997f21b93` through initial catalog sync and validation: no Job replay.
+- Credential-free machine-readable results: [phase-1-catalog-validation.json](phase-1-catalog-validation.json). It contains identifiers/status codes, not tokens or raw credentials.
+- Published GitOps true-toggle commit `716a356175f9234bcc44133062c5b59e660ee7f1`; private/public verified=true was observed with exactly the same UID and executable IAM. The migration Job was not replayed. This was a controlled field-lifecycle test with IAM assertion writes off, **not a claim of live component permission verification**.
+- Final false restoration commit `d7231a6ab273f2a2fd0899d714e824c349b2f9a8` was pushed and observed. Private/public verification remained false through final checks; resource version 4, generation 3. The UID and executable IAM were unchanged through both transitions.
+
+### Restart persistence, independent storage readback and final state
+
+- Gracefully deleted only the owned dev API Pod under a server-enforced UID precondition, without force or a Deployment-template change. Recorded intent/acknowledgment before waiting; no uncertain mutation was replayed.
+- Old Pod UID `0e9e65cb-8d95-4d2b-ba1e-78f15998985a` was removed. Replacement `platform-api-server-6669fdd78f-xqdrs`, UID `9e2319cc-f5d8-4f68-acf4-de9a33a70a91`, became Ready on exactly the same Quay manifest digest. Its Spanner target and disabled application-write argument were independently rechecked.
+- New API reads returned the **same template UID, resource version 4, generation 3, schema/IAM content and verified=false**. Authenticated public read also returned 200 with the same content.
+- Independent read-only SQL against the actual Spanner `resources` row matched UID `fb623828-d923-4540-82f1-df5c01503823`, verification false and resource version 4. Physical resource key is `gcp.managed.openshift.io/v1/WIFConfigTemplate`, empty namespace, name `5.0.0`.
+- The first SQL CLI invocation rejected unsupported parameter flags locally, and an initial helper-style resource key filter returned no rows. No SQL write occurred. A narrowly scoped key read identified the factory's actual GVK storage key; the corrected static SELECT then matched the API before/after restart. No broad data dump or credentials were recorded.
+- Final API Application: Synced/Healthy. Regional root observed `d7231a6a...`. Eight Deployments Ready, seven controller images unchanged at f90f6df, database UID unchanged, migration Job UID unchanged after its initial authorized image replacement, 21 Versions/4 Channels, zero Clusters/NodePools and zero live Version pins.
+- No disposable hosted/IAM fixture needs cleanup. One unverified platform catalog entry is deliberately retained under the no-delete policy. The dev API image, new successful Endpoints config and original namespace authorization fixture remain in place; no customer IAM grants/defaults or hosted resources were changed.
+- Final credential-free machine-readable proof is committed in [catalog validation](phase-1-catalog-validation.json) and [dev service rollout](phase-1-dev-service-rollout.json). See [handoff](phase-1-handoff.md) for dirty original Terraform source, private raw-evidence boundaries and Phase 2 resume instructions.
 
 ## Architect review and disposition
 
@@ -180,18 +212,15 @@ Nonblocking follow-up observations: Phase 1 private Version pins are intentional
 
 - User requires **all Python work to use a venv**. Created `/private/var/folders/f4/sf1v545n5r140_7b1swtprz40000gn/T/opencode/wif-phase1-venv`; all subsequent Python scripts/rendering use its `bin/python`. Pinned installed dependency: `PyYAML==6.0.3`. No package was installed into system Python.
 - Initial deployment preparation changed exactly two files in `gcp-hcp-infra-dev-main`: owner/region `platform-api-server` override and its generated regional dev Application, subsequently committed/published as `469a838f...`. No other environment/controller/management rendered files changed.
-- Owner override pins API chart source to `apahim/gecko` at `6cef781...`, supplies image registry/repository/tag via Helm parameters (overriding inherited tag), keeps IAM writes and catalog publication off, preserves Spanner/prune safeguards and explicitly retains running ESP 2.57.1.
+- The initial prepared override used source `6cef781...`, subsequently replaced by clean native-build commit `cc26254...` before deployment. Image parameters override the inherited tag. Assertion writes stay off; catalog publication was enabled only after readiness, as recorded above. Spanner/prune safeguards and ESP 2.57.1 were preserved.
 - Chart diff against current deployed `f90f6df` was inspected: apart from the IAM additions, the only platform API chart default change is ESP 2.57.1 -> 2.57.2, intentionally neutralized by the dev override.
 - Ran the repository renderer using the venv; repeated rendering produced no additional diff. Assertions passed for exact two-file scope, source pin, image parameter precedence, disabled writes/catalog, existing sidecar, persistent storage and pruning guards. Deployment architect review found **no blockers** and confirmed both API and migration Job receive the override. Publication was deferred until the native-built image passed clean-source and anonymous registry checks, then completed as recorded above.
 
-## Remaining acceptance and safe resume
+## Completion and safe resume
 
-1. Obtain the user's separate Endpoints apply decision. The API image/migration already rolled out successfully: do not rebuild or replay that rollout merely to resume this session.
-2. If apply is approved, revalidate the source/state/plan and require exactly the reviewed one-resource in-place service update. Stop on any additional changes. Preserve original user edits and state/credential locations.
-3. Observe the managed ESP rollout loading the new service config, then require public catalog list/get with a fresh gcloud identity token. Verify anonymous requests and public writes are denied, rather than bypassing the gateway or weakening authentication.
-4. Only after that gate, publish a real release-boundary template through dev-only GitOps, initially verified false. Keep IAM assertion writes false, the seven controller pins unchanged, Spanner/prune safeguards intact and no live Version pins. Preview sync behavior: the API chart's migration Job has Force/Replace annotations, so do not accidentally replay it during catalog-only syncs without a deliberate observed plan.
-5. Complete template discovery, content equality, authenticated reads, invalid contract/edit/delete rejection, no-op apply and GitOps verified toggling ending false. UID-guard the agreed API Pod restart and independently prove template UID/digest/content persistence. No live Cluster/NodePool or customer IAM allocation.
-6. Retain the unverified catalog entry under the no-delete policy; record its UID/digest and ownership. It is not a disposable fixture.
-7. Read back all health/storage/image invariants and commit final evidence/handoff before marking Phase 1 complete. Do not advance to Phase 2 on a partial gate.
-
-The API rollout and image digest are independently verified above. Public routing and catalog/persistence acceptance remain incomplete; the Endpoints change is plan-only until separately approved. No customer IAM allocation, hosted Cluster operation or restoration is asserted. Do not roll back to an older API that can erase newly introduced fields; never drop stored data or switch to memory as restoration.
+All Phase 1 gates above passed. Read the [fresh-session handoff](phase-1-handoff.md)
+and request/agree Phase 2 scope before changing code or deploying again. Do not replay
+the completed saved Terraform plan, re-run the migration unnecessarily, delete the
+retained catalog entry or use older incompatible APIs/controllers after assertions
+or references are enabled. No customer IAM/runtime permission or upgrade proof is
+claimed by this API/catalog-only completion.

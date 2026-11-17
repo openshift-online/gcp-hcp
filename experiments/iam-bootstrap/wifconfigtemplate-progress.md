@@ -2,9 +2,9 @@
 
 ## Resume checkpoint
 
-**Phase 1 is in progress, not complete. Do not start Phase 2.**
+**Phase 1 is complete (2026-11-17). Phase 2 has not started.**
 
-Read [Phase 1 evidence and resume instructions](wifconfigtemplate-evidence/phase-1.md) before doing any further work. No new cloud state is established by this document. Historical experiment inventories are not fresh deployment readbacks.
+Read the [fresh-session handoff](wifconfigtemplate-evidence/phase-1-handoff.md) before further work. It records source/artifact/deployment identities, completed live checks, retained resources, original Terraform dirty work and the exact Phase 2 starting action. Obtain Phase 2 scope agreement before implementation or deployment. Historical experiment inventories are not fresh readbacks.
 
 ## Agreed delivery contract
 
@@ -12,7 +12,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | API/migration healthy on new digest; public catalog blocked by ESP routes; reviewed route fix committed; user authorized Terraform plan only, NOT apply |
+| 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Complete: reviewed/committed source, native image, dev deployment, live negative/toggle/reapply tests, API-restart + independent Spanner persistence, clean Terraform post-plan and durable handoff |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Not started |
 | 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Not started |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |

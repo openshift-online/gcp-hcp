@@ -1,0 +1,130 @@
+{
+  "templateName": "5.0.0",
+  "templateUID": "fb623828-d923-4540-82f1-df5c01503823",
+  "resourceVersionAfterNoOp": "2",
+  "digest": "sha256:c0b4c3dbdd48d1925bf7c172ac0385639d00092f083b5cac11865e83c3acea71",
+  "verified": false,
+  "migrationJobUID": "e11cbeec-b922-465b-9bc2-73d997f21b93",
+  "tests": [
+    {
+      "test": "public GET /apis/gcp.managed.openshift.io/v1/wifconfigtemplates",
+      "authenticated": false,
+      "status": 401
+    },
+    {
+      "test": "public GET /apis/gcp.managed.openshift.io/v1/wifconfigtemplates",
+      "authenticated": true,
+      "status": 200
+    },
+    {
+      "test": "public GET /apis/gcp.managed.openshift.io/v1/wifconfigtemplates/5.0.0",
+      "authenticated": false,
+      "status": 401
+    },
+    {
+      "test": "public GET /apis/gcp.managed.openshift.io/v1/wifconfigtemplates/5.0.0",
+      "authenticated": true,
+      "status": 200
+    },
+    {
+      "test": "public POST",
+      "status": 405
+    },
+    {
+      "test": "public PUT",
+      "status": 405
+    },
+    {
+      "test": "public PATCH",
+      "status": 405
+    },
+    {
+      "test": "public DELETE",
+      "status": 405
+    },
+    {
+      "test": "private invalid permission create",
+      "status": 422
+    },
+    {
+      "test": "private immutable edit",
+      "status": 422
+    },
+    {
+      "test": "private UID/RV-guarded deletion denied",
+      "status": 400
+    },
+    {
+      "test": "private no-op PUT",
+      "status": 200
+    }
+  ],
+  "verificationTransitions": [
+    {
+      "verified": true,
+      "resourceVersion": "3",
+      "generation": 2,
+      "sourceCommit": "716a356175f9234bcc44133062c5b59e660ee7f1",
+      "sameUIDAndIAM": true,
+      "migrationJobReplayed": false,
+      "publicReadStatus": 200
+    },
+    {
+      "verified": false,
+      "resourceVersion": "4",
+      "generation": 3,
+      "sourceCommit": "d7231a6ab273f2a2fd0899d714e824c349b2f9a8",
+      "sameUIDAndIAM": true,
+      "migrationJobReplayed": false
+    }
+  ],
+  "restart": {
+    "beforePodName": "platform-api-server-6669fdd78f-p2h7x",
+    "beforePodUID": "0e9e65cb-8d95-4d2b-ba1e-78f15998985a",
+    "templateResourceVersionBefore": "4",
+    "templateGenerationBefore": 3,
+    "templateUIDBefore": "fb623828-d923-4540-82f1-df5c01503823",
+    "deleteIntentUID": "0e9e65cb-8d95-4d2b-ba1e-78f15998985a",
+    "graceful": true,
+    "deleteRequestSubmitted": true,
+    "deleteResponseStatus": 200,
+    "afterPodName": "platform-api-server-6669fdd78f-xqdrs",
+    "afterPodUID": "9e2319cc-f5d8-4f68-acf4-de9a33a70a91",
+    "sameImageDigest": "sha256:b1a477398519f3561aa080bd7deb3777c69fac32c1f74e2f524bec3fd6bb05cc",
+    "templateResourceVersionAfter": "4",
+    "sameTemplateUIDGenerationIAM": true,
+    "verifiedAfter": false,
+    "publicReadStatus": 200,
+    "persistencePassed": true
+  },
+  "spannerReadback": {
+    "resourceType": "gcp.managed.openshift.io/v1/WIFConfigTemplate",
+    "uid": "fb623828-d923-4540-82f1-df5c01503823",
+    "verified": false,
+    "resourceVersion": "4",
+    "readOnlySQL": true
+  },
+  "finalHealth": {
+    "readyDeployments": [
+      "gecko-control-plane-upgrade",
+      "gecko-hc",
+      "gecko-nodepool",
+      "gecko-nodepool-vr-resolution",
+      "gecko-placement",
+      "gecko-version-resolution",
+      "gecko-version-sync",
+      "platform-api-server"
+    ],
+    "oldControllersUnchanged": true,
+    "iamApplicationWritesEnabled": false,
+    "clusters": 0,
+    "nodePools": 0,
+    "versions": 21,
+    "channels": 4,
+    "versionPinsWritten": 0,
+    "apiApplication": "Synced/Healthy",
+    "devSourceCommit": "d7231a6ab273f2a2fd0899d714e824c349b2f9a8",
+    "databaseUID": "99e4163c-79f9-4875-92b9-0e576b9a5927"
+  },
+  "completedAt": "2026-11-17T15:04:31.724058+00:00"
+}
