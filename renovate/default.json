@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "dependencyDashboard": true,
+  "dependencyDashboardOSVVulnerabilitySummary": "none",
+  "automerge": false,
+  "addLabels": ["ok-to-test", "area/dependency"],
+  "prConcurrentLimit": 10,
+  "gomod": {
+    "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+    "packageRules": [
+      {
+        "matchPackageNames": ["golang.org/x/**"],
+        "groupName": "golang.org/x packages",
+        "groupSlug": "golang-org-x"
+      },
+      {
+        "matchManagers": ["gomod"],
+        "matchUpdateTypes": ["major"],
+        "enabled": false
+      }
+    ]
+  },
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["registry.access.redhat.com/ubi9/go-toolset"],
+      "allowedVersions": "/^1\\./"
+    }
+  ]
+}
