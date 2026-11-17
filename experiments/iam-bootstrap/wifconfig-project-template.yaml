@@ -1,0 +1,275 @@
+# Embedded project-wide comparison template, not a Kubernetes resource to apply.
+# This explicitly selected alternative has no release mapping or publication yet.
+schemaVersion: 1
+kind: WIFConfigTemplate
+metadata:
+  name: gcp-known-iam-project
+spec:
+  iam:
+    completeness: Complete
+    # All entries are populated; source review and live runtime/IAM validation
+    # are not complete. Complete is NOT permission to publish or execute.
+    validation: Pending
+    # All six source entries exist; permission/runtime validation remains open.
+    pendingComponents: []
+    # Data-owned eligibility: a catalog is publication-ready only when every
+    # component below is present (serviceAccounts) and not pending.
+    requiredComponents:
+      - cloud-controller
+      - cloud-network
+      - ctrlplane-op
+      - gcp-pd-csi
+      - image-registry
+      - nodepool-mgmt
+
+    # No project resource-name conditions; naming remains for owned IAM identities.
+    # Naming rules are protocol data, not CLI policy. Custom role IDs hex-encode
+    # the infra ID bytes (GCP role IDs forbid '-'), so they are injective and are
+    # never truncated; renderers fail when a limit would be exceeded.
+    naming:
+      maxInfraIDLength: 12
+      maxCustomRoleIDLength: 64
+      maxServiceAccountIDLength: 30
+      maxWorkloadIdentityIDLength: 32
+      customRoleIDTemplate: "hcp_{infraIDHex}_{role}"
+      workloadIdentityPoolIDTemplate: "{infraID}-wi-pool"
+      workloadIdentityProviderIDTemplate: "{infraID}-k8s-provider"
+
+    # Templates are resolved for one installation, never shared across infra IDs.
+    # These are the existing CLI identities and guest subjects, not new mappings.
+    serviceAccounts:
+      - name: cloud-controller
+        accountIDTemplate: "{infraID}-cloud-controller"
+        workloadIdentitySubjects:
+          - system:serviceaccount:kube-system:cloud-controller-manager
+      - name: cloud-network
+        accountIDTemplate: "{infraID}-cloud-network"
+        workloadIdentitySubjects:
+          - system:serviceaccount:openshift-cloud-network-config-controller:cloud-network-config-controller
+      - name: ctrlplane-op
+        accountIDTemplate: "{infraID}-ctrlplane-op"
+        workloadIdentitySubjects:
+          - system:serviceaccount:kube-system:control-plane-operator
+      - name: gcp-pd-csi
+        accountIDTemplate: "{infraID}-gcp-pd-csi"
+        workloadIdentitySubjects:
+          - system:serviceaccount:openshift-cluster-csi-drivers:gcp-pd-csi-driver-controller-sa
+      - name: image-registry
+        accountIDTemplate: "{infraID}-image-registry"
+        workloadIdentitySubjects:
+          - system:serviceaccount:openshift-image-registry:cluster-image-registry-operator
+          - system:serviceaccount:openshift-image-registry:registry
+      - name: nodepool-mgmt
+        accountIDTemplate: "{infraID}-nodepool-mgmt"
+        workloadIdentitySubjects:
+          - system:serviceaccount:kube-system:capi-gcp-controller-manager
+
+    # Names below are logical references, NOT customer-project GCP role IDs.
+    # Original five components match custom-roles-ctrlplane-dns.yaml unchanged.
+    # CCM: 48 declared permissions + 3 source-traced operation reads; ccm-audit.md.
+    # Project-wide variant: permissions are unioned by component, without
+    # resource-name conditions. Distinct logical IDs prevent unsafe cross-profile
+    # unions with the prefix-scoped template.
+    roles:
+      - name: hcpCloudControllerProject
+        permissions:
+          - compute.addresses.create
+          - compute.addresses.createInternal
+          - compute.addresses.delete
+          - compute.addresses.deleteInternal
+          - compute.addresses.get
+          - compute.addresses.list
+          - compute.addresses.use
+          - compute.addresses.useInternal
+          - compute.firewalls.create
+          - compute.firewalls.delete
+          - compute.firewalls.get
+          - compute.firewalls.update
+          - compute.forwardingRules.create
+          - compute.forwardingRules.delete
+          - compute.forwardingRules.get
+          - compute.globalOperations.get
+          - compute.healthChecks.create
+          - compute.healthChecks.delete
+          - compute.healthChecks.get
+          - compute.healthChecks.update
+          - compute.healthChecks.useReadOnly
+          - compute.httpHealthChecks.create
+          - compute.httpHealthChecks.delete
+          - compute.httpHealthChecks.get
+          - compute.httpHealthChecks.update
+          - compute.httpHealthChecks.useReadOnly
+          - compute.instanceGroups.create
+          - compute.instanceGroups.delete
+          - compute.instanceGroups.get
+          - compute.instanceGroups.list
+          - compute.instanceGroups.update
+          - compute.instanceGroups.use
+          - compute.instances.get
+          - compute.instances.list
+          - compute.instances.use
+          - compute.networks.updatePolicy
+          - compute.regionBackendServices.create
+          - compute.regionBackendServices.delete
+          - compute.regionBackendServices.get
+          - compute.regionBackendServices.update
+          - compute.regionBackendServices.use
+          - compute.regionOperations.get
+          - compute.subnetworks.use
+          - compute.targetPools.addInstance
+          - compute.targetPools.create
+          - compute.targetPools.delete
+          - compute.targetPools.get
+          - compute.targetPools.removeInstance
+          - compute.targetPools.use
+          - compute.zoneOperations.get
+          - compute.zones.list
+      - name: hcpCloudNetworkProject
+        permissions:
+          - compute.instances.get
+          - compute.instances.updateNetworkInterface
+          - compute.subnetworks.get
+          - compute.subnetworks.use
+          - compute.zoneOperations.get
+      - name: hcpControlPlaneProject
+        permissions:
+          - compute.addresses.createInternal
+          - compute.addresses.deleteInternal
+          - compute.addresses.get
+          - compute.addresses.setLabels
+          - compute.addresses.use
+          - compute.firewalls.create
+          - compute.firewalls.delete
+          - compute.firewalls.get
+          - compute.firewalls.update
+          - compute.forwardingRules.create
+          - compute.forwardingRules.delete
+          - compute.forwardingRules.get
+          - compute.forwardingRules.pscCreate
+          - compute.forwardingRules.pscDelete
+          - compute.forwardingRules.pscSetLabels
+          - compute.forwardingRules.setLabels
+          - compute.globalOperations.get
+          - compute.networks.get
+          - compute.networks.updatePolicy
+          - compute.networks.use
+          - compute.regionOperations.get
+          - compute.regions.get
+          - compute.subnetworks.use
+          - dns.changes.create
+          - dns.managedZones.create
+          - dns.managedZones.delete
+          - dns.managedZones.get
+          - dns.managedZones.list
+          - dns.networks.bindPrivateDNSZone
+          - dns.resourceRecordSets.create
+          - dns.resourceRecordSets.delete
+          - dns.resourceRecordSets.list
+          - dns.resourceRecordSets.update
+          - servicedirectory.namespaces.create
+          - servicedirectory.services.create
+          - servicedirectory.services.delete
+      - name: hcpGCPPDCSIProject
+        permissions:
+          - compute.diskTypes.list
+          - compute.disks.create
+          - compute.disks.createSnapshot
+          - compute.disks.delete
+          - compute.disks.get
+          - compute.disks.list
+          - compute.disks.resize
+          - compute.disks.setLabels
+          - compute.disks.update
+          - compute.disks.use
+          - compute.disks.useReadOnly
+          - compute.globalOperations.get
+          - compute.images.create
+          - compute.images.delete
+          - compute.images.get
+          - compute.images.list
+          - compute.images.setLabels
+          - compute.images.useReadOnly
+          - compute.instances.attachDisk
+          - compute.instances.detachDisk
+          - compute.instances.get
+          - compute.regionOperations.get
+          - compute.snapshots.create
+          - compute.snapshots.delete
+          - compute.snapshots.get
+          - compute.snapshots.list
+          - compute.snapshots.setLabels
+          - compute.snapshots.useReadOnly
+          - compute.zoneOperations.get
+          - compute.zones.list
+      - name: hcpImageRegistryProject
+        permissions:
+          - storage.buckets.create
+          - storage.buckets.delete
+          - storage.buckets.get
+          - storage.buckets.list
+          - storage.buckets.update
+          - storage.objects.create
+          - storage.objects.delete
+          - storage.objects.get
+          - storage.objects.list
+      - name: hcpNodePoolProject
+        permissions:
+          - compute.disks.create
+          - compute.disks.setLabels
+          - compute.instances.create
+          - compute.instances.delete
+          - compute.instances.get
+          - compute.instances.setLabels
+          - compute.instances.setMetadata
+          - compute.instances.setServiceAccount
+          - compute.instances.setTags
+          - compute.subnetworks.use
+          - compute.zoneOperations.get
+    # Unconditional project policy bindings: every permission above applies
+    # across the customer project, including other clusters and resources.
+    roleBindings:
+      - serviceAccountRef: cloud-controller
+        roleRef: hcpCloudControllerProject
+        scope:
+          kind: Project
+      - serviceAccountRef: cloud-network
+        roleRef: hcpCloudNetworkProject
+        scope:
+          kind: Project
+      - serviceAccountRef: ctrlplane-op
+        roleRef: hcpControlPlaneProject
+        scope:
+          kind: Project
+      - serviceAccountRef: gcp-pd-csi
+        roleRef: hcpGCPPDCSIProject
+        scope:
+          kind: Project
+      - serviceAccountRef: image-registry
+        roleRef: hcpImageRegistryProject
+        scope:
+          kind: Project
+      - serviceAccountRef: nodepool-mgmt
+        roleRef: hcpNodePoolProject
+        scope:
+          kind: Project
+    # Existing guest federation; no management issuer or updater identity.
+    workloadIdentityBindings:
+      role: roles/iam.workloadIdentityUser
+      serviceAccountRefs:
+        - cloud-controller
+        - cloud-network
+        - ctrlplane-op
+        - gcp-pd-csi
+        - image-registry
+        - nodepool-mgmt
+
+    # iam.serviceAccounts.actAs is needed on the VM's attached SA, not the project.
+    # WorkerServiceAccount is an installation input, not another component SA.
+    serviceAccountRoleBindings:
+      - role: roles/iam.serviceAccountUser
+        scope:
+          kind: ServiceAccount
+          reference: WorkerServiceAccount
+        memberServiceAccountRefs:
+          - gcp-pd-csi
+          - nodepool-mgmt
