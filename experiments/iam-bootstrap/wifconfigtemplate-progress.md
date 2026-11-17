@@ -2,9 +2,9 @@
 
 ## Resume checkpoint
 
-**Phases 1 and 2 are complete. Phase 3 has not started.**
+**Phases 1 and 2 are complete. Phase 3 Stage A code-first checkpoint is complete; live approval remains closed.**
 
-Read the [completed Phase 2 handoff](wifconfigtemplate-evidence/phase-2-completion-handoff.md) and [GCP-1452 fix/acceptance evidence](wifconfigtemplate-evidence/gcp-1452-fix.md) before further work. The numeric blocker was fixed in API `54709c4`; compatible controllers remain at `9f7161a`. The replacement fixture was deleted normally, verification is false, application writes remain disabled, and no hosted resources or IAM were allocated. Agree Phase 3 scope before further implementation or activation.
+Read the [Stage A checkpoint](wifconfigtemplate-evidence/phase-3-stage-a.md), [unapproved Stage B proposal](wifconfigtemplate-evidence/phase-3-live-proposal.md) and [completed Phase 2 handoff](wifconfigtemplate-evidence/phase-2-completion-handoff.md) before further work. Only Phase 3 code-first work is approved. API `54709c4` and compatible controllers `9f7161a` remain deployed; verification/application writes are false. Stop for separate live resource/cost/retention approval before activation or allocation.
 
 ## Agreed delivery contract
 
@@ -14,7 +14,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 | --- | --- | --- |
 | 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Complete: reviewed/committed source, native image, dev deployment, live negative/toggle/reapply tests, API-restart + independent Spanner persistence, clean Terraform post-plan and durable handoff |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Complete: reviewed source/native builds/dev rollout; GCP-1452 repaired and redeployed; live missing-IAM/zero-Apply proof, unchanged-generation recovery, ordinary blocked deletion and producer restart/pin persistence passed; final safe state restored |
-| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Not started |
+| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Stage A complete: reviewed source `bf158ab`, race/vet passed, reproducible isolated native build/checksum recorded. Non-mergeable pending published API modules; Stage B decisions/approval and live acceptance remain outstanding. No live mutation/activation/allocation approved. |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
 | 5 | Monitoring, sustained-failure alerts and operational recovery | Not started |
 | 6 | Full runtime functional matrix, restart/upgrade regressions and independent owned teardown | Not started |
@@ -35,7 +35,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 ## Selected checkouts and operational boundaries
 
 - Gecko implementation: `/Users/asegundo/git/osd/gecko`, branch `fix/GCP-1452-cel-integer-decoding` at `54709c471cdce451119eea69b69334224131ea48`; Phase 2 controller source remains its compatible parent `9f7161a`.
-- CLI: `/Users/asegundo/git/osd/gcp-hcp-ctl`; unchanged through Phase 2. Do not run its legacy broad-role IAM path.
+- CLI: `/Users/asegundo/git/osd/gcp-hcp-ctl`, clean/pushed `feat/wifconfigtemplate-cli-phase3` at `bf158abf4c9ae8935a52ac05139d43832577861c`; isolated native artifact and external-workspace mapping are recorded in the Stage A handoff. Do not use a legacy broad-role binary or treat the candidate as standalone release-ready.
 - Deployment artifacts: `/Users/asegundo/git/osd/gcp-hcp-infra-dev-main`; preserve Spanner and the pruning safeguards.
 - Images: locally built API/controller artifacts in `quay.io/apahim/gecko`, using unique component-specific tags and recorded resolved digests.
 - Do not use/repair stale `.worktree/dev-apahim` or `.worktree/dev-asegundo` Git links. Do not modify unrelated Terraform changes in the original infrastructure checkout.
