@@ -12,7 +12,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | In progress; live preflight blocked by Google reauthentication |
+| 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Source committed/reviewed/tested; live baseline passed; API image build in progress; dev rollout not yet published |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Not started |
 | 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Not started |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
@@ -39,6 +39,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 - Images: locally built API/controller artifacts in `quay.io/apahim/gecko`, using unique component-specific tags and recorded resolved digests.
 - Do not use/repair stale `.worktree/dev-apahim` or `.worktree/dev-asegundo` Git links. Do not modify unrelated Terraform changes in the original infrastructure checkout.
 - Phase 1 has no customer IAM changes, hosted Cluster/NodePool creation or upgrade execution. Cluster record behavior is tested using local API integration fixtures only.
+- Always use a dedicated Python virtual environment for Python commands, package installation and infrastructure rendering. The phase evidence records the current venv/tool versions.
 - Source publication, image publication and dev rollout are permitted only within this task's selected footprint. New authority, costs, customer resources, source-history rewriting or broad cleanup require explicit approval.
 
 The detailed session planning document is `/Users/asegundo/.opencode/plan/iam-wifconfigtemplate-version-catalog.md`. This tracked checkpoint and the phase evidence are the durable resume authority; do not depend solely on that local planning file.

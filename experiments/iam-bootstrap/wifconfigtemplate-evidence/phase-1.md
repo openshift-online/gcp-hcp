@@ -4,9 +4,9 @@
 
 **Not complete. No deployment, live API test or Phase 2 work has occurred.**
 
-Live preflight failed because Google credentials require interactive reauthentication. The user was asked to run `gcloud auth login`. Do not attempt to bypass authentication, copy credentials, or deploy without a fresh live baseline.
+Initial live preflight failed because Google credentials required interactive reauthentication. The user subsequently ran `gcloud auth login`; authentication and the live baseline now pass. Do not bypass authentication or copy credentials.
 
-Next: observe the in-progress API image build; smoke-test and publish it if successful, then resume the read-only live preflight after authentication is restored. Source validation/review and source publication are complete. Only after source/build and live rollout safeguards pass may the dev deployment proceed. Do not report Phase 1 complete until the required deployed tests and committed handoff exist.
+Next: observe the in-progress API image build; smoke-test and publish it if successful, finish review of the prepared two-file dev override, then commit/publish the deployment. Source validation/review/publication and live preflight are complete. Do not report Phase 1 complete until the required deployed tests and committed handoff exist.
 
 ## Refreshed source baseline
 
@@ -68,7 +68,7 @@ Initial failures and disposition:
 Still pending at this checkpoint:
 
 - API container build, source/image publication, resolved digest and runtime smoke.
-- Live baseline, dev deployment, observed migration/API health, authenticated public/private behavior and restart persistence.
+- Dev deployment, observed new migration/API health, new authenticated public/private behavior and restart persistence.
 
 ## Source commit and artifact build
 
@@ -104,6 +104,26 @@ Nonblocking follow-up observations: Phase 1 private Version pins are intentional
 - Temporary Helm path: `/private/var/folders/f4/sf1v545n5r140_7b1swtprz40000gn/T/opencode/helm-v3.19.2`. This is local-only, not a durable artifact; recover from the official checked release if absent.
 - Existing kubeconfig lists the management dev context. Google credential refresh failed with reauthentication-required/non-interactive error. No live counts, UIDs, readiness or image architecture were obtained.
 - `uv` is also absent on PATH; resolve the infrastructure renderer's pinned toolchain before modifying/rendering deployment artifacts. Do not hand-edit rendered output.
+
+### Resumed live baseline after user login
+
+- Authenticated Google account: `asegundo@redhat.com`; regional GKE cluster RUNNING and Spanner `gecko` database READY.
+- Private IP endpoint requests timed out because the control plane is private. The already-configured GKE DNS endpoint allows external IAM-authenticated access. Refreshed normal kubeconfig entries using `gcloud container clusters get-credentials ... --dns-endpoint` for regional and management clusters; Kubernetes reads then passed. No network configuration/permissions changed.
+- Cloud Workflows API is disabled in the regional dev project. The CLI did not enable it; no workflows or authority were added.
+- Regional Gecko: all eight Deployments Ready, all relevant Argo Applications Synced/Healthy, seven controllers and API on published `f90f6df` artifacts. Nodes independently report amd64.
+- API running digest: `sha256:5713488f6a85e1faa8418267c6ddcb9dcc0e775282a64c891875102b7ae7a990`; ESP remains 2.57.1. API Deployment UID `4187325a-61e2-43c4-8c3b-7286030c6c55`, generation 4; Pod UID `cd74d08b-26a9-427a-97e0-2926cef4b136`.
+- Migration Job `platform-api-server-migrate` UID `b0bb3371-fbd6-40b6-93da-1435f9c7956e`, Complete, one successful Pod. Database KCC UID `99e4163c-79f9-4875-92b9-0e576b9a5927` unchanged. Preserve this DB UID across rollout; replacing the completed migration Job for its new API image is expected and separately observed.
+- Regional catalog: Clusters/NodePools 0/0, Versions/Channels 21/4. Management HC/HCP/NodePools: none.
+- Public API baseline: Versions anonymous 401, authenticated 200 with 21 items; authenticated customer Cluster list 200 with zero items. Tokens stayed in memory and were not recorded.
+- Existing API Application uses Spanner, `prune:false`, self-heal enabled. The chosen source ref and watched `origin/dev-apahim` were both freshly confirmed at `831338572d075d84747e9bc8ca5e00fe4d74dca9` before preparation.
+
+### Python and prepared deployment artifacts
+
+- User requires **all Python work to use a venv**. Created `/private/var/folders/f4/sf1v545n5r140_7b1swtprz40000gn/T/opencode/wif-phase1-venv`; all subsequent Python scripts/rendering use its `bin/python`. Pinned installed dependency: `PyYAML==6.0.3`. No package was installed into system Python.
+- Prepared, but not yet committed/published, exactly two files in `gcp-hcp-infra-dev-main`: owner/region `platform-api-server` override and its generated regional dev Application. No other environment/controller/management rendered files changed.
+- Owner override pins API chart source to `apahim/gecko` at `6cef781...`, supplies image registry/repository/tag via Helm parameters (overriding inherited tag), keeps IAM writes and catalog publication off, preserves Spanner/prune safeguards and explicitly retains running ESP 2.57.1.
+- Chart diff against current deployed `f90f6df` was inspected: apart from the IAM additions, the only platform API chart default change is ESP 2.57.1 -> 2.57.2, intentionally neutralized by the dev override.
+- Ran the repository renderer using the venv; repeated rendering produced no additional diff. Assertions passed for exact two-file scope, source pin, image parameter precedence, disabled writes/catalog, existing sidecar, persistent storage and pruning guards. Deployment architect review found **no blockers** and confirmed both API and migration Job receive the override. Image build not yet reported complete, so no watched deployment ref was pushed.
 
 ## Future dev rollout boundary
 
