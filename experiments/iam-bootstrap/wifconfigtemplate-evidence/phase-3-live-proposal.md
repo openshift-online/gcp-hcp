@@ -1,5 +1,10 @@
 # Phase 3 Stage B — proposed live manifest, NOT approved
 
+**November 18 update:** [read-only preflight](phase-3-stage-b-preflight.md) reconfirmed
+the platform/artifact baseline but found no Google Cloud ADC for the actual CLI.
+Preview is blocked; complete credential setup and remaining preflight/cost review
+before treating this proposal as ready for approval. No live mutation occurred.
+
 The user approved code-first Stage A only and prefers retaining the first validated
 Cluster for Phase 4. **No allocation, activation, cost or retention deadline is
 authorized by this document.** Phase 3 live acceptance is unstarted.

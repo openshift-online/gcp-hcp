@@ -2,9 +2,9 @@
 
 ## Resume checkpoint
 
-**Phases 1 and 2 are complete. Phase 3 Stage A code-first checkpoint is complete; live approval remains closed.**
+**Phases 1 and 2 are complete. Phase 3 Stage A is complete; Stage B read-only preflight is blocked on missing CLI ADC. Live approval remains closed.**
 
-Read the [Stage A checkpoint](wifconfigtemplate-evidence/phase-3-stage-a.md), [unapproved Stage B proposal](wifconfigtemplate-evidence/phase-3-live-proposal.md) and [completed Phase 2 handoff](wifconfigtemplate-evidence/phase-2-completion-handoff.md) before further work. Only Phase 3 code-first work is approved. API `54709c4` and compatible controllers `9f7161a` remain deployed; verification/application writes are false. Stop for separate live resource/cost/retention approval before activation or allocation.
+Read the [Stage B preflight checkpoint](wifconfigtemplate-evidence/phase-3-stage-b-preflight.md), [Stage A handoff](wifconfigtemplate-evidence/phase-3-stage-a.md) and [unapproved live proposal](wifconfigtemplate-evidence/phase-3-live-proposal.md) before further work. November 18 read-only checks reconfirmed eight Ready, zero customer/hosted objects and both gates false. The actual candidate CLI preview failed because Google Cloud ADC is absent; the gcloud login alone is not sufficient. Operator credential setup, remaining preflight/cost review and separate live approval are required before any allocation/activation.
 
 ## Agreed delivery contract
 
@@ -14,7 +14,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 | --- | --- | --- |
 | 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Complete: reviewed/committed source, native image, dev deployment, live negative/toggle/reapply tests, API-restart + independent Spanner persistence, clean Terraform post-plan and durable handoff |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Complete: reviewed source/native builds/dev rollout; GCP-1452 repaired and redeployed; live missing-IAM/zero-Apply proof, unchanged-generation recovery, ordinary blocked deletion and producer restart/pin persistence passed; final safe state restored |
-| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Stage A complete: reviewed source `bf158ab`, race/vet passed, reproducible isolated native build/checksum recorded. Non-mergeable pending published API modules; Stage B decisions/approval and live acceptance remain outstanding. No live mutation/activation/allocation approved. |
+| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Stage A complete (`bf158ab`); Stage B read-only refresh passed platform/artifact checks but actual CLI preview is blocked by missing ADC. Published modules remain a merge/release dependency. No live mutation/activation/allocation approved or performed. |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
 | 5 | Monitoring, sustained-failure alerts and operational recovery | Not started |
 | 6 | Full runtime functional matrix, restart/upgrade regressions and independent owned teardown | Not started |
