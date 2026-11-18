@@ -55,9 +55,9 @@
       "destination": "docs/gitops-migration/gcp-1285/ARGOCD_CONTROLLER_PERMISSIONS.md",
       "sha256": "d83573caec4c0b50e353317b35edc8a34eb15aea6d5b083ee738cb85acb81472",
       "size": 13026,
-      "destination_sha256": "b26f82a20271398cdf5b67a1589c793250be005198968c6f4ea986d79a6b5a06",
+      "destination_sha256": "d058d1ca96e3a82b52702acb4cb4b8ac5cb3afc378f7d13fc5e8b632b2973531",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1285 as a full historical snapshot. Added historical-snapshot banner noting the trimmed reusable contract remains in infra. Replaced the relative tests/argocd-controller-permissions/README.md link with an immutable source-revision GitHub blob URL. The one-line PR2887 CSV cross-reference was not included because this snapshot is pinned to the merged d2fc1a1 source per the destination contract.",
+      "transformation": "Relocated to gcp-1285 as a full historical snapshot. Added historical-snapshot banner describing the reusable contract retained by the separate companion infra cleanup, not yet merged at the source baseline. Replaced the relative tests/argocd-controller-permissions/README.md link with an immutable source-revision GitHub blob URL. The one-line PR2887 CSV cross-reference was not included because this snapshot is pinned to the merged d2fc1a1 source per the destination contract.",
       "checksum_manifest_member": false
     },
     {

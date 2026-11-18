@@ -1,8 +1,9 @@
 # Argo CD application-controller permissions
 
-> **Historical source snapshot (GCP-1285).** The reusable, trimmed permission
-> contract is retained in the `gcp-hcp-infra` repository at
-> `docs/ARGOCD_CONTROLLER_PERMISSIONS.md`; this snapshot preserves the full
+> **Historical source snapshot (GCP-1285).** A companion infra cleanup will
+> retain the reusable permission contract at
+> `gcp-hcp-infra/docs/ARGOCD_CONTROLLER_PERMISSIONS.md`; until that cleanup
+> merges, infra still has the full record. This snapshot preserves the full
 > reviewed matrices and runtime evidence from the disposable validation. It is
 > not current operating guidance for another target.
 

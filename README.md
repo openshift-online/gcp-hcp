@@ -23,8 +23,9 @@ The GCP HCP team is organized into three pods (A, B, C) to improve focus and exe
 
 The [GitOps migration records](docs/gitops-migration/README.md) collect the
 configuration, authentication, notification, permission and release validation
-evidence for GCP-1186. Deployment configuration and reusable test tools remain in
-`gcp-hcp-infra`.
+evidence for GCP-1186. Deployment configuration and infrastructure-specific test
+procedures stay with the infra code; the index also links the separate bootstrap
+and release-verification tooling.
 
 ## Claude Code Plugin
 
