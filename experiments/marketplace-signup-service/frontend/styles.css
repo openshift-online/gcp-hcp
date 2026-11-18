@@ -1,0 +1,199 @@
+/* Minimal, dependency-free styling. */
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --fg: #1b1f24;
+  --muted: #5b6572;
+  --card: #ffffff;
+  --line: #d8dee6;
+  --accent: #c00000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171a;
+    --fg: #e8ecf1;
+    --muted: #9aa5b1;
+    --card: #1c2025;
+    --line: #2e353d;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.card {
+  width: min(34rem, 100%);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+}
+
+.lede, .help, .notice, .signed-in, .status {
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+.lede { margin: 0 0 1rem; }
+
+.notice {
+  border-left: 3px solid var(--accent);
+  padding: 0.4rem 0 0.4rem 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.button-slot {
+  margin: 0 0 1.25rem;
+  /* Reserve the button's height so revealing it causes no layout shift. */
+  min-height: 2.75rem;
+}
+
+/* GIS paints its iframe in stages (logo first, then the label). Keep the slot
+   hidden and fade it in once the frame has settled, so users never see the
+   half-drawn state. app.js adds is-ready after the iframe's load event. */
+.button-slot {
+  opacity: 0;
+  transition: opacity 150ms ease-in;
+}
+
+.button-slot.is-ready {
+  opacity: 1;
+}
+
+label {
+  display: block;
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+input[aria-invalid="true"] { border-color: var(--accent); }
+
+.help { margin: 0.4rem 0 1.1rem; }
+
+button[type="submit"] {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button[type="submit"]:disabled { opacity: 0.6; cursor: progress; }
+
+.status { margin: 1.1rem 0 0; min-height: 1.4em; }
+.status.success { color: #1a7f37; }
+.status.error { color: var(--accent); }
+
+.link-button {
+  margin-left: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.result {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card) 88%, var(--fg) 12%);
+}
+
+.result.success { border-left-color: #1a7f37; }
+.result.error { border-left-color: var(--accent); }
+
+.result-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.result-detail {
+  margin: 0 0 0.75rem;
+  color: var(--fg);
+}
+
+.result-next-label {
+  margin: 0 0 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.result-steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+.result-steps li + li {
+  margin-top: 0.35rem;
+}
+
+code {
+  font-size: 0.9em;
+}
+
+.result-example {
+  margin: 0.85rem 0 0;
+  padding: 0.65rem 0.8rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.result-links {
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+}
+
+.result-links a {
+  color: var(--accent);
+}
+
+.result-links a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
