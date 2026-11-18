@@ -117,7 +117,14 @@ resource creation or broad teardown.
   Independent cloud readback returned `cloudReadbackMatches=true`,
   `eligibleForNewUse=false`, the same operation ID
   `30882e34568dbf073aedbcf769ebd103` and unchanged template
-  name/UID/digest. The journal was not opened for an update.
+  name/UID/digest. The journal was not opened for an update; its original
+  SHA-256 `6516c625a9d55b8a9748a2385c8b822085f5fc778a78e353a77f6ef2f754c995`
+  is unchanged.
+- A subsequent public read showed **both** requirements still Complete with
+  the same observed generations and refreshed `lastRefreshTime`
+  `2026-11-18T15:23:19Z` (previously `15:18:18Z`), consistent with the
+  bounded five-minute refresh. This is a bounded observation, not a claim
+  that older controllers can never clobber the field later.
 
 ## Remaining Phase 4 work and caveats
 
