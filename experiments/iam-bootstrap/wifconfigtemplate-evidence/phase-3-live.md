@@ -1,4 +1,10 @@
-# Phase 3 live execution — in progress
+# Phase 3 live execution — complete
+
+**Completed 2026-11-18; final post-revocation readback 12:40:07Z.**
+Read the [completion handoff](phase-3-completion-handoff.md) for authoritative
+retained identifiers, source pins, artifact/access/cleanup instructions and limits.
+The chronological entries below include intermediate blocked/in-progress states;
+those are superseded by the final acceptance at the end of this document.
 
 ## Authorization and scope
 
@@ -170,3 +176,169 @@ This is the first actual Cluster using both new CLI and deployed Gecko behavior,
 not just the earlier blocked Phase 2 object or local fake-cloud tests. It is **not
 yet a successful working installation claim**. The one-worker NodePool has not yet
 been created at this checkpoint; wait for control-plane bootstrap before proceeding.
+
+## Control-plane login passed; worker admission compatibility fix
+
+KubeAPIServerAvailable=True was observed on the actual HCP. The CLI then created
+the single public NodePool `apahim-dev-test-1/workers`, UID
+`a8768aef-c352-47bb-9f32-3638275f1e15`, at 11:54:57Z: nodeCount=1, exact 5.0.2/candidate,
+n2-standard-4, 100 GB pd-balanced, northamerica-northeast2-a, approved subnet.
+A local evidence assertion initially looked for `replicas` instead of the public
+`nodeCount` key; it was corrected by reading the saved successful response.
+**The POST was not repeated.**
+
+Guest login via the real public TLS endpoint succeeded with the isolated CLI on
+the subprocess PATH, using a dedicated protected guest kubeconfig rather than
+changing the user's global CLI or Kubernetes context. `kubectl auth whoami` returned
+`asegundo@redhat.com`, groups `redhat.com` and `system:authenticated`. No insecure TLS
+flag, Workflows deployment, secret payload extraction or management-access expansion.
+The first login attempt failed only because the isolated CLI was not on the exec
+plugin PATH; adding its artifact directory for those subprocesses fixed it.
+
+At 12:09:12Z the guest API independently reported desired payload **5.0.2**, matching
+the exact requested image digest, ReleaseAccepted=True/PayloadLoaded, and zero Nodes.
+CVO Available=False/ClusterOperatorsNotAvailable is not installation success.
+
+The worker's management NodePool was rejected by the existing HyperShift CRD:
+
+`spec.platform.gcp.serviceAccount.email: Invalid value: "35809355916-compute@developer.gserviceaccount.com": email must be a valid GCP service account email (format: name@project.iam.gserviceaccount.com)`
+
+This is schema admission, not an IAM denial. No management NodePool or worker VM
+was created at the failing boundary. Do not substitute a custom worker identity,
+omit the required explicit account, add broad roles or patch the live CRD by hand.
+Both Gecko new-use gates were closed via dev infra **`dbe321e8`** during preparation.
+The existing control plane and its required IAM are retained while the fix is tested.
+
+### Source fix and deployment strategy
+
+- Separate clean worktree `/Users/asegundo/git/osd/hypershift-wif-worker-sa`, branch
+  `fix/gcp-default-compute-worker-email`, based on **exact running operator source**
+  `d3173a012ac0a2b188095aaa6722438b33ff7602`; original main worktree untouched.
+- Reviewed source series ends at **`dfe1946a378547bd80e8c1a96a6115c2d8fa521f`**, pushed
+  only to `apahim/hypershift`. Five ordered component commits (API, generated/vendor,
+  CLI, tests, docs); commit-layout and commit-message checks passed.
+- A worker-specific `GCPNodeServiceAccountEmail` type accepts the unchanged custom-SA
+  syntax or strict nonzero-numeric default Compute syntax. Existing controller
+  `GCPServiceAccountEmail` and HostedCluster/HCP schemas remain unchanged/custom-only.
+  JSON remains a string; old/new client serialization round-trips are tested.
+- Generated CRD/partial schema, apply-configuration client, vendored API and docs
+  synchronized. Two full `make api` passes were unchanged. API race tests, relevant
+  NodePool/controller race tests and six real local OCP 1.34.1 envtest admission
+  cases passed (default/custom worker accept; malformed worker and default controller
+  reject). Missing generated mocks were generated normally before controller tests.
+- Pinned lint tooling could not decode Go 1.27 export data; rebuilding/running the
+  same pinned linter/plugins with supported Go 1.26.6 passed. No linter exclusion,
+  dependency upgrade or validation skip was added.
+- **No operator image rebuild/rollout is needed:** CRDs are installed by the static
+  Argo bundle; `hypershift-operator init` merges trust bundles and does not install
+  CRDs. Runtime code already forwards the supplied worker email as a string.
+- The proposed CRD-only infra source is isolated on
+  `/Users/asegundo/git/osd/gcp-hcp-infra-wif-worker-sa`, branch
+  `fix/dev-default-worker-sa-crd`, based on the actual running Argo source
+  `3d8a55cb8c633329d2a64939e7e0ab20520107ee`. Only its NodePool CRD document may change.
+- Keep operator images/args and all other resources identical. Freeze
+  `gcp-hcp/argocd-app-revision` to literal `3d8a55cb8c633329d2a64939e7e0ab20520107ee`
+  in the personal-MC Application override when moving its source pin, to avoid an
+  annotation-only operator/external-DNS rollout. Review the normalized 62-resource
+  render diff before publishing/applying.
+
+Clean native baseline CLI render from d317 has byte-level differences from the
+committed infra bundle only in external-DNS; its NodePool CRD is semantically identical.
+Therefore splice **only** the fixed generated NodePool document into the pinned
+bundle, preserving external-DNS and every other original document byte-for-byte.
+No schema rollout is claimed completed by this preparation entry.
+
+### CRD-only GitOps rollout — passed
+
+- Clean source-render CLI from `dfe1946a378547bd80e8c1a96a6115c2d8fa521f` built twice
+  identically, native darwin/arm64, SHA-256
+  `83ac775e25c39eda524664b13747a10e7f5b084cf082b5b435487e5e1e7b15ce`.
+  `FAKE_CLIENT=true install render --render-sensitive=false` produced no Secrets.
+  This CLI was only a local manifest generator, not a new deployed operator binary.
+- Reviewed infra artifact **`914334ae61352fa5641e3f1d50250e87299e9eb3`**, retained fork
+  branch `fix/dev-default-worker-sa-crd`, has parent exactly `3d8a55cb...` and changes
+  exactly one file, `kustomize/hypershift/hypershift.yaml` (4 additions/3 deletions).
+  Its bundle SHA-256 is
+  `dd9f8cb660a50b30dd34df2c3e310f47c729fd4cf41b613d9f9b688a645d4cb2`.
+- Programmatic parity proved the NodePool CRD equals the clean patched native
+  render and the only changed schema leaves are the worker email rule/message.
+  The actual Argo input overlay rendered 62 objects: only that CRD changed, all
+  Deployment templates identical, no Secrets. All other original documents were
+  preserved; the unrelated baseline external-DNS difference was not imported.
+- Dev-root **`5c3abab5`** pins only the personal MC's `hypershift` Application to
+  `914334ae...` and freezes its annotation stamp to literal `3d8a55cb...`.
+- At **12:22:11Z**, Argo reported Synced/Healthy at the exact artifact revision.
+  CRD UID `f794d8fd-b367-4b7b-81bc-1b3aff711d7d` and the complete conversion webhook
+  configuration/CA bundle were preserved. Operator, external-DNS and all three
+  cert-manager Deployments retained their generations, templates, pod UIDs and
+  restart counts. No operator/CPO/runtime image or unrelated resource was rolled.
+- The existing Maestro intent then created management `NodePool/workers`, UID
+  **`8f5326fe-f59f-4560-8c00-a8809da878f2`**, in the intended Cluster namespace.
+  Replicas=1 and explicit default Compute serviceAccount.email were independently
+  verified. No second public NodePool POST or identity substitution was needed.
+- Dev-root **`0257ec70`** re-enabled template verification for that approved existing
+  target while leaving new IAM assertion writes **false**. No additional application
+  record is needed. Restore verification=false after the live acceptance checks.
+- The first NodePool wait timed out while the known CRD incompatibility was being
+  fixed; this did not cause a retry/replacement POST. A new wait observes the same
+  accepted object after the schema fix.
+
+**Roll forward:** do not revert the CRD source pin to the old rejecting schema while
+the default-email NodePool exists. Retain the fork branch. During a future upstream
+HyperShift refresh that includes this fix, deliberately replace the temporary source
+pin/stamp rather than silently dropping the schema correction.
+
+### Worker VM identity — passed; guest readiness still in progress
+
+At **12:24:32Z**, independent Compute API reads, using a field mask that never requests
+VM metadata/user-data, found exactly one instance on the owned network:
+
+- Name `workers-7zbj4-94pth`, instance ID **`8160493395057321576`**, RUNNING.
+- Zone `northamerica-northeast2-a`, machine type `n2-standard-4`.
+- Network/subnet `wif3-7d9e-network` / `wif3-7d9e-subnet`.
+- Actual attached service account exactly
+  **`35809355916-compute@developer.gserviceaccount.com`**.
+
+The API NodePool availability condition has been observed, but the stronger
+acceptance gate is an actual guest Node Ready with matching GCE provider ID.
+That watch is still running; no Node Ready or complete-install success is claimed
+by this intermediate VM identity result.
+
+## Final live acceptance and safe state — passed
+
+- At **12:26:34Z** the actual guest Node `workers-7zbj4-94pth`, UID
+  `79b85ccd-768f-44f9-bc5b-f40a2bdd2cab`, became Ready=True/KubeletReady.
+  Its provider ID exactly matches the independently read GCE worker VM:
+  `gce://apahim-dev-test-1/northamerica-northeast2-a/workers-7zbj4-94pth`.
+- The one-worker guest converged without another worker, instance-size increase,
+  monitoring disablement or permission workaround. Initial operator scheduling/
+  image startup completed normally after the worker joined.
+- Guest ClusterVersion **5.0.2** history became **Completed at 12:33:27Z**. At
+  12:37:14Z independent reads confirmed Available=True, Failing=False,
+  Progressing=False, exact requested payload digest and exactly one Ready Node.
+- Public Cluster HostedClusterAvailable=True; NodePool Available=True/Healthy=True,
+  Progressing=False, observed version=5.0.2. HCP Available=True/Degraded=False,
+  etcd quorum, API, infrastructure, DNS, firewall and both network connections ready.
+- Both Cluster and NodePool receipts are **Dispatched**, no Pending receipt, bound
+  to their exact UIDs/parent UID, 5.0.2 image/group and retained template reference.
+  Parent receipt promotion correctly waited for completed observed version feedback;
+  desiredVersion alone was never fabricated into successful observation.
+- Direct project and worker-SA policy reads at 12:31:42Z confirmed exactly six
+  intended managed custom-role bindings, no direct worker-SA project role and no
+  project-wide managed actAs. Only intended CSI and NodePool managed members have
+  worker-SA actAs. Inherited organizational privileges were not assessed/claimed.
+- Dev-root **`d405901c2d90375da294d90f5a86d26d05cbad68`**, pushed to dev-apahim,
+  restored verified=false while keeping new IAM assertion writes=false.
+- At **12:40:07Z**, after Version Available had returned False, the actual guest
+  still had ClusterVersion Available=True and one Ready Node. Eight API/controller
+  Deployments Ready, 21 Versions/19 pins retained, one history entry, both dispatch
+  receipts still Dispatched, and the migration Job UID unchanged. Both API and
+  HyperShift Argo Applications remained Synced.
+- Post-revocation `iam verify` independently returned cloudReadbackMatches=true,
+  eligibleForNewUse=false, same operation ID/reference. It made no cloud or API
+  assertion writes. This proves new-use revocation did not prune running IAM or
+  interrupt the validated installation.
+
+The rehearsal is cleaned and retired; the validated primary, its required IAM,
+network and one worker remain for the separately planned Phase 4. No automatic
+upgrade, permission pruning or shared environment destruction was performed.

@@ -2,9 +2,9 @@
 
 ## Resume checkpoint
 
-**Phases 1 and 2 are complete. Phase 3 live cleanup rehearsal passed; the first real Cluster was submitted successfully and its hosted control plane is bootstrapping. Node/installation readiness is not yet confirmed.**
+**Phases 1–3 are complete. First real 5.0.2 Cluster/one-worker installation passed, including actual guest Node Ready and completed release feedback. Both new-use gates are false; the validated stack is retained for Phase 4. Do not advance automatically.**
 
-Read the [live execution log and current authorization](wifconfigtemplate-evidence/phase-3-live.md), then [ADC resume/fix checkpoint](wifconfigtemplate-evidence/phase-3-adc-resume.md). The user waived further cost sizing and said to proceed. Scope is one personal-dev Cluster/one steady worker plus an isolated one-unbound-role cleanup rehearsal, with no broad permission grants or shared infrastructure destruction. Preserve the earlier explicit retain-for-Phase-4 decision. Required CLI review/build and live checks still apply; do not treat authorization as installation success.
+Read the [Phase 3 completion handoff](wifconfigtemplate-evidence/phase-3-completion-handoff.md) and [live evidence](wifconfigtemplate-evidence/phase-3-live.md). Final readback at 2026-11-18T12:40:07Z confirmed guest 5.0.2 Available, one Ready Node, healthy NodePool, both receipts Dispatched, both gates false, eight API/controller Deployments Ready and 19 pins retained. The user waived further cost sizing; retain the validated primary for Phase 4, not a shared Terraform teardown. Keep the protected primary journal and the CRD-only source pin/annotation freeze.
 
 ## Agreed delivery contract
 
@@ -14,7 +14,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 | --- | --- | --- |
 | 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Complete: reviewed/committed source, native image, dev deployment, live negative/toggle/reapply tests, API-restart + independent Spanner persistence, clean Terraform post-plan and durable handoff |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Complete: reviewed source/native builds/dev rollout; GCP-1452 repaired and redeployed; live missing-IAM/zero-Apply proof, unchanged-generation recovery, ordinary blocked deletion and producer restart/pin persistence passed; final safe state restored |
-| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Live one-role owned cleanup passed. Reviewed native CLI `97f314d` verified IAM/network and submitted `wif3-first` (UID `6b152684-797c-4f17-a258-43538f8013c8`). Actual HC/HCP exist; control-plane readiness and one-worker acceptance are in progress. Both gates are temporarily enabled. Published modules remain a merge/release dependency. |
+| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Complete: reviewed/pushed/reproducible CLI; live one-role owned cleanup; independently verified IAM/network before initial POST; HC/HCP available, real TLS login, 5.0.2 history Completed, Healthy one-worker NodePool, actual Node Ready with exact default SA. CRD-only compatibility fix applied without runtime rollout. Both gates restored false; post-revocation guest/IAM proofs pass; primary retained and handoff committed. |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
 | 5 | Monitoring, sustained-failure alerts and operational recovery | Not started |
 | 6 | Full runtime functional matrix, restart/upgrade regressions and independent owned teardown | Not started |
@@ -37,6 +37,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 - Gecko implementation: `/Users/asegundo/git/osd/gecko`, branch `fix/GCP-1452-cel-integer-decoding` at `54709c471cdce451119eea69b69334224131ea48`; Phase 2 controller source remains its compatible parent `9f7161a`.
 - CLI: `/Users/asegundo/git/osd/gcp-hcp-ctl`, clean/pushed `fix/wif-federation-create-parents` at `97f314dac0bb7e7cc86320372c8e92757f56fa89`; follow-ups include bounded cleanup rehearsal and corrected SDK parent paths. Use the newest native artifact/checksum in the live execution log. External workspace still required; do not use a legacy broad-role binary or claim standalone release readiness.
 - Deployment artifacts: `/Users/asegundo/git/osd/gcp-hcp-infra-dev-main`; preserve Spanner and the pruning safeguards.
+- HyperShift worker-email schema fix: `/Users/asegundo/git/osd/hypershift-wif-worker-sa`, clean/pushed `dfe1946a378547bd80e8c1a96a6115c2d8fa521f`, based on the exact running operator source. Its CRD-only infra artifact lives in `/Users/asegundo/git/osd/gcp-hcp-infra-wif-worker-sa` at `914334ae...`; keep the fork branch and personal-MC source pin/stamp until a deliberate upstream refresh carries the fix.
 - Images: locally built API/controller artifacts in `quay.io/apahim/gecko`, using unique component-specific tags and recorded resolved digests.
 - Do not use/repair stale `.worktree/dev-apahim` or `.worktree/dev-asegundo` Git links. Do not modify unrelated Terraform changes in the original infrastructure checkout.
 - Phase 1 has no customer IAM changes, hosted Cluster/NodePool creation or upgrade execution. Cluster record behavior is tested using local API integration fixtures only.
