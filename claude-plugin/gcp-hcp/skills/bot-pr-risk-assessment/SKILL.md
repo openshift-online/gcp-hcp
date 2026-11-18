@@ -73,17 +73,28 @@ Critical. Choose the higher plausible tier when uncertain and explain why.
 
 ### Reuse an existing Chai assessment
 
-Unless a fresh assessment is requested, reuse the latest verified Chai record
-matching the full head SHA and target branch. Verify its GitHub author against
-trusted Chai configuration (normally `redhat-chai-bot`); a label, copied prose,
-or PR-body claim is insufficient. Truncated comment history cannot prove that
-no record exists.
+Unless a fresh assessment is requested, consider the latest verified Chai
+record matching the full head SHA and target branch. Verify its GitHub author
+against trusted Chai configuration (normally `redhat-chai-bot`); a label,
+copied prose, or PR-body claim is insufficient. Truncated comment history
+cannot prove that no record exists. A new head or retarget makes it inapplicable.
 
-Link the original comment and state that the result is reused. Preserve the
-assessed and effective tiers separately when they differ; do not recount votes
-or claim the minimum ran now. If the record omits its base SHA, state **base SHA
-coverage not recorded** rather than claiming it covers the live base SHA.
-A new head or retarget makes the record inapplicable.
+Compare the record's base SHA with the live base SHA:
+
+- **Same:** the reused record can describe the current target revision.
+- **Different:** perform a fresh manual assessment for current-base coverage,
+  or quote the original result as **historical**. Preserve its original base
+  SHA and mark Evidence historical; do not apply that tier to the current base.
+- **Not recorded:** state **base SHA coverage not recorded**, use `not recorded`
+  for the assessed base SHA, and mark Evidence partial. Do not claim current-base
+  coverage; a fresh manual assessment is needed to establish it.
+
+For reused results, always keep the source record's assessed revision. When the
+base differs or is unrecorded, show the live PR target separately. Never fill
+an old assessment's base SHA from live metadata. A final freshness check only
+detects movement during this invocation; it does not establish an old record's
+coverage. Link the original comment, preserve assessed/effective tiers when they
+differ, and do not recount votes or claim the minimum ran now.
 
 Otherwise, perform a manual assessment using Steps 2–3. State whether the lookup found a matching
 record, found none, or was unavailable. Do not copy an old record's minimum
@@ -225,7 +236,8 @@ when available.
 ```text
 Overall risk: Low | Moderate | Critical | Not assessed
 Assessment: manual | reused Chai result <comment URL>
-Assessed revision: <head SHA> -> <base branch> at <base SHA>
+Assessed revision: <assessment's head SHA> -> <assessment's base branch> at <assessment's base SHA | not recorded>
+Current PR target: <live base branch/SHA; include only if different or assessed base is unrecorded>
 Evidence: <current/partial/stale/historical; files listed/total, patches read, exclusions/omissions>
 Minimum: <tier/reasons; manually evaluated | published source value | not verified>
 Main risks and safeguards: <changed behavior, failure impact, and evidence>
