@@ -47,6 +47,15 @@ enable either new-use gate, change customer IAM or start an upgrade.
   `make -C controllers test`, both module lints and focused API/controller
   race tests passed. CLI tests with the exact local Gecko API workspace passed.
   `git diff --check` passed.
+- Two local native smoke-build outputs from clean Gecko `c7d7fdb`, Go 1.27.4,
+  `CGO_ENABLED=0 GOOS=darwin GOARCH=arm64`, `go build -mod=readonly -trimpath`
+  (API `./cmd/platform-api-server` from `platform-api/`, controllers `.` from
+  `controllers/`) were produced in the approved opencode temporary directory.
+  API SHA-256 `9aaf31b39fdca9d13214d159bb7d8b21f58778193c095dfbc24a98b5c75c10e6`;
+  controllers SHA-256
+  `694d532c1cfd5a9565e4fb8064b9df00669890ec8d1bb97a72952514b0595612`.
+  These are local validation artifacts, **not** registry images, amd64 runtime
+  proof or authorization to deploy.
 - The required architect reviewer initially blocked an absent/Unknown-progress
   fail-open; fixed it and added missing/Unknown, mid-upgrade, spec-bump, UID,
   backfill and timestamp tests. Final code-only review approved the committed
