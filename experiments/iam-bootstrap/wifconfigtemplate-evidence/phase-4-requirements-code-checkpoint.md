@@ -56,6 +56,24 @@ enable either new-use gate, change customer IAM or start an upgrade.
   `694d532c1cfd5a9565e4fb8064b9df00669890ec8d1bb97a72952514b0595612`.
   These are local validation artifacts, **not** registry images, amd64 runtime
   proof or authorization to deploy.
+- Local **linux/amd64** controller container build from clean Gecko
+  `c7d7fdb` succeeded using repository-root context and
+  `controllers/Dockerfile`: tag
+  `localhost/gecko:wif-p4-c7d7fdb-controllers`, image ID
+  `6a8739658b7aa2ff71d7b87b0b1b3a8da95479526e0972a947ca6e7919be7f0d`,
+  local manifest digest
+  `sha256:6f1e791cd340ab5a39b4cc0a95827dedf4aa0127870c5ec884608c138644f4f9`.
+  It was **not pushed**; a registry-resolved digest and a running workload
+  proof do not exist yet.
+- Local **linux/amd64** API container build from the same clean commit
+  succeeded using repository-root context and
+  `deploy/platform-api/Containerfile`: tag
+  `localhost/gecko:wif-p4-c7d7fdb-api`, image ID
+  `ba90f7a35db3e3040c9ec171230dbdbfab53115eb37fe6cfdbe07595e3bf9b1e`,
+  local manifest digest
+  `sha256:4d991b4ec2aa74992516a9e054c5ac7996fcf43b6f8a0bb42726bbb612c2de44`.
+  This is a local artifact, **not pushed or deployed**. Registry-resolved
+  digests and rollout/Spanner continuity proof remain pending approval.
 - The required architect reviewer initially blocked an absent/Unknown-progress
   fail-open; fixed it and added missing/Unknown, mid-upgrade, spec-bump, UID,
   backfill and timestamp tests. Final code-only review approved the committed
