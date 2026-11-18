@@ -10,9 +10,9 @@ The archive and companion infra cleanup are separate changes. Merge this
 destination first. The original records remain in infra until the cleanup
 merges, and its retained permission guide becomes the shorter reusable contract.
 
-Records are full historical source snapshots. Markdown was changed only to
-relocate links and add historical framing; raw JSON, YAML, text and signature
-evidence is byte-identical to the pinned source. See
+Records preserve the full historical source text. Markdown adds relocation
+links, historical framing and explicit archive-review clarifications; raw JSON,
+YAML, text and signature evidence is byte-identical to the pinned source. See
 [`source-map.json`](source-map.json) for per-file source revisions, SHA-256
 hashes, and transformations.
 
@@ -75,9 +75,10 @@ These qualifiers must survive any summary of this directory.
 ## Evidence and classification notes
 
 - **GCP-1286 evidence is byte-preserved.** `gcp-1286-evidence/SHA256SUMS`
-  remains valid for every file in that directory, including `.gitignore`,
-  `fresh-copies/README.md`, and `sigstore/README.md`. Those files were not
-  edited. Their internal `docs/...` references describe the original
+  verifies all 13 listed members, including `.gitignore`,
+  `fresh-copies/README.md`, and `sigstore/README.md`. The source map records
+  the manifest's own hash separately. Those files were not edited.
+  Their internal `docs/...` references describe the original
   `gcp-hcp-infra` layout; do not edit them without regenerating the checksum
   manifest.
 - **The teardown record is auxiliary, retired evidence.**
@@ -96,6 +97,10 @@ These qualifiers must survive any summary of this directory.
 - **Sanitized records only.** This move copies the committed records. Raw logs,
   Terraform state, credentials and the engineer-retained GCP-1284 stop records
   are outside its scope.
+- **GCP-1285 matrix coverage correction.** The byte-preserved regional matrix
+  omits rendered cert-manager startup-check hooks. See the
+  [archive review notes](gcp-1285/README.md) before using it as an inventory or
+  permission specification; this archive does not backfill runtime evidence.
 
 ## Source provenance
 
@@ -103,7 +108,8 @@ These qualifiers must survive any summary of this directory.
 | --- | --- |
 | GCP-1283, GCP-1284, GCP-1285 records and controller matrices | `openshift-online/gcp-hcp-infra` at `d2fc1a1b35a84193d654d25fd47407b68c1bacd2` (`docs/ARGOCD_IAP_VALIDATION.md`, `tests/argocd-notifications/GCP-1284-EVIDENCE.md`, `docs/ARGOCD_CONTROLLER_PERMISSIONS.md`, `docs/argocd-controller-validation/*.yaml`) |
 | GCP-1286 records, evidence, and run records | `openshift-online/gcp-hcp-infra` PR [#2887](https://github.com/openshift-online/gcp-hcp-infra/pull/2887), head `4fb403ea0346426943519c28a12881fb8d44105d`, base `5d655f04733c530ddb6e22e50d0c75e0ac6e9742`; **23 added docs files**. The two modified docs at PR head were not exported: `docs/BOOTSTRAP_FLOW.md` stays in infra, and this directory uses the merged `d2fc1a1` snapshot of `docs/ARGOCD_CONTROLLER_PERMISSIONS.md` for GCP-1285. |
-| GCP-1282 guidance, validation, and GCP-1226 spike | `openshift-online/gcp-hcp` at `fc05a28311b77436058818d035eeeb3fb9056e8e`; unchanged and linked in place |
+| GCP-1282 guidance and validation | `openshift-online/gcp-hcp` at `fc05a28311b77436058818d035eeeb3fb9056e8e`; linked in place with navigation-only backlinks added; factual content unchanged |
+| GCP-1226 spike | `openshift-online/gcp-hcp` at `fc05a28311b77436058818d035eeeb3fb9056e8e`; unchanged and linked in place |
 | GCP-1282 implementation/mixed operating doc | `openshift-online/gcp-hcp-infra` at `d2fc1a1b35a84193d654d25fd47407b68c1bacd2`, `docs/ARGOCD_OPERATOR_CONFIGURATION.md`; retained in infra, not exported |
 
 ## Related records

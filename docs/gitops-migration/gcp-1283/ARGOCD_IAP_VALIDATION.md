@@ -362,6 +362,10 @@ Both target schemas passed **34/34** tests with bootstrap components from a clea
 `gcp-hcp` checkout at `4a59fb3`. Unlike earlier 30-pass/two-skip runs, optional
 schema/bootstrap checks were enabled. Their fixture work is local, not a cluster apply.
 
+> **Archive checkout note:** Run both test examples below from the root of the
+> appropriate `gcp-hcp-infra` checkout. `GCP_HCP_REPO` selects the bootstrap
+> checkout for optional checks; it does not change the working directory.
+
 ```sh
 uv run argocd/scripts/test_argocd_config.py
 ```

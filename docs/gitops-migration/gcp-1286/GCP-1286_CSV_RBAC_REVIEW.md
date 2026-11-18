@@ -525,6 +525,16 @@ review is pending. Nothing there is agreement.
 
 ## 11. Reproduction
 
+> **Archive reproduction note:** The historical revision below pins the
+> compared bootstrap manifest, not the tooling checkout. Use development
+> revision [`0ed658f60c16f19053d5c75556c5e614f57f288e`](https://github.com/floresroger/gcp-hcp/tree/0ed658f60c16f19053d5c75556c5e614f57f288e)
+> for the operator chart and both test scripts referenced by these commands.
+> Its `bootstrap/argocd/install.yaml` is byte-identical to the compared
+> `2640be8e24b667d50003ad6a420af168e7742304` baseline (SHA-256
+> `7777e7ede0b948d3338e94c0f603b441abb4b8ccee1653ae923e6eaa65fa0652`).
+> The original commands are retained below; execute them from the development
+> checkout, not from the historical baseline or this archive's main branch.
+
 Run from the `gcp-hcp` repository root at revision
 `2640be8e24b667d50003ad6a420af168e7742304`:
 

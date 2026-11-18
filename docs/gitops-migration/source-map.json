@@ -31,9 +31,9 @@
       "destination": "docs/gitops-migration/gcp-1283/ARGOCD_IAP_VALIDATION.md",
       "sha256": "b9a8031ed9bca60d8b0130ba2990d4e4622a8ac022c4cedbd38aea3cd884e9dc",
       "size": 31990,
-      "destination_sha256": "d39f38b4e95c6fb2702f6b92a49bf8840063bdb7458191c5250c73f25266cca8",
+      "destination_sha256": "172924ad0963a1a7626f28511d2d9b9bee26fff0e9b025a9dc3323230ba2c76c",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1283. Added historical-record banner. Replaced the link to the unmoved infra docs/ARGOCD_OPERATOR_CONFIGURATION.md with an immutable source-revision GitHub blob URL. All other content unchanged.",
+      "transformation": "Relocated to gcp-1283. Added historical-record banner. Replaced the link to the unmoved infra docs/ARGOCD_OPERATOR_CONFIGURATION.md with an immutable source-revision GitHub blob URL. All other content unchanged. Added an archive note locating both test examples in the infra checkout; original commands retained.",
       "checksum_manifest_member": false
     },
     {
@@ -55,9 +55,9 @@
       "destination": "docs/gitops-migration/gcp-1285/ARGOCD_CONTROLLER_PERMISSIONS.md",
       "sha256": "d83573caec4c0b50e353317b35edc8a34eb15aea6d5b083ee738cb85acb81472",
       "size": 13026,
-      "destination_sha256": "d058d1ca96e3a82b52702acb4cb4b8ac5cb3afc378f7d13fc5e8b632b2973531",
+      "destination_sha256": "9442818c7d9d1f4e56fbaf368898345c440fc580ff8d72da9af40bb854b0696b",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1285 as a full historical snapshot. Added historical-snapshot banner describing the reusable contract retained by the separate companion infra cleanup, not yet merged at the source baseline. Replaced the relative tests/argocd-controller-permissions/README.md link with an immutable source-revision GitHub blob URL. The one-line PR2887 CSV cross-reference was not included because this snapshot is pinned to the merged d2fc1a1 source per the destination contract.",
+      "transformation": "Relocated to gcp-1285 as a full historical snapshot. Added historical-snapshot banner describing the reusable contract retained by the separate companion infra cleanup, not yet merged at the source baseline. Replaced the relative tests/argocd-controller-permissions/README.md link with an immutable source-revision GitHub blob URL. The one-line PR2887 CSV cross-reference was not included because this snapshot is pinned to the merged d2fc1a1 source per the destination contract. Added an archive terminology correction identifying the denied outside-name-set ClusterRole patch and a link to supplemental matrix review notes; original prose retained.",
       "checksum_manifest_member": false
     },
     {
@@ -103,9 +103,9 @@
       "destination": "docs/gitops-migration/gcp-1286/GCP-1286_CSV_RBAC_REVIEW.md",
       "sha256": "cf7004982cc3477d4cfd4777c9d2298876da7b08a4ae2f8f2eebca263ae99335",
       "size": 29293,
-      "destination_sha256": "90a0e5074f8e7c453fbc1a3a8db49b517bae501ae2304f9baadf5badc2ff1518",
+      "destination_sha256": "6eb7d7a64e7691dc153f926284b4c7667da4d62a8c3a05f7922697fdd4e70050",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1286. Added historical-decision-record banner. All factual content and relative links unchanged.",
+      "transformation": "Relocated to gcp-1286. Added historical-decision-record banner. All factual content and relative links unchanged. Added an archive reproduction note separating the compared bootstrap baseline from verified tooling revision 0ed658f60c16f19053d5c75556c5e614f57f288e; original commands retained.",
       "checksum_manifest_member": false
     },
     {
@@ -410,5 +410,12 @@
       "destination_sha256": "33abc29a23cee2ab2ab3e89a9e4fb1b270eabc4f04ec81fd2d6198b028def408"
     }
   ],
-  "destination_base_revision": "fc05a28311b77436058818d035eeeb3fb9056e8e"
+  "destination_base_revision": "fc05a28311b77436058818d035eeeb3fb9056e8e",
+  "supplemental_documents": [
+    {
+      "path": "docs/gitops-migration/gcp-1285/README.md",
+      "sha256": "16efcc8909f52a87224e1161acd2aaa22083f0ae74a147be35f75e6fa9f49034",
+      "purpose": "Offline archive-review correction for omitted regional cert-manager startup-check hooks; not a historical runtime observation or modification to the raw matrices."
+    }
+  ]
 }

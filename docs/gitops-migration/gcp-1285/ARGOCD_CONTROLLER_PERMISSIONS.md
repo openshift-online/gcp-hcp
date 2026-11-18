@@ -188,6 +188,12 @@ not a claim of flawless cold startup or artifact certification.
 
 ## Runtime acceptance and limits
 
+> **Archive terminology correction:** The historical wording "an unnamed
+> ClusterRole patch" below means a patch to a ClusterRole outside the reviewed
+> name set. The recorded denied request targets `gcp1285-outside-role`; the
+> successful patch targets `gitops-hcp-controller-writes`. See `runtime.yaml`
+> and the [archive review notes](README.md) for the matrix coverage limitation.
+
 All 36 primary permission cases passed before and after operator/controller pod
 recreation: required reads, cross-namespace ConfigMap creation and a named
 ClusterRole patch succeeded; out-of-scope ConfigMap create/patch, an unnamed
