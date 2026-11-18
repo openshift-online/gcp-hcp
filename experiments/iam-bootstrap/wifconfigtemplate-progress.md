@@ -2,9 +2,9 @@
 
 ## Resume checkpoint
 
-**Phases 1 and 2 are complete. Phase 3 Stage A is complete; ADC is fixed and the real Stage B CLI preview now succeeds with expected unverified-template blocking. Live approval remains closed.**
+**Phases 1 and 2 are complete. Phase 3 live execution is now authorized for the scoped personal-dev test; preparation of the bounded cleanup rehearsal is in progress.**
 
-Read the [ADC resume/fix checkpoint](wifconfigtemplate-evidence/phase-3-adc-resume.md), [Stage A handoff](wifconfigtemplate-evidence/phase-3-stage-a.md) and [unapproved live proposal](wifconfigtemplate-evidence/phase-3-live-proposal.md). ADC now works; narrow CLI fix `53f39da` corrects Google's omitted SUPPORTED enum default and efficient bounded paging. Reviewed/race/vet-tested reproducible native artifact and real 23.9-second preview are recorded. Both gates remain false, eight Deployments Ready, zero customer/hosted objects. Complete priced management footprint and bounded smoke preparation, then obtain separate live approval before activation/allocation.
+Read the [live execution log and current authorization](wifconfigtemplate-evidence/phase-3-live.md), then [ADC resume/fix checkpoint](wifconfigtemplate-evidence/phase-3-adc-resume.md). The user waived further cost sizing and said to proceed. Scope is one personal-dev Cluster/one steady worker plus an isolated one-unbound-role cleanup rehearsal, with no broad permission grants or shared infrastructure destruction. Preserve the earlier explicit retain-for-Phase-4 decision. Required CLI review/build and live checks still apply; do not treat authorization as installation success.
 
 ## Agreed delivery contract
 
@@ -14,7 +14,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 | --- | --- | --- |
 | 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Complete: reviewed/committed source, native image, dev deployment, live negative/toggle/reapply tests, API-restart + independent Spanner persistence, clean Terraform post-plan and durable handoff |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Complete: reviewed source/native builds/dev rollout; GCP-1452 repaired and redeployed; live missing-IAM/zero-Apply proof, unchanged-generation recovery, ordinary blocked deletion and producer restart/pin persistence passed; final safe state restored |
-| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Stage A complete; ADC restored, reviewed CLI follow-up `53f39da` built/tested and real blocked preview passed. Remaining management cost/smoke preparation and live approval outstanding. Published modules remain a merge/release dependency. No live mutation/activation/allocation performed. |
+| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Stage A/ADC fix complete; scoped live execution authorized after cost-sizing waiver. Bounded cleanup rehearsal preparation in progress; record actual allocation/results in the live log. Published modules remain a merge/release dependency. |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
 | 5 | Monitoring, sustained-failure alerts and operational recovery | Not started |
 | 6 | Full runtime functional matrix, restart/upgrade regressions and independent owned teardown | Not started |

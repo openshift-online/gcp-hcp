@@ -1,4 +1,10 @@
-# Phase 3 Stage B — proposed live manifest, NOT approved
+# Phase 3 Stage B — historical proposal; superseded by scoped live authorization
+
+**Authorization update:** the user explicitly waived further cost sizing and said
+to proceed with the personal-dev test. The [live execution log](phase-3-live.md)
+defines the current bounded scope and execution status. Earlier unapproved/cost-gate
+language below is historical, not a new blocking request for approval. IAM safety,
+owned cleanup, normal teardown and technical verification gates remain mandatory.
 
 **November 18 update:** [ADC resume and narrow CLI fix](phase-3-adc-resume.md) supersede
 the earlier missing-ADC blocker. Actual read-only preview now completes in 23.9s
