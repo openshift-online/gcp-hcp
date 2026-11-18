@@ -82,3 +82,10 @@ clean commits/reproducible builds and a separate live approval are required.
 The read-only view's refresh time is not independent transport-feedback age;
 the all-history permission union avoids pruning even if feedback is stale,
 but any future consumer must continue to fail closed on missing/stale views.
+Because requirements are periodically refreshed, Cluster/NodePool resource
+versions can legitimately advance while cloud readback is in progress (as the
+first live preview demonstrated). A future update journal must distinguish
+**stable exact-contract identity** from the short-lived resource-version
+snapshot, re-read/review changes on resume, and never reuse an expired CAS
+snapshot to submit an assertion. Do not turn off refresh or ignore conflicts
+merely to make a write command succeed.
