@@ -2,7 +2,7 @@
 
 ## Resume checkpoint
 
-**Phases 1–3 are complete. First real 5.0.2 Cluster/one-worker installation passed, including actual guest Node Ready and completed release feedback. Both new-use gates are false; the validated stack is retained for Phase 4. Do not advance automatically.**
+**Phases 1–3 are complete. Phase 4 code-first work has started but is incomplete. First real 5.0.2 Cluster/one-worker installation passed, including actual guest Node Ready and completed release feedback. Both new-use gates are false; the validated stack is retained. No upgrade execution or IAM update is authorized by the code-first checkpoint.**
 
 Read the [Phase 3 completion handoff](wifconfigtemplate-evidence/phase-3-completion-handoff.md) and [live evidence](wifconfigtemplate-evidence/phase-3-live.md). Final readback at 2026-11-18T12:40:07Z confirmed guest 5.0.2 Available, one Ready Node, healthy NodePool, both receipts Dispatched, both gates false, eight API/controller Deployments Ready and 19 pins retained. The user waived further cost sizing; retain the validated primary for Phase 4, not a shared Terraform teardown. Keep the protected primary journal and the CRD-only source pin/annotation freeze.
 
@@ -15,7 +15,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 | 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Complete: reviewed/committed source, native image, dev deployment, live negative/toggle/reapply tests, API-restart + independent Spanner persistence, clean Terraform post-plan and durable handoff |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Complete: reviewed source/native builds/dev rollout; GCP-1452 repaired and redeployed; live missing-IAM/zero-Apply proof, unchanged-generation recovery, ordinary blocked deletion and producer restart/pin persistence passed; final safe state restored |
 | 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Complete: reviewed/pushed/reproducible CLI; live one-role owned cleanup; independently verified IAM/network before initial POST; HC/HCP available, real TLS login, 5.0.2 history Completed, Healthy one-worker NodePool, actual Node Ready with exact default SA. CRD-only compatibility fix applied without runtime rollout. Both gates restored false; post-revocation guest/IAM proofs pass; primary retained and handoff committed. |
-| 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
+| 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | In progress, code-first only: read-only template CLI committed, pure unwired retention preview tested/reviewed/committed. Public running/pending contract exposure, update executor/journaling, deployment and actual upgrade proof remain incomplete; see [Phase 4 partial checkpoint](wifconfigtemplate-evidence/phase-4-partial-checkpoint.md). |
 | 5 | Monitoring, sustained-failure alerts and operational recovery | Not started |
 | 6 | Full runtime functional matrix, restart/upgrade regressions and independent owned teardown | Not started |
 
