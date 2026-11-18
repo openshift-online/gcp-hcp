@@ -78,6 +78,17 @@ The successful attempts gated transitions on exact completed source SHAs, actual
 absence, new target UID/same ArgoCD owner, post-creation refresh and fresh delivery.
 They did not directly delete/fill Secret data or pause a shared operator.
 
+> **Archive measurement clarification:** The region's 219 seconds and MC's
+> 144 seconds are reported upper bounds from the **first observed disable** to **verification of
+> enabled configuration/recovery**, as recorded in the
+> [region result](https://redhat.atlassian.net/browse/GCP-1284?focusedCommentId=19168243)
+> and [MC result](https://redhat.atlassian.net/browse/GCP-1284?focusedCommentId=19202377).
+> They are not elapsed times between the ESO refresh rows below (207 seconds
+> and 122 seconds respectively), nor times to the later fresh GitHub delivery.
+> The comments do not retain absolute timestamps for both measurement
+> endpoints, so the original durations cannot be reconstructed from this table
+> alone; the reported figures are preserved without inventing endpoint times.
+
 | Observation (UTC) | Region, October 28 | MC, October 29 |
 | --- | --- | --- |
 | ESO refresh against absent target | 17:24:31 | 13:46:47 |

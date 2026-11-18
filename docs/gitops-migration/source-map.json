@@ -13,8 +13,8 @@
     "moved_files": 29,
     "pr2887_added_files": 23,
     "merged_snapshot_files": 6,
-    "byte_identical_files": 22,
-    "markdown_transformed_files": 7
+    "byte_identical_files": 20,
+    "markdown_transformed_files": 9
   },
   "notes": [
     "PR2887 at the pinned head contains 23 added docs files and two modified infra documents.",
@@ -43,9 +43,9 @@
       "destination": "docs/gitops-migration/gcp-1284/GCP-1284-EVIDENCE.md",
       "sha256": "e88c28714e78bcb4bb7892ac204c9e7cbef61b8a7237e67979378fa478e796ea",
       "size": 11518,
-      "destination_sha256": "e88c28714e78bcb4bb7892ac204c9e7cbef61b8a7237e67979378fa478e796ea",
-      "byte_identical": true,
-      "transformation": "Byte-identical relocation to gcp-1284. No Markdown edits.",
+      "destination_sha256": "f85eb2ac86546f5693edbff20054023e2dff9f777cef139f3f0722b5ac945639",
+      "byte_identical": false,
+      "transformation": "Historical source text preserved, with an additive archive clarification. Added an archive timing note from Jira comments19168243 and19202377, identifying first observed disable to enabled recovery verification as the reported window; exact absolute endpoint timestamps are not supplied or inferred.",
       "checksum_manifest_member": false
     },
     {
@@ -115,9 +115,9 @@
       "destination": "docs/gitops-migration/gcp-1286/GCP-1286_DECISION_REQUEST.md",
       "sha256": "a56199e2885295de48acbdd8e3d04a95fc5241ccb0201e7b7471c82f161abdcd",
       "size": 19064,
-      "destination_sha256": "d398b81194a0f3d72b88081b30a1c0a79c51d6dcecf41164bdae37a04746dc80",
+      "destination_sha256": "616d1b1eb38febb848d3fbdb3911d6cf8d65d83f741d98806b383e21b611f4b7",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1286. Added historical-record banner. All factual content and relative links unchanged.",
+      "transformation": "Relocated to gcp-1286. Added historical-record banner. All factual content and relative links unchanged. Added an archive clarification separating release-key-2 coverage (bundle plus15 image indexes) from key-3 coverage (bundle plus4 required images); preserved the historical reply.",
       "checksum_manifest_member": false
     },
     {
@@ -151,9 +151,9 @@
       "destination": "docs/gitops-migration/gcp-1286/GITOPS_RELEASE_VALIDATION.md",
       "sha256": "c9af35ffd487643ae9d427163c4a25ccc764d41db9eff170bed5930a086fa23b",
       "size": 29133,
-      "destination_sha256": "db4239b4c3ad7fd5932aea84f68e083ef92958b230d8d21d93297ba939a470cd",
+      "destination_sha256": "86d5f31118b2360ea1a013d05f8e017a78feae221fe5244fab01dbd04f867c7c",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1286. Added historical-record banner, qualified the unmerged PR #166 tooling dependency, and retargeted the controller-permissions link to ../gcp-1285/ARGOCD_CONTROLLER_PERMISSIONS.md. All other content unchanged. Parent verified renderer/assembler at PR166 and release matrix/verifier at runtime-bundles source 0ed658f60c16f19053d5c75556c5e614f57f288e; historical working-directory/evidence locations are explicitly qualified.",
+      "transformation": "Relocated to gcp-1286. Added historical-record banner, qualified the unmerged PR #166 tooling dependency, and retargeted the controller-permissions link to ../gcp-1285/ARGOCD_CONTROLLER_PERMISSIONS.md. All other content unchanged. Parent verified renderer/assembler at PR166 and release matrix/verifier at runtime-bundles source 0ed658f60c16f19053d5c75556c5e614f57f288e; historical working-directory/evidence locations are explicitly qualified. Added a Route v1 API-discovery gate before the retained historical restart command, because CRD existence can precede discovery.",
       "checksum_manifest_member": false
     },
     {
@@ -367,9 +367,9 @@
       "destination": "docs/gitops-migration/gcp-1286/gitops-release-validation/UPSTREAM-ISSUE-GCP-1441-route-late-CRD.md",
       "sha256": "25119407c2b5176ddf53a7b7fc9c4289e27d767cc6307e3aa8d29a7525089e4f",
       "size": 7018,
-      "destination_sha256": "25119407c2b5176ddf53a7b7fc9c4289e27d767cc6307e3aa8d29a7525089e4f",
-      "byte_identical": true,
-      "transformation": "Byte-identical relocation to gcp-1286. No content edits; relative links resolve within the relocated tree.",
+      "destination_sha256": "51b325804b713857d2b7d958def29d9de709e96787f4169f9897f54564d90739",
+      "byte_identical": false,
+      "transformation": "Historical source text preserved, with an additive archive clarification. Added current archive links for the pair/runbook and pinned infra bootstrap flow, preserving original filed-copy references.",
       "checksum_manifest_member": false
     }
   ],
@@ -414,8 +414,13 @@
   "supplemental_documents": [
     {
       "path": "docs/gitops-migration/gcp-1285/README.md",
-      "sha256": "16efcc8909f52a87224e1161acd2aaa22083f0ae74a147be35f75e6fa9f49034",
-      "purpose": "Offline archive-review correction for omitted regional cert-manager startup-check hooks; not a historical runtime observation or modification to the raw matrices."
+      "sha256": "d1517a0a36c65460eff9d06c72bb318aa68ac0ffbc7a1ffe4ddc16be4a86ba89",
+      "purpose": "Offline archive-review correction for omitted MC and regional cert-manager startup-check hooks; not historical runtime observations or modifications to the raw matrices."
+    },
+    {
+      "path": "docs/gitops-migration/gcp-1286/.gitignore",
+      "sha256": "f8d1dd9808f7dd4345ec21cc7d01dafabb692f71e48cb520b29dfa21a6f041a1",
+      "purpose": "Ancestor JSON/text exclusions restoring the byte-preserved evidence ignore-file assumptions after relocation; named public evidence is explicitly re-included by the preserved child rules."
     }
   ]
 }

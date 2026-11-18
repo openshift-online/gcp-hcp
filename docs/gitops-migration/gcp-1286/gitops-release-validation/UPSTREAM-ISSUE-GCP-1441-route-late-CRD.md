@@ -147,6 +147,14 @@ The same recovery was observed by deleting the manager pod at 17:08Z; the replac
 
 ## References in this repository
 
+> **Archive location note:** The original paths below are preserved from the
+> filed report. Their current locations are the
+> [pair record](2026-11-13-dev-pair.md) (section 5.3),
+> [release-validation record](../GITOPS_RELEASE_VALIDATION.md) (section 3a), and
+> [infra bootstrap flow](https://github.com/openshift-online/gcp-hcp-infra/blob/d2fc1a1b35a84193d654d25fd47407b68c1bacd2/docs/BOOTSTRAP_FLOW.md).
+> The bootstrap flow stays in `gcp-hcp-infra`; the other records moved together
+> under `gcp-hcp/docs/gitops-migration/gcp-1286/`.
+
 * `docs/gitops-release-validation/2026-11-13-dev-pair.md` section 5.3: full timeline and operator log excerpt
 * `docs/GITOPS_RELEASE_VALIDATION.md`: runbook with verification steps and known trap entry for GCP-1441
 * `docs/BOOTSTRAP_FLOW.md`: overall bootstrap flow showing Config Sync installs Argo CD, then Argo CD deploys HyperShift in wave -5 on MC

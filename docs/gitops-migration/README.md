@@ -97,8 +97,8 @@ These qualifiers must survive any summary of this directory.
 - **Sanitized records only.** This move copies the committed records. Raw logs,
   Terraform state, credentials and the engineer-retained GCP-1284 stop records
   are outside its scope.
-- **GCP-1285 matrix coverage correction.** The byte-preserved regional matrix
-  omits rendered cert-manager startup-check hooks. See the
+- **GCP-1285 matrix coverage correction.** The byte-preserved MC and regional
+  matrices omit rendered cert-manager startup-check hooks. See the
   [archive review notes](gcp-1285/README.md) before using it as an inventory or
   permission specification; this archive does not backfill runtime evidence.
 

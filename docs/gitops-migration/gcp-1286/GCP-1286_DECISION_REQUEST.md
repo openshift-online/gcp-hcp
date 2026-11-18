@@ -221,6 +221,15 @@ bundle files; the ArgoCD CRD `v1beta1` block matches after canonicalization; the
 
 ## B3 — trust requirement (routed to Product Security; the bar is ours)
 
+> **Archive verification-scope clarification:** The preserved reply below
+> overstates the combined coverage. Release key 2 was verified for the bundle
+> and all 15 related-image index manifests (16 entries in
+> [`all-image-verification.json`](gcp-1286-evidence/all-image-verification.json)).
+> Release-key-3 Sigstore verification covers only the bundle and four required
+> images: manager, Argo CD, Dex and Redis (five entries in
+> [`sigstore/results.json`](gcp-1286-evidence/sigstore/results.json)). It does
+> not establish key-3 coverage of the optional images or conditional HA proxy.
+
 **Answer received 2026-11-11:** GitOps engineering has nothing further to ask.
 Verifying both signing mechanisms across the bundle and all 15 images is
 described as comprehensive; the images are signed and we have confirmed the

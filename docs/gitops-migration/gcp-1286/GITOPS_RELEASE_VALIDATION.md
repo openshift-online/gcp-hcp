@@ -419,6 +419,21 @@ routes   route      route.openshift.io/v1   true         Route
 
 Expected when absent: no resources found.
 
+> **Archive sequencing correction:** CRD existence alone is insufficient:
+> discovery may lag. Before the historical restart command below, wait until
+> discovery lists `routes` in `route.openshift.io/v1`, as required by the
+> [GCP-1441 report](gitops-release-validation/UPSTREAM-ISSUE-GCP-1441-route-late-CRD.md).
+>
+> ```sh
+> until kubectl --context "$CTX" get --raw /apis/route.openshift.io/v1 | \
+>   jq -e -s 'length == 1 and any(.[0].resources[]?; .name == "routes" and .kind == "Route")' >/dev/null; do
+>   sleep 5
+> done
+> ```
+>
+> Confirm discovery succeeds; do not restart while it is absent or failing.
+> The following original wording is retained as history, with this added gate.
+
 Restart once the CRD is present:
 
 ```sh

@@ -1,0 +1,4 @@
+# Restore the evidence archive's JSON/text exclusion after cross-repo relocation.
+# Its byte-preserved child .gitignore re-includes only the named public evidence.
+/gcp-1286-evidence/**/*.json
+/gcp-1286-evidence/**/*.txt
