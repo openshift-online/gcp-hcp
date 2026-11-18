@@ -112,6 +112,12 @@ resource creation or broad teardown.
   A bounded 10-minute startup log sample contained 10 HC and nine NodePool
   lines, with zero lines matching errors, permission denials or status-update
   conflict patterns; this is not a sustained-failure alert test.
+- After controller rollout, the isolated reviewed CLI ran standalone
+  `iam verify` against the original protected primary journal (read-only).
+  Independent cloud readback returned `cloudReadbackMatches=true`,
+  `eligibleForNewUse=false`, the same operation ID
+  `30882e34568dbf073aedbcf769ebd103` and unchanged template
+  name/UID/digest. The journal was not opened for an update.
 
 ## Remaining Phase 4 work and caveats
 
