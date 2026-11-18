@@ -1,5 +1,8 @@
 # GCP-1282: Disposable MC and region configuration validation
 
+Related authentication, notification, controller-permission and release evidence
+is indexed in the [GitOps migration records](gitops-migration/README.md).
+
 **Evidence date: October 13, 2026.** This records bounded configuration ownership
 validation, not a production rollout or story closure. The team implementation
 defaults to legacy mode; no environment is enabled by publishing these changes.

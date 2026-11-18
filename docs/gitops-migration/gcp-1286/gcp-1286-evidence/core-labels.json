@@ -1,0 +1,70 @@
+[
+  {
+    "name": "manager",
+    "architecture": "amd64",
+    "labels": {
+      "build-date": "2026-10-13T05:52:14Z",
+      "downstream-source-ref": "6c4a911765610abf65a3344d16bafdeca0971e5a",
+      "downstream-source-url": "https://github.com/rh-gitops-midstream/release",
+      "io.buildah.version": "1.45.0",
+      "org.opencontainers.image.revision": "6c4a911765610abf65a3344d16bafdeca0971e5a",
+      "release": "7",
+      "upstream-source-ref": "cf32771491be2ed7f03d43d279171d6c265f2d2b",
+      "upstream-source-url": "https://github.com/redhat-developer/gitops-operator.git",
+      "version": "v1.22.2"
+    }
+  },
+  {
+    "name": "argocd_dex_image",
+    "architecture": "amd64",
+    "labels": {
+      "build-date": "2026-10-13T05:57:05Z",
+      "downstream-source-ref": "6c4a911765610abf65a3344d16bafdeca0971e5a",
+      "downstream-source-url": "https://github.com/rh-gitops-midstream/release",
+      "io.buildah.version": "1.45.0",
+      "org.opencontainers.image.revision": "6c4a911765610abf65a3344d16bafdeca0971e5a",
+      "release": "7",
+      "upstream-source-ref": "c205840eb6e81ab03bac51b33a42d3c31f947a3c",
+      "upstream-source-url": "https://github.com/rh-gitops-midstream/dex.git",
+      "version": "v1.22.2"
+    }
+  },
+  {
+    "name": "argocd_image",
+    "architecture": "amd64",
+    "labels": {
+      "build-date": "2026-10-13T05:46:39Z",
+      "downstream-source-ref": "6c4a911765610abf65a3344d16bafdeca0971e5a",
+      "downstream-source-url": "https://github.com/rh-gitops-midstream/release",
+      "io.buildah.version": "1.45.0",
+      "org.opencontainers.image.revision": "6c4a911765610abf65a3344d16bafdeca0971e5a",
+      "release": "7",
+      "upstream-source-ref": "a5038b0e2bbac1715754380ae0084df8e3d5b48c",
+      "upstream-source-url": "https://github.com/argoproj/argo-cd.git",
+      "version": "v1.22.2"
+    }
+  },
+  {
+    "name": "argocd_redis_image",
+    "architecture": "amd64",
+    "labels": {
+      "build-date": "2026-10-12T20:20:39Z",
+      "io.buildah.version": "1.45.0",
+      "org.opencontainers.image.revision": "82146f3573d02102ff9db722ae5f416cecce1e70",
+      "release": "1791836411",
+      "version": "1"
+    }
+  },
+  {
+    "name": "argocd_redis_ha_proxy_image",
+    "architecture": "amd64",
+    "labels": {
+      "build-date": "2026-09-29T20:58:38Z",
+      "io.buildah.version": "1.44.0",
+      "io.openshift.build.source-location": "https://github.com/openshift/router",
+      "org.opencontainers.image.revision": "09d0ff637531d597f471a348d3912072bfd48bb9",
+      "release": "202609291750.p2.gb70b28c.assembly.stream.el9",
+      "version": "v4.22.0"
+    }
+  }
+]

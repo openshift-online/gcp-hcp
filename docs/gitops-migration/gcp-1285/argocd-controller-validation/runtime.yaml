@@ -1,0 +1,1343 @@
+ticket: GCP-1285
+scope: Disposable MC/region direct-permission reduction; retained self-administration is explicit
+target:
+  infraId: rfl1285m1109
+  sector: rflores-gcp1285
+  region: northamerica-northeast2
+  terraformStatePrefix: dev-all-in-one/rflores-gcp1285
+  projects:
+  - dev-reg-na-ne2-rfl1285m1109
+  - dev-mgt-na-ne2-rfl1285m1109
+  - gcp-hcp-dev-svc-rfl1285m1109
+source:
+  baseline: d916de0d1ba274254c96a6b2338ea680f607a1b5
+  runtimeInfraCommit: c9ca69510ee90e0fb74092bd45ade0c7e7990004
+  rendererPr: https://github.com/openshift-online/gcp-hcp/pull/166
+  rendererCommit: 90dfd92b5d35d8ff0a6ac3d114eabd59009ab3f4
+  retirementParent: a561b3fdcfe905d6d1de8ab3485b14eface40847
+  retirementChild: e4948e425d7b8fa40f971a1df99d40fa303d389f
+  controllerVersion: v3.5.5+a5038b0
+  manifestCollector: Task administrator; local v3.5.6 CLI with only Redis Secret lookup patched. This CLI is not
+    the deployed controller.
+  runtimeInfraUrl: https://github.com/floresroger/gcp-hcp-infra/tree/c9ca69510ee90e0fb74092bd45ade0c7e7990004
+  runtimeBootstrapUrl: https://github.com/floresroger/gcp-hcp/tree/a561b3fdcfe905d6d1de8ab3485b14eface40847
+  probeBuilds:
+    requestAndAuthorization:
+      binarySha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+      sourceTreeCommit: dbe4744f29c56053270b916f0692bea1a5444d4e
+      sourceFileSha256: 400d42a0221994339b75bee64fe7bd8d602092b3ca562913353fe5468357db51
+      buildEnvironment:
+        CGO_ENABLED: '0'
+        GOOS: linux
+        GOARCH: amd64
+      goBuildFlags: []
+      sourceUrl: https://github.com/floresroger/gcp-hcp-infra/blob/dbe4744f29c56053270b916f0692bea1a5444d4e/tests/argocd-controller-permissions/probe.go
+      provenanceNote: Built from working-copy changes subsequently committed as the sourceTreeCommit above. No clean-checkout
+        or bit-reproducible build is claimed; the original executable was overwritten during the session.
+      buildCommand: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/gcp1285-controller-probe .
+      recordScope: The 16 permissionCasesBeforeRecreation records carrying this binarySha256.
+    identityAttestation:
+      binarySha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+      sourceTreeCommit: ce342d095ccc61955e3851e5c1cfc6633cb7a851
+      sourceFileSha256: 9d12a3e8b972c333f1982dc5c3c3acad7ff1ef1870cbf43a2bc5afbcd7769139
+      buildEnvironment:
+        CGO_ENABLED: '0'
+        GOOS: linux
+        GOARCH: amd64
+      goBuildFlags:
+      - -trimpath
+      - -buildvcs=false
+      sourceUrl: https://github.com/floresroger/gcp-hcp-infra/blob/ce342d095ccc61955e3851e5c1cfc6633cb7a851/tests/argocd-controller-permissions/probe.go
+      provenanceNote: Built after committing the identity-review addition, with -trimpath -buildvcs=false. Adds
+        authenticatedUser and a same-credential SelfSubjectReview; it is a different binary.
+      buildCommand: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -buildvcs=false -o /tmp/gcp1285-controller-probe
+        .
+      retainedBinaryVerified: true
+      goToolchain: go1.27.3
+      recordScope: The 16 permissionCasesAfterRecreation records carrying this binarySha256. This build also produced
+        the separate identity attestations and the un-hashed metadata-credential permission rows in each stage.
+      identityRecordLimit: Those identity-derived records have no per-record binary hash; their source attribution
+        follows the recorded build/execution sequence. No missing hashes have been backfilled.
+  probeComparison:
+    identicalPermissionExpectationsPerStage: 18
+    unchangedClassificationFunctions:
+    - request
+    - authorizationDenied
+    - denied
+    basis: The recorded cluster/mode/method/path/expected-status tuples match exactly. Git source comparison confirms
+      the real-request, access-review and denial-classification functions are unchanged between these builds.
+    identityDifference: Only the later build records authenticatedUser and requires the additional identity review.
+      Separate identityAttestationsBefore and identityAttestationsAfter were collected with that later build.
+    historicalEvidenceBoundary: The recorded results and hashes are preserved. Subsequent probe maintenance is tested
+      offline; it is not presented as a new live run on the decommissioned pair.
+baselineProbes:
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: reg
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  stage: baseline
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+- status: 201
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: reg
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  stage: baseline
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 201
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - ''
+  - PERMISSION_DENIED
+  - IAM_PERMISSION_DENIED
+  - ''
+  - IAM_PERMISSION_DENIED
+  cluster: reg
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  stage: baseline
+  mode: gcp
+  method: GET
+  path: /v1/projects/dev-reg-na-ne2-rfl1285m1109/locations/northamerica-northeast2/clusters/dev-reg-na-ne2-rfl1285m1109-gke
+  expected: 403
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: mgt
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  stage: baseline
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+- status: 201
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: mgt
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  stage: baseline
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 201
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - ''
+  - PERMISSION_DENIED
+  - IAM_PERMISSION_DENIED
+  - ''
+  - IAM_PERMISSION_DENIED
+  cluster: mgt
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  stage: baseline
+  mode: gcp
+  method: GET
+  path: /v1/projects/dev-mgt-na-ne2-rfl1285m1109/locations/northamerica-northeast2/clusters/dev-mgt-na-ne2-rfl1285m1109-gke
+  expected: 403
+permissionCasesBeforeRecreation:
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  cluster: reg
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:29.755718+00:00'
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+  passed: true
+- status: 201
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  cluster: reg
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:30.622216+00:00'
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/monitoring/configmaps
+  expected: 201
+  passed: true
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  cluster: reg
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:31.471142+00:00'
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: PATCH
+  path: /apis/rbac.authorization.k8s.io/v1/clusterroles/gitops-hcp-controller-writes
+  expected: 200
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:32.301147+00:00'
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:33.173002+00:00'
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: PATCH
+  path: /api/v1/namespaces/gcp1285-outside/configmaps/baseline-access
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:34.099529+00:00'
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: PATCH
+  path: /apis/rbac.authorization.k8s.io/v1/clusterroles/gcp1285-outside-role
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:36.150766+00:00'
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/argocd/serviceaccounts/gitops-argocd-application-controller/token
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  reasons:
+  - ''
+  - PERMISSION_DENIED
+  - IAM_PERMISSION_DENIED
+  - ''
+  - IAM_PERMISSION_DENIED
+  cluster: reg
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:37.163755+00:00'
+  podUID: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: gcp
+  method: GET
+  path: /v1/projects/dev-reg-na-ne2-rfl1285m1109/locations/northamerica-northeast2/clusters/dev-reg-na-ne2-rfl1285m1109-gke
+  expected: 403
+  passed: true
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  cluster: mgt
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:47.636066+00:00'
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+  passed: true
+- status: 201
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  cluster: mgt
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:48.596438+00:00'
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/monitoring/configmaps
+  expected: 201
+  passed: true
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  cluster: mgt
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:49.687320+00:00'
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: PATCH
+  path: /apis/rbac.authorization.k8s.io/v1/clusterroles/gitops-hcp-controller-writes
+  expected: 200
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:50.621619+00:00'
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:51.505222+00:00'
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: PATCH
+  path: /api/v1/namespaces/gcp1285-outside/configmaps/baseline-access
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:52.530336+00:00'
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: PATCH
+  path: /apis/rbac.authorization.k8s.io/v1/clusterroles/gcp1285-outside-role
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:53.725005+00:00'
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/argocd/serviceaccounts/gitops-argocd-application-controller/token
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  reasons:
+  - ''
+  - PERMISSION_DENIED
+  - IAM_PERMISSION_DENIED
+  - ''
+  - IAM_PERMISSION_DENIED
+  cluster: mgt
+  stage: after-policy
+  timestamp: '2026-11-09T23:41:54.782351+00:00'
+  podUID: a44141e6-e91e-4442-af8a-ff41dd5ee369
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 03db35552e894f84c303fc346c5a17d57300af7ec97a28109ecb4bc87b209035
+  mode: gcp
+  method: GET
+  path: /v1/projects/dev-mgt-na-ne2-rfl1285m1109/locations/northamerica-northeast2/clusters/dev-mgt-na-ne2-rfl1285m1109-gke
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  authenticatedUser: serviceAccount:dev-reg-na-ne2-rfl1285m1109.svc.id.goog[argocd/gitops-argocd-application-controller]
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  mode: kubernetes-iam
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  authenticatedUser: serviceAccount:dev-mgt-na-ne2-rfl1285m1109.svc.id.goog[argocd/gitops-argocd-application-controller]
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  mode: kubernetes-iam
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+permissionCasesAfterRecreation:
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: reg
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:22.814306+00:00'
+  podUID: 4194a496-ad67-4cad-8d38-d097347d3bc0
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+  passed: true
+- status: 201
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: reg
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:23.682718+00:00'
+  podUID: 4194a496-ad67-4cad-8d38-d097347d3bc0
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/monitoring/configmaps
+  expected: 201
+  passed: true
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: reg
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:24.637907+00:00'
+  podUID: 4194a496-ad67-4cad-8d38-d097347d3bc0
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: PATCH
+  path: /apis/rbac.authorization.k8s.io/v1/clusterroles/gitops-hcp-controller-writes
+  expected: 200
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:25.778590+00:00'
+  podUID: 4194a496-ad67-4cad-8d38-d097347d3bc0
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:27.063998+00:00'
+  podUID: 4194a496-ad67-4cad-8d38-d097347d3bc0
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: PATCH
+  path: /api/v1/namespaces/gcp1285-outside/configmaps/baseline-access
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:27.963137+00:00'
+  podUID: 4194a496-ad67-4cad-8d38-d097347d3bc0
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: PATCH
+  path: /apis/rbac.authorization.k8s.io/v1/clusterroles/gcp1285-outside-role
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:28.924346+00:00'
+  podUID: 4194a496-ad67-4cad-8d38-d097347d3bc0
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/argocd/serviceaccounts/gitops-argocd-application-controller/token
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  reasons:
+  - ''
+  - PERMISSION_DENIED
+  - IAM_PERMISSION_DENIED
+  - ''
+  - IAM_PERMISSION_DENIED
+  cluster: reg
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:30.183155+00:00'
+  podUID: 4194a496-ad67-4cad-8d38-d097347d3bc0
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: gcp
+  method: GET
+  path: /v1/projects/dev-reg-na-ne2-rfl1285m1109/locations/northamerica-northeast2/clusters/dev-reg-na-ne2-rfl1285m1109-gke
+  expected: 403
+  passed: true
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: mgt
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:40.986994+00:00'
+  podUID: 8226195d-47ab-43b7-b326-eb2efee60591
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+  passed: true
+- status: 201
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: mgt
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:41.906766+00:00'
+  podUID: 8226195d-47ab-43b7-b326-eb2efee60591
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/monitoring/configmaps
+  expected: 201
+  passed: true
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: mgt
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:42.791946+00:00'
+  podUID: 8226195d-47ab-43b7-b326-eb2efee60591
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: PATCH
+  path: /apis/rbac.authorization.k8s.io/v1/clusterroles/gitops-hcp-controller-writes
+  expected: 200
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:43.680771+00:00'
+  podUID: 8226195d-47ab-43b7-b326-eb2efee60591
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:44.653304+00:00'
+  podUID: 8226195d-47ab-43b7-b326-eb2efee60591
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: PATCH
+  path: /api/v1/namespaces/gcp1285-outside/configmaps/baseline-access
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:45.568196+00:00'
+  podUID: 8226195d-47ab-43b7-b326-eb2efee60591
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: PATCH
+  path: /apis/rbac.authorization.k8s.io/v1/clusterroles/gcp1285-outside-role
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:46.489073+00:00'
+  podUID: 8226195d-47ab-43b7-b326-eb2efee60591
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: kubernetes
+  method: POST
+  path: /api/v1/namespaces/argocd/serviceaccounts/gitops-argocd-application-controller/token
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  reasons:
+  - ''
+  - PERMISSION_DENIED
+  - IAM_PERMISSION_DENIED
+  - ''
+  - IAM_PERMISSION_DENIED
+  cluster: mgt
+  stage: after-recreation
+  timestamp: '2026-11-09T23:49:47.800775+00:00'
+  podUID: 8226195d-47ab-43b7-b326-eb2efee60591
+  containerImage: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+  probeSha256: 550e568105111d26f14d38b88854cfd9cf3e7f71d1792bd07db65e519c65db13
+  mode: gcp
+  method: GET
+  path: /v1/projects/dev-mgt-na-ne2-rfl1285m1109/locations/northamerica-northeast2/clusters/dev-mgt-na-ne2-rfl1285m1109-gke
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  authenticatedUser: serviceAccount:dev-reg-na-ne2-rfl1285m1109.svc.id.goog[argocd/gitops-argocd-application-controller]
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  mode: kubernetes-iam
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  authenticatedUser: serviceAccount:dev-mgt-na-ne2-rfl1285m1109.svc.id.goog[argocd/gitops-argocd-application-controller]
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  mode: kubernetes-iam
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+identityAttestationsBefore:
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: reg
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  authenticatedUser: serviceAccount:dev-reg-na-ne2-rfl1285m1109.svc.id.goog[argocd/gitops-argocd-application-controller]
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  mode: kubernetes-iam
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: mgt
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  authenticatedUser: serviceAccount:dev-mgt-na-ne2-rfl1285m1109.svc.id.goog[argocd/gitops-argocd-application-controller]
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  mode: kubernetes-iam
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+identityAttestationsAfter:
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: reg
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  authenticatedUser: serviceAccount:dev-reg-na-ne2-rfl1285m1109.svc.id.goog[argocd/gitops-argocd-application-controller]
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: reg
+  mode: kubernetes-iam
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+- status: 200
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: projected-ksa
+  authenticatedUser: system:serviceaccount:argocd:gitops-argocd-application-controller
+  cluster: mgt
+  mode: kubernetes
+  method: GET
+  path: /api/v1/namespaces/argocd/configmaps/argocd-cm
+  expected: 200
+  passed: true
+- status: 403
+  subject: system:serviceaccount:argocd:gitops-argocd-application-controller
+  credentialSource: gke-metadata
+  authenticatedUser: serviceAccount:dev-mgt-na-ne2-rfl1285m1109.svc.id.goog[argocd/gitops-argocd-application-controller]
+  reasons:
+  - Forbidden
+  - ''
+  authorizationDenied: true
+  cluster: mgt
+  mode: kubernetes-iam
+  method: POST
+  path: /api/v1/namespaces/gcp1285-outside/configmaps
+  expected: 403
+  passed: true
+adoptionGates:
+- cluster: reg
+  stage: adopted
+  checks:
+    namespaceRulesMatch: true
+    localRulesMatch: true
+    clusterRulesMatch: true
+    aggregationComplete: true
+    aggregated: true
+    localRoleSelected: true
+    oldLocalRoleRemoved: true
+    aggregationActive: true
+    noBroadWritesInGeneratedRole: true
+    parityAtExpectedStage: true
+  argoUID: da2e3502-a41c-47c6-be9b-d86dc4143493
+  phase: Available
+  namespaceRoleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: gitops-hcp-controller-local
+  aggregation:
+    clusterRoleSelectors:
+    - matchLabels:
+        app.kubernetes.io/managed-by: gitops
+        argocd/aggregate-to-controller: 'true'
+  generatedRuleCount: 30
+  broadWriteRules: []
+  parityBindingPresent: true
+- cluster: mgt
+  stage: adopted
+  checks:
+    namespaceRulesMatch: true
+    localRulesMatch: true
+    clusterRulesMatch: true
+    aggregationComplete: true
+    aggregated: true
+    localRoleSelected: true
+    oldLocalRoleRemoved: true
+    aggregationActive: true
+    noBroadWritesInGeneratedRole: true
+    parityAtExpectedStage: true
+  argoUID: 6b05d37f-e3f4-403d-8009-fff43363342a
+  phase: Available
+  namespaceRoleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: gitops-hcp-controller-local
+  aggregation:
+    clusterRoleSelectors:
+    - matchLabels:
+        app.kubernetes.io/managed-by: gitops
+        argocd/aggregate-to-controller: 'true'
+  generatedRuleCount: 30
+  broadWriteRules: []
+  parityBindingPresent: true
+retiredGateAfterRecreation:
+- cluster: reg
+  stage: retired
+  checks:
+    namespaceRulesMatch: true
+    localRulesMatch: true
+    clusterRulesMatch: true
+    aggregationComplete: true
+    aggregated: true
+    localRoleSelected: true
+    oldLocalRoleRemoved: true
+    aggregationActive: true
+    noBroadWritesInGeneratedRole: true
+    parityAtExpectedStage: true
+  argoUID: da2e3502-a41c-47c6-be9b-d86dc4143493
+  phase: Available
+  namespaceRoleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: gitops-hcp-controller-local
+  aggregation:
+    clusterRoleSelectors:
+    - matchLabels:
+        app.kubernetes.io/managed-by: gitops
+        argocd/aggregate-to-controller: 'true'
+  generatedRuleCount: 30
+  broadWriteRules: []
+  parityBindingPresent: false
+- cluster: mgt
+  stage: retired
+  checks:
+    namespaceRulesMatch: true
+    localRulesMatch: true
+    clusterRulesMatch: true
+    aggregationComplete: true
+    aggregated: true
+    localRoleSelected: true
+    oldLocalRoleRemoved: true
+    aggregationActive: true
+    noBroadWritesInGeneratedRole: true
+    parityAtExpectedStage: true
+  argoUID: 6b05d37f-e3f4-403d-8009-fff43363342a
+  phase: Available
+  namespaceRoleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: gitops-hcp-controller-local
+  aggregation:
+    clusterRoleSelectors:
+    - matchLabels:
+        app.kubernetes.io/managed-by: gitops
+        argocd/aggregate-to-controller: 'true'
+  generatedRuleCount: 30
+  broadWriteRules: []
+  parityBindingPresent: false
+podRecreation:
+- cluster: reg
+  startedAt: '2026-11-09T23:47:23.110916+00:00'
+  operatorBefore:
+    name: openshift-gitops-operator-controller-manager-85968d9fc4-ts2xs
+    uid: 56b3d01f-b1d0-420d-a50b-8cc18559065b
+    ksa: openshift-gitops-operator-controller-manager
+    images:
+    - registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator@sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a
+    ready: true
+  controllerBefore:
+    name: gitops-application-controller-0
+    uid: 2efd8bc9-e7bf-4171-b129-c07c5db18a50
+    ksa: gitops-argocd-application-controller
+    images:
+    - registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+    ready: true
+  operatorAfter:
+    name: openshift-gitops-operator-controller-manager-85968d9fc4-77dz8
+    uid: 2d1247c0-031d-4450-a4e8-1774cac754ed
+    ksa: openshift-gitops-operator-controller-manager
+    images:
+    - registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator@sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a
+    ready: true
+  controllerAfter:
+    name: gitops-application-controller-0
+    uid: 4194a496-ad67-4cad-8d38-d097347d3bc0
+    ksa: gitops-argocd-application-controller
+    images:
+    - registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+    ready: true
+  completedAt: '2026-11-09T23:47:53.950894+00:00'
+- cluster: mgt
+  startedAt: '2026-11-09T23:47:54.859339+00:00'
+  operatorBefore:
+    name: openshift-gitops-operator-controller-manager-85968d9fc4-5rvgq
+    uid: 884627ca-2aac-4692-8196-90d55697ac2b
+    ksa: openshift-gitops-operator-controller-manager
+    images:
+    - registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator@sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a
+    ready: true
+  controllerBefore:
+    name: gitops-application-controller-0
+    uid: a44141e6-e91e-4442-af8a-ff41dd5ee369
+    ksa: gitops-argocd-application-controller
+    images:
+    - registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+    ready: true
+  operatorAfter:
+    name: openshift-gitops-operator-controller-manager-85968d9fc4-z5jw8
+    uid: e7e5dbcd-152d-4c03-99b1-568598ca887d
+    ksa: openshift-gitops-operator-controller-manager
+    images:
+    - registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator@sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a
+    ready: true
+  controllerAfter:
+    name: gitops-application-controller-0
+    uid: 8226195d-47ab-43b7-b326-eb2efee60591
+    ksa: gitops-argocd-application-controller
+    images:
+    - registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+    ready: true
+  completedAt: '2026-11-09T23:48:26.850685+00:00'
+identityInvariants:
+- cluster: reg
+  baselineIdentityCount: 135
+  currentIdentityCount: 138
+  changedExistingIdentities: []
+  serverRoleHashesPreserved: true
+  addedIdentities:
+  - namespace: argocd
+    name: argocd-cache-watchdog
+    uid: c6a6b90f-9890-4759-80ad-5c6669606e37
+    gsa: null
+  - namespace: argocd
+    name: argocd-oauth-secret-accessor
+    uid: 24c1f5f5-6e9a-4917-8e2f-770270a8b4ed
+    gsa: null
+  - namespace: gecko-system
+    name: gecko-version-sync
+    uid: f672755c-cb52-4c4f-8a84-13dc938996ae
+    gsa: null
+- cluster: mgt
+  baselineIdentityCount: 131
+  currentIdentityCount: 133
+  changedExistingIdentities: []
+  serverRoleHashesPreserved: true
+  addedIdentities:
+  - namespace: argocd
+    name: argocd-oauth-secret-accessor
+    uid: 1d63257d-d59e-48fc-a479-49e7da89d5a2
+    gsa: null
+  - namespace: gcp1285-outside
+    name: default
+    uid: 5df73024-9f3d-47f4-91b5-8d1d09dd9652
+    gsa: null
+localClusterCredentialConfiguration:
+- cluster: reg
+  registrations:
+  - name: argocd-cluster
+    server: https://kubernetes.default.svc
+    configKeys:
+    - tlsClientConfig
+    bearerTokenConfigured: false
+    execProviderConfigured: false
+    awsAuthConfigured: false
+    usernameConfigured: false
+    passwordConfigured: false
+    clientKeyConfigured: false
+  destinations:
+  - https://kubernetes.default.svc
+  pluginApplications: []
+  controllerVolumeTypes:
+  - - secret
+  - - secret
+  - - emptyDir
+  - - configMap
+  - - emptyDir
+  - - secret
+  - - projected
+- cluster: mgt
+  registrations:
+  - name: argocd-cluster
+    server: https://kubernetes.default.svc
+    configKeys:
+    - tlsClientConfig
+    bearerTokenConfigured: false
+    execProviderConfigured: false
+    awsAuthConfigured: false
+    usernameConfigured: false
+    passwordConfigured: false
+    clientKeyConfigured: false
+  destinations:
+  - https://kubernetes.default.svc
+  pluginApplications: []
+  controllerVolumeTypes:
+  - - secret
+  - - secret
+  - - emptyDir
+  - - configMap
+  - - emptyDir
+  - - secret
+  - - projected
+projectIamAfter:
+- project: dev-reg-na-ne2-rfl1285m1109
+  argocdProjectGrants: []
+- project: dev-mgt-na-ne2-rfl1285m1109
+  argocdProjectGrants: []
+delegationBeforeRecreation:
+- cluster: reg
+  objects:
+  - kind: Application
+    name: gcp1285-permission-proof
+    namespace: argocd
+    uid: 99640e76-d4f5-4c56-8e29-3f9254125231
+    tracking: null
+    syncStatus: Synced
+    health: Healthy
+    operationPhase: Succeeded
+    conditions: []
+    generation: 10
+    observedGeneration: null
+  - kind: ConfigMap
+    name: gcp1285-controller-proof
+    namespace: monitoring
+    uid: 4cd38554-3b88-47c1-b6d9-b73cca981903
+    tracking: gcp1285-permission-proof:/ConfigMap:monitoring/gcp1285-controller-proof
+    syncStatus: null
+    health: null
+    operationPhase: null
+    conditions: []
+    generation: null
+    observedGeneration: null
+  - kind: MonitoringDashboard
+    name: gcp1285-controller-proof
+    namespace: gcp-dashboards
+    uid: 42e2ba2c-f90a-42c3-98b6-ca6010c162cb
+    tracking: gcp1285-permission-proof:monitoring.cnrm.cloud.google.com/MonitoringDashboard:gcp-dashboards/gcp1285-controller-proof
+    syncStatus: null
+    health: null
+    operationPhase: null
+    conditions:
+    - lastTransitionTime: '2026-11-09T23:42:22Z'
+      message: The resource is up to date
+      reason: UpToDate
+      status: 'True'
+      type: Ready
+    generation: 1
+    observedGeneration: 1
+  cloudObservationActor: test administrator; delegate actor is established separately by Cloud Audit Logs
+  cloudName: projects/dev-reg-na-ne2-rfl1285m1109/dashboards/gcp1285-controller-proof
+  cloudDisplayName: GCP-1285 delegated controller proof
+- cluster: mgt
+  objects:
+  - kind: Application
+    name: gcp1285-permission-proof
+    namespace: argocd
+    uid: 2e5aaa49-a8a7-4f2a-b56e-e36c1d9362a0
+    tracking: null
+    syncStatus: Synced
+    health: Healthy
+    operationPhase: Succeeded
+    conditions: []
+    generation: 10
+    observedGeneration: null
+  - kind: ConfigMap
+    name: gcp1285-controller-proof
+    namespace: monitoring
+    uid: 78b07b3e-b5c6-47e0-adc5-a19195df72fc
+    tracking: gcp1285-permission-proof:/ConfigMap:monitoring/gcp1285-controller-proof
+    syncStatus: null
+    health: null
+    operationPhase: null
+    conditions: []
+    generation: null
+    observedGeneration: null
+  - kind: MonitoringDashboard
+    name: gcp1285-controller-proof
+    namespace: gcp-dashboards
+    uid: 2bc36b77-2e3f-4abb-8766-edc4f7c8db01
+    tracking: gcp1285-permission-proof:monitoring.cnrm.cloud.google.com/MonitoringDashboard:gcp-dashboards/gcp1285-controller-proof
+    syncStatus: null
+    health: null
+    operationPhase: null
+    conditions:
+    - lastTransitionTime: '2026-11-09T23:42:23Z'
+      message: The resource is up to date
+      reason: UpToDate
+      status: 'True'
+      type: Ready
+    generation: 1
+    observedGeneration: 1
+  cloudObservationActor: test administrator; delegate actor is established separately by Cloud Audit Logs
+  cloudName: projects/dev-mgt-na-ne2-rfl1285m1109/dashboards/gcp1285-controller-proof
+  cloudDisplayName: GCP-1285 delegated controller proof
+delegationAfterRecreation:
+- cluster: reg
+  objects:
+  - kind: Application
+    name: gcp1285-permission-proof
+    namespace: argocd
+    uid: 99640e76-d4f5-4c56-8e29-3f9254125231
+    tracking: null
+    syncStatus: Synced
+    health: Healthy
+    operationPhase: Succeeded
+    conditions: []
+    generation: 19
+    observedGeneration: null
+  - kind: ConfigMap
+    name: gcp1285-controller-proof
+    namespace: monitoring
+    uid: 9ff73e79-ea26-43d4-a353-260ec88997fe
+    tracking: gcp1285-permission-proof:/ConfigMap:monitoring/gcp1285-controller-proof
+    syncStatus: null
+    health: null
+    operationPhase: null
+    conditions: []
+    generation: null
+    observedGeneration: null
+  - kind: MonitoringDashboard
+    name: gcp1285-controller-proof
+    namespace: gcp-dashboards
+    uid: 42e2ba2c-f90a-42c3-98b6-ca6010c162cb
+    tracking: gcp1285-permission-proof:monitoring.cnrm.cloud.google.com/MonitoringDashboard:gcp-dashboards/gcp1285-controller-proof
+    syncStatus: null
+    health: null
+    operationPhase: null
+    conditions:
+    - lastTransitionTime: '2026-11-09T23:42:22Z'
+      message: The resource is up to date
+      reason: UpToDate
+      status: 'True'
+      type: Ready
+    generation: 1
+    observedGeneration: 1
+  cloudObservationActor: test administrator; delegate actor is established separately by Cloud Audit Logs
+  cloudName: projects/dev-reg-na-ne2-rfl1285m1109/dashboards/gcp1285-controller-proof
+  cloudDisplayName: GCP-1285 delegated controller proof
+- cluster: mgt
+  objects:
+  - kind: Application
+    name: gcp1285-permission-proof
+    namespace: argocd
+    uid: 2e5aaa49-a8a7-4f2a-b56e-e36c1d9362a0
+    tracking: null
+    syncStatus: Synced
+    health: Healthy
+    operationPhase: Succeeded
+    conditions: []
+    generation: 18
+    observedGeneration: null
+  - kind: ConfigMap
+    name: gcp1285-controller-proof
+    namespace: monitoring
+    uid: 5ae39132-8831-4fc3-a2d6-7e7d7181fa01
+    tracking: gcp1285-permission-proof:/ConfigMap:monitoring/gcp1285-controller-proof
+    syncStatus: null
+    health: null
+    operationPhase: null
+    conditions: []
+    generation: null
+    observedGeneration: null
+  - kind: MonitoringDashboard
+    name: gcp1285-controller-proof
+    namespace: gcp-dashboards
+    uid: 2bc36b77-2e3f-4abb-8766-edc4f7c8db01
+    tracking: gcp1285-permission-proof:monitoring.cnrm.cloud.google.com/MonitoringDashboard:gcp-dashboards/gcp1285-controller-proof
+    syncStatus: null
+    health: null
+    operationPhase: null
+    conditions:
+    - lastTransitionTime: '2026-11-09T23:42:23Z'
+      message: The resource is up to date
+      reason: UpToDate
+      status: 'True'
+      type: Ready
+    generation: 1
+    observedGeneration: 1
+  cloudObservationActor: test administrator; delegate actor is established separately by Cloud Audit Logs
+  cloudName: projects/dev-mgt-na-ne2-rfl1285m1109/dashboards/gcp1285-controller-proof
+  cloudDisplayName: GCP-1285 delegated controller proof
+delegateCloudAudit:
+  reg:
+  - timestamp: '2026-11-09T23:48:46.192164Z'
+    insertId: z9xbw1f1c82li
+    logName: projects/dev-reg-na-ne2-rfl1285m1109/logs/cloudaudit.googleapis.com%2Factivity
+    method: google.monitoring.dashboard.v1.DashboardsService.UpdateDashboard
+    resourceName: projects/dev-reg-na-ne2-rfl1285m1109/dashboards/gcp1285-controller-proof
+    principalEmail: config-connector@dev-reg-na-ne2-rfl1285m1109.iam.gserviceaccount.com
+    principalSubject: serviceAccount:config-connector@dev-reg-na-ne2-rfl1285m1109.iam.gserviceaccount.com
+    statusCode: 0
+    proofDashboard: true
+    responseResourceName: projects/848664787820/dashboards/gcp1285-controller-proof
+  - timestamp: '2026-11-09T23:42:22.426262Z'
+    insertId: wr3h8rea0jhp
+    logName: projects/dev-reg-na-ne2-rfl1285m1109/logs/cloudaudit.googleapis.com%2Factivity
+    method: google.monitoring.dashboard.v1.DashboardsService.CreateDashboard
+    resourceName: projects/dev-reg-na-ne2-rfl1285m1109
+    principalEmail: config-connector@dev-reg-na-ne2-rfl1285m1109.iam.gserviceaccount.com
+    principalSubject: serviceAccount:config-connector@dev-reg-na-ne2-rfl1285m1109.iam.gserviceaccount.com
+    statusCode: 0
+    proofDashboard: true
+    responseResourceName: projects/848664787820/dashboards/gcp1285-controller-proof
+  mgt:
+  - timestamp: '2026-11-09T23:42:23.744068Z'
+    insertId: y6vsk0f220hpg
+    logName: projects/dev-mgt-na-ne2-rfl1285m1109/logs/cloudaudit.googleapis.com%2Factivity
+    method: google.monitoring.dashboard.v1.DashboardsService.CreateDashboard
+    resourceName: projects/dev-mgt-na-ne2-rfl1285m1109
+    principalEmail: config-connector@dev-mgt-na-ne2-rfl1285m1109.iam.gserviceaccount.com
+    principalSubject: serviceAccount:config-connector@dev-mgt-na-ne2-rfl1285m1109.iam.gserviceaccount.com
+    statusCode: 0
+    proofDashboard: true
+    responseResourceName: projects/354380341048/dashboards/gcp1285-controller-proof
+organizationIamVisibility: getIamPolicy denied for organization 428383927003. Evidence covers available project/folder/GSA
+  policies and named effective-access tests; it does not certify all inherited grants.
+terraformFinalPlan: No changes. Your infrastructure matches the configuration.
+proofPruning:
+- cluster: reg
+  applicationPruned: true
+  configMapPruned: true
+  kccDashboardPruned: true
+  cloudDashboardDeleted: true
+- cluster: mgt
+  applicationPruned: true
+  configMapPruned: true
+  kccDashboardPruned: true
+  cloudDashboardDeleted: true
+fullWorkloadHealthBeforePruning:
+  region:
+    applications: 24
+    syncedHealthy: 24
+  managementCluster:
+    applications: 16
+    syncedHealthy: 16
+  includes: The synthetic proof Application and adopted configuration Application on each cluster.
+cleanupHmac:
+  managedResourcesBefore: 215
+  project: dev-reg-na-ne2-rfl1285m1109
+  serviceAccount: oidc-cdn-reader@dev-reg-na-ne2-rfl1285m1109.iam.gserviceaccount.com
+  accessIdSha256: ca80dd95cf01acd596914e7b9b58408cf651c3e863c52763fdc6611abc73c7ea
+  previousState: ACTIVE
+  inactiveVerified: true
+  deletedVerified: true
+  removedStateAddress: module.region.google_storage_hmac_key.oidc_cdn[0]
+  reason: Task-owned disposable OIDC key has prevent_destroy. Confirmed API deletion before removing its exact state
+    address; shared module guard unchanged.

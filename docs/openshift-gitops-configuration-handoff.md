@@ -1,5 +1,8 @@
 # GCP-1282: In-place replacement with operator-managed Argo CD
 
+The [GitOps migration records](gitops-migration/README.md) link the related
+validation evidence and its limits across GCP-1282–1286.
+
 > **TL;DR:** Meet the new Argo requirements, take the old Argo controllers offline
 > with declarative scale-to-zero, then enable operator-managed takeover of retained
 > resources. Do not run both controller sets against the same resources. This is
