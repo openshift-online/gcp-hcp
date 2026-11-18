@@ -2,9 +2,9 @@
 
 ## Resume checkpoint
 
-**Phases 1 and 2 are complete. Phase 3 Stage A is complete; Stage B read-only preflight is blocked on missing CLI ADC. Live approval remains closed.**
+**Phases 1 and 2 are complete. Phase 3 Stage A is complete; ADC is fixed and the real Stage B CLI preview now succeeds with expected unverified-template blocking. Live approval remains closed.**
 
-Read the [Stage B preflight checkpoint](wifconfigtemplate-evidence/phase-3-stage-b-preflight.md), [Stage A handoff](wifconfigtemplate-evidence/phase-3-stage-a.md) and [unapproved live proposal](wifconfigtemplate-evidence/phase-3-live-proposal.md) before further work. November 18 read-only checks reconfirmed eight Ready, zero customer/hosted objects and both gates false. The actual candidate CLI preview failed because Google Cloud ADC is absent; the gcloud login alone is not sufficient. Operator credential setup, remaining preflight/cost review and separate live approval are required before any allocation/activation.
+Read the [ADC resume/fix checkpoint](wifconfigtemplate-evidence/phase-3-adc-resume.md), [Stage A handoff](wifconfigtemplate-evidence/phase-3-stage-a.md) and [unapproved live proposal](wifconfigtemplate-evidence/phase-3-live-proposal.md). ADC now works; narrow CLI fix `53f39da` corrects Google's omitted SUPPORTED enum default and efficient bounded paging. Reviewed/race/vet-tested reproducible native artifact and real 23.9-second preview are recorded. Both gates remain false, eight Deployments Ready, zero customer/hosted objects. Complete priced management footprint and bounded smoke preparation, then obtain separate live approval before activation/allocation.
 
 ## Agreed delivery contract
 
@@ -14,7 +14,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 | --- | --- | --- |
 | 1 | Persisted WIFConfigTemplate/Version/Cluster APIs and opt-in GitOps catalog packaging | Complete: reviewed/committed source, native image, dev deployment, live negative/toggle/reapply tests, API-restart + independent Spanner persistence, clean Terraform post-plan and durable handoff |
 | 2 | Template resolution, prerelease numeric-base matching, Version availability and exact-contract installation/upgrade dispatch gates | Complete: reviewed source/native builds/dev rollout; GCP-1452 repaired and redeployed; live missing-IAM/zero-Apply proof, unchanged-generation recovery, ordinary blocked deletion and producer restart/pin persistence passed; final safe state restored |
-| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Stage A complete (`bf158ab`); Stage B read-only refresh passed platform/artifact checks but actual CLI preview is blocked by missing ADC. Published modules remain a merge/release dependency. No live mutation/activation/allocation approved or performed. |
+| 3 | CLI preview/application/readback, owned cleanup and first fresh Cluster | Stage A complete; ADC restored, reviewed CLI follow-up `53f39da` built/tested and real blocked preview passed. Remaining management cost/smoke preparation and live approval outstanding. Published modules remain a merge/release dependency. No live mutation/activation/allocation performed. |
 | 4 | Target-aware IAM updates, safe running-permission retention and actual blocked/released upgrade | Not started |
 | 5 | Monitoring, sustained-failure alerts and operational recovery | Not started |
 | 6 | Full runtime functional matrix, restart/upgrade regressions and independent owned teardown | Not started |
@@ -35,7 +35,7 @@ Each phase requires reviewed source commits, recorded build artifacts, a dev-onl
 ## Selected checkouts and operational boundaries
 
 - Gecko implementation: `/Users/asegundo/git/osd/gecko`, branch `fix/GCP-1452-cel-integer-decoding` at `54709c471cdce451119eea69b69334224131ea48`; Phase 2 controller source remains its compatible parent `9f7161a`.
-- CLI: `/Users/asegundo/git/osd/gcp-hcp-ctl`, clean/pushed `feat/wifconfigtemplate-cli-phase3` at `bf158abf4c9ae8935a52ac05139d43832577861c`; isolated native artifact and external-workspace mapping are recorded in the Stage A handoff. Do not use a legacy broad-role binary or treat the candidate as standalone release-ready.
+- CLI: `/Users/asegundo/git/osd/gcp-hcp-ctl`, clean/pushed `fix/wif-custom-role-default-support` at `53f39da01a84dde59480093020a16b9395ff133a`, based on Stage A `bf158ab`; use the replacement native artifact/checksum in the ADC-resume handoff. External workspace still required; do not use a legacy broad-role binary or claim standalone release readiness.
 - Deployment artifacts: `/Users/asegundo/git/osd/gcp-hcp-infra-dev-main`; preserve Spanner and the pruning safeguards.
 - Images: locally built API/controller artifacts in `quay.io/apahim/gecko`, using unique component-specific tags and recorded resolved digests.
 - Do not use/repair stale `.worktree/dev-apahim` or `.worktree/dev-asegundo` Git links. Do not modify unrelated Terraform changes in the original infrastructure checkout.
