@@ -31,6 +31,13 @@ enable either new-use gate, change customer IAM or start an upgrade.
   reconciliation. No new dispatch authorization, cloud IAM calls or source
   catalog mutations were introduced. Public PATCH/PUT forging of the new
   controller-owned status is tested and rejected/ignored.
+- CLI branch `fix/wif-federation-create-parents` also has local commit `c58b57d`
+  (ahead of its remote), reviewed by the architect reviewer. Cluster/NodePool
+  get/list YAML now preserves the API's camelCase JSON field names instead of
+  lowercasing Go identifiers. Credential-free get tests verify that
+  `iamRequirements` remains visible while private `iamDispatch` is dropped;
+  full CLI race tests and vet passed with the exact local Gecko API workspace.
+  This is readback only; no IAM-update consumer or writer was added.
 
 ## Validation and architect review
 
