@@ -1,0 +1,92 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+resources:
+- namespace.yaml
+- install.yaml
+- service-account.yaml
+- secret-store.yaml
+- cluster-metadata-annotations-template.yaml
+- external-secret-argocd-cluster.yaml
+- external-secret-git-credentials.yaml
+- root-applicationset.yaml
+images:
+- name: ghcr.io/dexidp/dex
+  newTag: v2.45.1
+patches:
+- patch: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: argocd-cm\n  annotations:\n\
+    \    client.lifecycle.config.k8s.io/mutation: ignore"
+  target:
+    kind: ConfigMap
+    name: argocd-cm
+- patch: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: argocd-cmd-params-cm\n\
+    \  annotations:\n    client.lifecycle.config.k8s.io/mutation: ignore"
+  target:
+    kind: ConfigMap
+    name: argocd-cmd-params-cm
+- patch: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: argocd-rbac-cm\n  annotations:\n\
+    \    client.lifecycle.config.k8s.io/mutation: ignore"
+  target:
+    kind: ConfigMap
+    name: argocd-rbac-cm
+- patch: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: argocd-notifications-cm\n\
+    \  annotations:\n    client.lifecycle.config.k8s.io/mutation: ignore"
+  target:
+    kind: ConfigMap
+    name: argocd-notifications-cm
+- patch: "apiVersion: v1\nkind: Secret\nmetadata:\n  name: argocd-notifications-secret\n\
+    \  annotations:\n    client.lifecycle.config.k8s.io/mutation: ignore"
+  target:
+    kind: Secret
+    name: argocd-notifications-secret
+- patch: "apiVersion: v1\nkind: Service\nmetadata:\n  name: argocd-server\n  annotations:\n\
+    \    client.lifecycle.config.k8s.io/mutation: ignore"
+  target:
+    kind: Service
+    name: argocd-server
+- path: argocd-cm-patch.yaml
+  target:
+    kind: ConfigMap
+    name: argocd-cm
+- target:
+    group: apps
+    version: v1
+    kind: StatefulSet
+    name: argocd-application-controller
+  patch: "apiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: argocd-application-controller\n\
+    spec:\n  replicas: 0"
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: argocd-applicationset-controller
+  patch: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: argocd-applicationset-controller\n\
+    spec:\n  replicas: 0"
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: argocd-notifications-controller
+  patch: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: argocd-notifications-controller\n\
+    spec:\n  replicas: 0"
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: argocd-repo-server
+  patch: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: argocd-repo-server\n\
+    spec:\n  replicas: 0"
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: argocd-server
+  patch: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: argocd-server\n\
+    spec:\n  replicas: 0"
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: argocd-dex-server
+  patch: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: argocd-dex-server\n\
+    spec:\n  replicas: 0"

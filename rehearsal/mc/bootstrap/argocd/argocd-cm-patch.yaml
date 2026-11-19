@@ -1,0 +1,27 @@
+# Seed dex.config at bootstrap time so that argocd-server initializes its
+# OIDC http.Client with the correct TLS settings (InsecureSkipVerify + internal
+# DexRewriteURLRoundTripper).  Without this, if argocd-server starts before
+# argocd-config delivers the full argocd-cm, the http.Client is permanently
+# misconfigured (strict TLS, external URL) and all OIDC token verifications
+# fail with "x509: certificate signed by unknown authority".
+#
+# The url field is intentionally omitted — it is cluster-specific and will be
+# set later by argocd-config.  Only dex.config is needed here because
+# NewSessionManager checks `settings.DexConfig != ""` to decide which TLS
+# branch to take.
+#
+# See: https://github.com/argoproj/argo-cd/issues/26345
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  dex.config: |
+    connectors:
+      - type: authproxy
+        id: iap
+        name: Google Cloud IAP
+        config:
+          userHeader: X-Goog-Authenticated-User-Email
+          allowedDomains:
+            - redhat.com

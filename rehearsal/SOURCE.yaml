@@ -1,0 +1,8 @@
+fixtureOnly: true
+legacyBootstrapRevision: fc05a28311b77436058818d035eeeb3fb9056e8e
+toolingRevision: de17f33e1b6387118c6409256cfc6429adfdef70
+preparationManifestSha256: cd4815b11b51434c4dff0d0172499813678d39238ee3f2c0e625ea10d68db3bb
+policySha256:
+  region: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
+  mc: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
+runtimeAuthorized: false
