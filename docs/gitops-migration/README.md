@@ -101,6 +101,13 @@ These qualifiers must survive any summary of this directory.
   matrices omit rendered cert-manager startup-check hooks. See the
   [archive review notes](gcp-1285/README.md) before using it as an inventory or
   permission specification; this archive does not backfill runtime evidence.
+- **Signature-tag correction.** The tag explanation in the byte-preserved
+  Sigstore README applies to the GitOps bundle, manager, Argo CD and Dex.
+  Redis instead records tags `1`, `1-1791836411`, `1791836439`, `9.8`,
+  `9.8-1791836411` and `latest` in
+  [`sigstore/results.json`](gcp-1286/gcp-1286-evidence/sigstore/results.json).
+  Its six registry signatures bind the same approved Redis digest; the other
+  four artifacts each have four. The historical counts and bytes are unchanged.
 
 ## Source provenance
 

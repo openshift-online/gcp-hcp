@@ -89,6 +89,15 @@ Literally the candidate is narrower than the wildcard we run; section 6 shows wh
 
 ## 5. Where the 46 rules can act on GKE
 
+> **Archive API-surface correction:** The five categories later summed as 52
+> targets are a policy classification, not a measured count of inert permissions
+> on the management cluster. That cluster served Route APIs and retained
+> Prometheus Operator CRDs, making the corresponding `route.openshift.io` and
+> `monitoring.coreos.com` rules live. Do not read "OpenShift-only", the
+> third-party category, or the later "52 inert" wording as proof those APIs
+> were absent. No corrected target-wide inert count was established by this
+> record; discovery must be evaluated per target.
+
 The CSV targets 102 distinct `(apiGroup, resource)` pairs plus one non-resource
 URL. Classified by whether the API can exist on a GKE cluster:
 
@@ -205,6 +214,14 @@ update, watch`.
 Everything else in the 46 rules is advisory: with `escalate` on ClusterRoles a subject can author `*/*/*`; with `create`/`bind` on ClusterRoleBindings it can attach it to itself.
 
 Comparison of the primitives that matter:
+
+> **Archive baseline-permission correction:** In the pinned bootstrap manifest
+> at `2640be8e24b667d50003ad6a420af168e7742304`, `argocd-server` is bound to
+> a ClusterRole with `get`, `patch` and `delete` on all API groups/resources.
+> Thus the historical server-column cells below for "Write Secrets
+> cluster-wide" and "Write CRDs" must be read as **patch/delete**, not "no".
+> That wildcard rule does not grant `create`; separate namespaced grants and
+> other resource-specific rules must be evaluated independently.
 
 | Primitive | Operator CSV | application-controller (today) | applicationset-controller | server |
 | --- | --- | --- | --- | --- |
@@ -493,6 +510,16 @@ review is pending. Nothing there is agreement.
 - Why accepted now: it is required to run the product at all, its delegation
   authority is now bounded to the instance plus two named ClusterRoles, and it is bounded in
   time by vendor delivery of a supported xKS packaging.
+> **Archive allowlist-check scope:** At development revision
+> `0ed658f60c16f19053d5c75556c5e614f57f288e`,
+> `run-release-verification-tests.sh` reads selected ClusterRoleBindings from
+> `bootstrap/argocd/install.yaml` and a locally rendered default operator chart,
+> identifies roles using its privilege predicate, and compares their subjects
+> with the repository's `docs/privileged-controller-allowlist.yaml`. It also
+> checks stale in-repo entries and required allowlist fields. It does not query
+> live cluster RBAC or the Confluence register, and passing it does not prove
+> that every live privileged identity is registered.
+
 - Guardrails: no `RolloutManager` or `NamespaceManagement` resources; optional
   components stay off (GCP-1287); no third-party CRDs on clusters where this
   operator runs, other than the Prometheus Operator CRDs already in the pair's
@@ -534,6 +561,12 @@ review is pending. Nothing there is agreement.
 > `7777e7ede0b948d3338e94c0f603b441abb4b8ccee1653ae923e6eaa65fa0652`).
 > The original commands are retained below; execute them from the development
 > checkout, not from the historical baseline or this archive's main branch.
+> The checkout must also contain base commit
+> `90dfd92b5d35d8ff0a6ac3d114eabd59009ab3f4` and enough shared history to
+> resolve its merge base with the development revision. `run-step2-tests.sh`
+> never fetches missing history; a shallow checkout with only the development
+> commit can fail before the parity checks. Fetch the required history before
+> running the historical commands.
 
 Run from the `gcp-hcp` repository root at revision
 `2640be8e24b667d50003ad6a420af168e7742304`:

@@ -13,6 +13,13 @@ The offline baseline and procedure are in
 [`../GITOPS_RELEASE_VALIDATION.md`](../GITOPS_RELEASE_VALIDATION.md). Artifact
 review evidence is in [`../gcp-1286-evidence/`](../gcp-1286-evidence/).
 
+> **Archive teardown-evidence correction:** The teardown-only record is for
+> `rfl1440m1116` and collected no image identities. The release-validation
+> record is for the different pair `rfl1286m1111`; its image evidence cannot
+> establish the teardown pair's image set. The historical exemption rule below
+> must not be used to transfer image proof across pairs: this teardown record
+> makes no image-identity claim. Retain each run's own scope and evidence limits.
+
 Rules for anything added here:
 
 - Record the exact target identity, state/source revision, approved image

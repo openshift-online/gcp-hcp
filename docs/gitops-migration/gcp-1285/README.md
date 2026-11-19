@@ -4,6 +4,16 @@ The YAML matrices and runtime record are immutable historical evidence. The
 following correction was verified offline on 2026-11-18; it does not change
 the original collection or establish additional runtime permission results.
 
+## Probe build-to-record hash join
+
+In [`runtime.yaml`](argocd-controller-validation/runtime.yaml), match each
+permission row's `probeSha256` to the corresponding
+`source.probeBuilds.<build>.binarySha256`. The build metadata's `recordScope`
+uses the name `binarySha256`, but that field is not present on the individual
+permission rows. There are 16 hashed rows in each before/after collection;
+the remaining metadata-credential rows and separate identity records retain the
+provenance limits stated in the YAML. Missing hashes have not been backfilled.
+
 ## MC and regional cert-manager hook inventory gaps
 
 The [MC matrix](argocd-controller-validation/mgt-matrix.yaml) records

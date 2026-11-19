@@ -13,8 +13,8 @@
     "moved_files": 29,
     "pr2887_added_files": 23,
     "merged_snapshot_files": 6,
-    "byte_identical_files": 20,
-    "markdown_transformed_files": 9
+    "byte_identical_files": 19,
+    "markdown_transformed_files": 10
   },
   "notes": [
     "PR2887 at the pinned head contains 23 added docs files and two modified infra documents.",
@@ -103,9 +103,9 @@
       "destination": "docs/gitops-migration/gcp-1286/GCP-1286_CSV_RBAC_REVIEW.md",
       "sha256": "cf7004982cc3477d4cfd4777c9d2298876da7b08a4ae2f8f2eebca263ae99335",
       "size": 29293,
-      "destination_sha256": "6eb7d7a64e7691dc153f926284b4c7667da4d62a8c3a05f7922697fdd4e70050",
+      "destination_sha256": "ab0b7ff89fa9ed8637e8d923bcc5d50f2154073842d389d52043e5c03706dcc7",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1286. Added historical-decision-record banner. All factual content and relative links unchanged. Added an archive reproduction note separating the compared bootstrap baseline from verified tooling revision 0ed658f60c16f19053d5c75556c5e614f57f288e; original commands retained.",
+      "transformation": "Relocated to gcp-1286. Added historical-decision-record banner. All factual content and relative links unchanged. Added an archive reproduction note separating the compared bootstrap baseline from verified tooling revision 0ed658f60c16f19053d5c75556c5e614f57f288e; original commands retained. Added archive corrections for category counts versus live API surface, the legacy server wildcard patch/delete privileges, the offline allowlist predicate scope, and the shared Git history prerequisite; original tables and commands retained.",
       "checksum_manifest_member": false
     },
     {
@@ -355,9 +355,9 @@
       "destination": "docs/gitops-migration/gcp-1286/gitops-release-validation/README.md",
       "sha256": "d93b8a2e1da29b59beeb898d8211ddbc6e8ea5a15c78908e7824499a0038994f",
       "size": 1860,
-      "destination_sha256": "d93b8a2e1da29b59beeb898d8211ddbc6e8ea5a15c78908e7824499a0038994f",
-      "byte_identical": true,
-      "transformation": "Byte-identical relocation to gcp-1286. No content edits; relative links resolve within the relocated tree.",
+      "destination_sha256": "83ccdd498a1804be6f34c58de9843d9269c68fb96a7d698223217821e0b2c419",
+      "byte_identical": false,
+      "transformation": "Historical source text retained with additive archive corrections. Added an explicit no-image-identity-claim boundary for teardown pair rfl1440m1116; the different rfl1286m1111 release record is not its image proof.",
       "checksum_manifest_member": false
     },
     {
@@ -414,8 +414,8 @@
   "supplemental_documents": [
     {
       "path": "docs/gitops-migration/gcp-1285/README.md",
-      "sha256": "d1517a0a36c65460eff9d06c72bb318aa68ac0ffbc7a1ffe4ddc16be4a86ba89",
-      "purpose": "Offline archive-review correction for omitted MC and regional cert-manager startup-check hooks; not historical runtime observations or modifications to the raw matrices."
+      "sha256": "68f0a89269a311ab92702c524631ba219e42fc002e0acb5539de7655c9f7ee76",
+      "purpose": "Archive-review clarifications for the row probeSha256 to build binarySha256 join and omitted MC/regional cert-manager hooks; no historical YAML or runtime results changed."
     },
     {
       "path": "docs/gitops-migration/gcp-1286/.gitignore",
