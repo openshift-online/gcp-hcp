@@ -115,9 +115,9 @@
       "destination": "docs/gitops-migration/gcp-1286/GCP-1286_DECISION_REQUEST.md",
       "sha256": "a56199e2885295de48acbdd8e3d04a95fc5241ccb0201e7b7471c82f161abdcd",
       "size": 19064,
-      "destination_sha256": "616d1b1eb38febb848d3fbdb3911d6cf8d65d83f741d98806b383e21b611f4b7",
+      "destination_sha256": "1941d660fd9d8f5aa42ab75be348cb674d6fe22de8fc99c795f318f04ddf4149",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1286. Added historical-record banner. All factual content and relative links unchanged. Added an archive clarification separating release-key-2 coverage (bundle plus15 image indexes) from key-3 coverage (bundle plus4 required images); preserved the historical reply.",
+      "transformation": "Relocated to gcp-1286. Added historical-record banner. All factual content and relative links unchanged. Added an archive clarification separating release-key-2 coverage (bundle plus15 image indexes) from key-3 coverage (bundle plus4 required images); preserved the historical reply. Added an archive key-identity correction linking the full published SPKI fingerprint comparison and its evidence limits; preserved the original suffix argument as history.",
       "checksum_manifest_member": false
     },
     {

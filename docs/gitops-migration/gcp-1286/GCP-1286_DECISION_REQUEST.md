@@ -261,6 +261,12 @@ linux/arm64/v8** under a fail-closed policy (reject default, key 2,
 `matchRepoDigestOrExact`, sigstore endpoint), and every config and layer blob
 in each selected manifest was hash-verified.
 
+> **Archive key-identity correction (2026-11-19):** The suffix argument in
+> the following historical paragraph is incorrect. The published key's full
+> DER-SPKI SHA-256 matches all retained signer fingerprints; raw historical
+> verification-key bytes were not retained for a modulus/exponent comparison.
+> See the [identity check and limits](../README.md#signing-key-identity-correction).
+
 Release-key-3 Sigstore signatures are now verified as well: each artifact's
 `sha256-<digest>.sig` carries four signatures (six for redis), every
 `registry.redhat.io` one verifies locally and binds the approved digest, and the

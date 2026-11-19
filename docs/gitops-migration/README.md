@@ -109,6 +109,32 @@ These qualifiers must survive any summary of this directory.
   Its six registry signatures bind the same approved Redis digest; the other
   four artifacts each have four. The historical counts and bytes are unchanged.
 
+### Signing-key identity correction
+
+The suffix-based explanation in the byte-preserved [Sigstore README](gcp-1286/gcp-1286-evidence/sigstore/README.md)
+and historical [decision request](gcp-1286/GCP-1286_DECISION_REQUEST.md) is incorrect:
+an SPKI SHA-256 suffix does not establish an OpenPGP key ID or vendor identity.
+Red Hat publishes release key 3 as a PEM RSA public key, with the **full SHA-256
+fingerprint** on its [product signing keys page](https://access.redhat.com/security/team/key).
+
+On 2026-11-19, the [official key download](https://security.access.redhat.com/data/63405576.txt)
+was parsed as a 4096-bit RSA key with public exponent 65537. Re-encoding it as
+DER SubjectPublicKeyInfo and hashing with SHA-256 produced
+`ba9d26350d78893a20f337e2153a113108bfcf064085afaee60d446e63405576`,
+matching the published full fingerprint and **all 22** signer fingerprints in
+[the retained results](gcp-1286/gcp-1286-evidence/sigstore/results.json).
+The downloaded file's SHA-256 was
+`2d43fc0ec7f773a75b5d4ae70c1c0b93c6ddc4a8f2ef9fd81b2589076032e80c`.
+This full-fingerprint match, rather than a suffix comparison, associates the
+archived signer fingerprint with Red Hat's published release key 3.
+
+The archive retains signer hashes, not the verification public-key bytes or raw
+Rekor bodies. A direct RSA modulus/exponent comparison with the historical
+verification key is therefore not available from these records. This check
+confirms the fingerprint association; it does not independently reverify the
+historical signatures or authenticate their original extraction. The original
+evidence and checksum manifest remain unchanged.
+
 ## Source provenance
 
 | Content | Source repository and revision |
