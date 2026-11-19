@@ -13,7 +13,7 @@ metadata:
   namespace: gitops-operator
   labels:
     app.kubernetes.io/part-of: gke-bootstrap
-    gke-bootstrap/target-type: region
+    gke-bootstrap/target-type: mc
 spec:
   podSelector: {}
   policyTypes:

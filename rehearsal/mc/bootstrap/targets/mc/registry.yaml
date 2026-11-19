@@ -11,7 +11,7 @@ metadata:
   namespace: gitops-operator
   labels:
     app.kubernetes.io/part-of: gke-bootstrap
-    gke-bootstrap/target-type: region
+    gke-bootstrap/target-type: mc
 spec:
   provider:
     gcpsm:
@@ -24,7 +24,9 @@ metadata:
   namespace: gitops-operator
   labels:
     app.kubernetes.io/part-of: gke-bootstrap
-    gke-bootstrap/target-type: region
+    gke-bootstrap/target-type: mc
+  annotations:
+    config.kubernetes.io/depends-on: external-secrets.io/namespaces/gitops-operator/SecretStore/gitops-registry-bootstrap-gcpsm
 spec:
   refreshInterval: 1h
   secretStoreRef:
