@@ -2,10 +2,12 @@
 #
 # Machine-readable record of the release selected for bounded validation. The
 # digests below were read and signature-checked during the GCP-1286 review; the
-# supporting evidence (manifests, detached signatures, key, logs) is retained on
-# the gcp-hcp-infra branch `gcp-1286/runtime-private` under
-# `docs/gcp-1286-evidence/`. Refresh that evidence against registry.redhat.io
-# before relying on it; do not hand-edit digests.
+# sanitized historical evidence is archived in this repository under
+# docs/gitops-migration/gcp-1286/gcp-1286-evidence/. Read the clarifications in
+# docs/gitops-migration/README.md, including signing-key identity and retained-input
+# limits. Archive entry point (immutable migration merge):
+# https://github.com/openshift-online/gcp-hcp/blob/df1e2c1ce064a3993658c4de29a9577e370f684f/docs/gitops-migration/README.md
+# Refresh registry evidence before relying on it; do not hand-edit digests.
 #
 # This file is NOT a support or certification statement. `support.approval`
 # stays `pending`. No vendor GKE support statement exists for 1.22; the vendor
@@ -15,7 +17,7 @@
 # is scoped to validation and is not a support or certification claim. B4 is
 # decided as a scoped operator identity (see the installation.deviations entry
 # and the GCP-1286 CSV/RBAC review); section B is its runtime proof. See
-# `docs/GCP-1286_PLAN.md` on the same gcp-hcp-infra branch.
+# docs/gitops-migration/gcp-1286/GCP-1286_PLAN.md and the archive clarifications.
 #
 # Guidance received 2026-11-11 from the GitOps engineering channel (their AI
 # assistant, self-labelled "check for accuracy") is recorded in the `guidance`
@@ -78,7 +80,7 @@ spec:
       relatedImageIndexManifests: 15
       platformChildSignatures: false
       releaseKey3Sigstore: true
-      releaseKey3Method: "sigstore .sig artifacts; every registry.redhat.io signature verifies and binds the approved digest, signed by release key 3 (SPKI SHA-256 ending E60D446E63405576)"
+      releaseKey3Method: "Historical sigstore verification recorded for approved digests. Archive clarification associates signer identity using the full SPKI SHA-256 ba9d26350d78893a20f337e2153a113108bfcf064085afaee60d446e63405576, not its suffix; historical verification-key bytes are not retained and signatures were not freshly reverified."
       bundleFullPolicyCopy: true
       tamperedManifestRejected: true
     limits:
@@ -176,7 +178,7 @@ spec:
         autopilot: true
         architecture: linux/amd64
         observedOn: "2026-11-13, disposable pair rfl1286m1111, us-central1"
-      techPreview: "Source Hydrator and GitOps Promoter are Technology Preview; both are out of scope here. Source: 1.22 release notes, read 2026-11-10 (see GCP-1286_PLAN.md)."
+      techPreview: "Source Hydrator and GitOps Promoter are Technology Preview; both are out of scope here. Source: 1.22 release notes, read 2026-11-10 (see docs/gitops-migration/gcp-1286/GCP-1286_PLAN.md and archive clarifications)."
     note: "No GKE support, SLA or Tech Preview tier for the installation as a whole is claimed."
   routeFix:
     ticket: GITOPS-11466

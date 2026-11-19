@@ -341,10 +341,13 @@ a permissive policy, and any digest/platform/blob mismatch. It does not print
 credentials, does not offer an insecure option, and does not establish GKE
 support or runtime behavior.
 
-The supporting manifests, detached signatures, key, and logs from the review
-are retained on the gcp-hcp-infra branch `gcp-1286/t3-release-validation` under
-`docs/gcp-1286-evidence/`; refresh that evidence against registry.redhat.io
-before relying on it.
+The sanitized historical evidence is archived under
+[`docs/gitops-migration/gcp-1286/gcp-1286-evidence/`](https://github.com/openshift-online/gcp-hcp/tree/df1e2c1ce064a3993658c4de29a9577e370f684f/docs/gitops-migration/gcp-1286/gcp-1286-evidence/).
+Read the [archive clarifications](https://github.com/openshift-online/gcp-hcp/blob/df1e2c1ce064a3993658c4de29a9577e370f684f/docs/gitops-migration/README.md), including
+the signing-key identity correction and limits on retained verification inputs.
+The archive preserves records; it does not freshly verify signatures or establish
+current support, security acceptance, runtime health, or permission for another run.
+Refresh registry evidence before relying on it.
 
 ## Offline checks
 

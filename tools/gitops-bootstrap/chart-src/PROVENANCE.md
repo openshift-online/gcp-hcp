@@ -213,7 +213,7 @@ Status and boundaries:
   the unqualified `bind` and `escalate` are removed and one `bind` limited by
   `resourceNames` to two bundle-owned ClusterRoles replaces them, with the
   operator pointed at those roles. The design, its limits and the residual risk
-  are recorded in `gcp-hcp-infra/docs/GCP-1286_CSV_RBAC_REVIEW.md`; it is not a
+  are recorded in [the archived CSV RBAC review](https://github.com/openshift-online/gcp-hcp/blob/df1e2c1ce064a3993658c4de29a9577e370f684f/docs/gitops-migration/gcp-1286/GCP-1286_CSV_RBAC_REVIEW.md); it is not a
   support statement and it has no runtime proof yet.
 - It is a **different exception** from the additive Argo CD application
   controller grant in the previous section. GCP-1285 is the exit criterion for
@@ -222,7 +222,7 @@ Status and boundaries:
 - Owner and ticket: GCP HCP GitOps workstream under **GCP-1286**. The review, the
   comparison against the three cluster roles the current bootstrap installs, the
   GKE-availability breakdown of all 102 API targets and the risk position are in
-  `gcp-hcp-infra/docs/GCP-1286_CSV_RBAC_REVIEW.md`.
+  [the archived CSV RBAC review](https://github.com/openshift-online/gcp-hcp/blob/df1e2c1ce064a3993658c4de29a9577e370f684f/docs/gitops-migration/gcp-1286/GCP-1286_CSV_RBAC_REVIEW.md).
 - No supported narrower role exists in this release, so the scoped mode is our
   own role design rather than a vendor one. No production risk acceptance
   beyond that statement is claimed or implied.
@@ -289,8 +289,14 @@ no vendor signature. Release-key-3 Sigstore signatures **were** verified on
 binds the approved digest, and is signed by release key 3); whether key 3 is
 *required* is B3, a policy question routed to Product Security and ultimately
 recorded by us, not something this repository decides.
-Manifests, signatures, key and logs are retained in
-`gcp-hcp-infra/docs/gcp-1286-evidence/`.
+Sanitized evidence is retained in
+[the GCP-1286 archive](https://github.com/openshift-online/gcp-hcp/tree/df1e2c1ce064a3993658c4de29a9577e370f684f/docs/gitops-migration/gcp-1286/gcp-1286-evidence/).
+Read the [archive signing-key clarification](https://github.com/openshift-online/gcp-hcp/blob/df1e2c1ce064a3993658c4de29a9577e370f684f/docs/gitops-migration/README.md#signing-key-identity-correction):
+the full SPKI SHA-256 fingerprint association, not its suffix, links the recorded
+signer fingerprint to the published release key. Historical verification-key bytes
+and raw Rekor bodies are not retained there, so this is not an independent
+reverification of the historical signatures. Archived evidence does not establish
+current runtime health, support, security acceptance, or authority for another run.
 
 Machine-readable state is `../release-matrix.yaml`; the verification entry point
 is `../verify-release.sh`. Required core images are `manager`, `argocd_image`,
