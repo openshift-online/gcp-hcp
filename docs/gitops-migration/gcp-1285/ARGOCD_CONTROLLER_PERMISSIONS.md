@@ -180,6 +180,19 @@ convergence, then repair/reapply the reviewed chart. Keep one active controller
 set and application resources. Restore previous IAM only if the selected identity
 actually requires it; a permanent blanket workaround is not the recovery result.
 
+> **Archive recovery-completion clarification:** Repairing the chart after a
+> parity-stage rollback is not completion. The independent administrator must
+> restore the reviewed retirement parent
+> `a561b3fdcfe905d6d1de8ab3485b14eface40847` and child
+> `e4948e425d7b8fa40f971a1df99d40fa303d389f` from stage 4, verify that the
+> bootstrap-owned `gitops-application-controller-interim-parity` ClusterRole
+> and ClusterRoleBinding are pruned and their broad grant is absent from the
+> controller's effective bindings, then rerun the scoped permission checks.
+> Include the required positive operations and out-of-scope denials before and
+> after controller/operator recreation. Reconciliation or readiness alone does
+> not establish restored scope. These are the historical pair's retirement
+> revisions; another target needs its own reviewed pins and authorization.
+
 Bootstrap required two bounded recoveries before policy activation: stalled Dex
 pods were recreated after their SAs referenced the existing registry pull Secret;
 MC's same-image operator was restarted after HyperShift installed the Route API.

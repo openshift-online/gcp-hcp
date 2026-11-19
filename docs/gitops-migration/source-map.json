@@ -55,9 +55,9 @@
       "destination": "docs/gitops-migration/gcp-1285/ARGOCD_CONTROLLER_PERMISSIONS.md",
       "sha256": "d83573caec4c0b50e353317b35edc8a34eb15aea6d5b083ee738cb85acb81472",
       "size": 13026,
-      "destination_sha256": "9442818c7d9d1f4e56fbaf368898345c440fc580ff8d72da9af40bb854b0696b",
+      "destination_sha256": "9ce524f96d8a2e71959de7795e8e58c85f0221b172393706dbc3ff45997abbfc",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1285 as a full historical snapshot. Added historical-snapshot banner describing the reusable contract retained by the separate companion infra cleanup, not yet merged at the source baseline. Replaced the relative tests/argocd-controller-permissions/README.md link with an immutable source-revision GitHub blob URL. The one-line PR2887 CSV cross-reference was not included because this snapshot is pinned to the merged d2fc1a1 source per the destination contract. Added an archive terminology correction identifying the denied outside-name-set ClusterRole patch and a link to supplemental matrix review notes; original prose retained.",
+      "transformation": "Relocated to gcp-1285 as a full historical snapshot. Added historical-snapshot banner describing the reusable contract retained by the separate companion infra cleanup, not yet merged at the source baseline. Replaced the relative tests/argocd-controller-permissions/README.md link with an immutable source-revision GitHub blob URL. The one-line PR2887 CSV cross-reference was not included because this snapshot is pinned to the merged d2fc1a1 source per the destination contract. Added an archive terminology correction identifying the denied outside-name-set ClusterRole patch and a link to supplemental matrix review notes; original prose retained. Added an archive recovery-completion clarification requiring retirement pins, pruning of interim parity RBAC, effective-binding verification and scoped permission checks after chart repair.",
       "checksum_manifest_member": false
     },
     {
@@ -127,9 +127,9 @@
       "destination": "docs/gitops-migration/gcp-1286/GCP-1286_PLAN.md",
       "sha256": "ee04d2c07a14390c5ab8953d053f1b93fa2da623db9a2ea4c0fa61f857a66ee6",
       "size": 71083,
-      "destination_sha256": "1d728b967ffbb3975969dba13f6134951341bafb4534d4d0363d46f850176ff1",
+      "destination_sha256": "0bdd87c560e4db4628d053f8b877b16093fa00562c41d2c09da1e8af68e5056e",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1286. Added historical-record banner. All factual content and relative links unchanged; evidence and run-record links still resolve.",
+      "transformation": "Relocated to gcp-1286. Added historical-record banner. All factual content and relative links unchanged; evidence and run-record links still resolve. Added an archive signature-scope correction: selected-child authentication during Skopeo policy copy is distinct from separate index standalone verification; original historical prose retained.",
       "checksum_manifest_member": false
     },
     {

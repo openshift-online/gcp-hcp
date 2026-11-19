@@ -83,6 +83,20 @@ Used Red Hat's documented [container signature policy](https://access.redhat.com
 
 The signed identity uses a tag (for example `gitops-operator-bundle:1.22`). Exact string comparison against an `@sha256:` reference initially failed, as expected. The final verification binds the signature to the immutable manifest digest and repository; it does not resolve the mutable tag. This is the documented [containers/image digest-reference identity behavior](https://github.com/containers/image/blob/main/docs/containers-policy.json.5.md), not an insecure-policy exception.
 
+> **Archive signature-scope correction:** For multi-architecture images,
+> Skopeo 1.24.1 platform-selected copies apply signature policy to the
+> **selected child manifest**, not the multi-architecture index signature.
+> Index authentication comes from the separate `standalone-verify` checks
+> recorded above. A source-index digest match or post-copy blob check does not
+> substitute for that index-signature verification. The historical statement
+> that "separate platform-child signatures were not tested" does not exclude
+> selected-child authentication during each successful policy copy. No
+> additional standalone child-signature audit is recorded here.
+> This qualification also applies to that wording in the byte-preserved
+> [fresh-copy record](gcp-1286-evidence/fresh-copies/README.md). See Skopeo's
+> [instance selection](https://github.com/containers/skopeo/blob/v1.24.1/vendor/go.podman.io/image/v5/copy/copy.go#L349-L380)
+> and [single-image policy check](https://github.com/containers/skopeo/blob/v1.24.1/vendor/go.podman.io/image/v5/copy/single.go#L61-L79).
+
 Limits: the 2026-11-10 fresh copies covered the bundle and the four required images for linux/amd64 and linux/arm64/v8. Each copy ran under the fail-closed policy, so the signed index was enforced, and every config and layer blob those selected manifests reference was downloaded and hash-verified ([results](gcp-1286-evidence/fresh-copies/)). ppc64le/s390x and other image references were not fetched, and separate platform-child signatures were not tested. Release-key-3 Sigstore signatures **were** verified on 2026-11-11 for the bundle and the four required images: every `registry.redhat.io` signature in each `sha256-<digest>.sig` artifact verifies and binds the approved digest, signed by release key 3 (`E60D446E63405576`). Whether key 3 is *required* remains a Product Security policy question (B3); the evidence now exists either way ([results](gcp-1286-evidence/sigstore/)). No chart signature was verified: #166's charts are local artifacts. No GKE node admission or runtime signature enforcement is claimed, and GKE has no CRI-O `ClusterImagePolicy` to enforce it at pull time.
 
 ### Route/Scheme release trace
