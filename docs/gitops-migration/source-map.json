@@ -55,9 +55,9 @@
       "destination": "docs/gitops-migration/gcp-1285/ARGOCD_CONTROLLER_PERMISSIONS.md",
       "sha256": "d83573caec4c0b50e353317b35edc8a34eb15aea6d5b083ee738cb85acb81472",
       "size": 13026,
-      "destination_sha256": "9ce524f96d8a2e71959de7795e8e58c85f0221b172393706dbc3ff45997abbfc",
+      "destination_sha256": "267613fdb3f210c838798c60e14c70f2e132e0f97832a84d97feb7ddbb55b8fb",
       "byte_identical": false,
-      "transformation": "Relocated to gcp-1285 as a full historical snapshot. Added historical-snapshot banner describing the reusable contract retained by the separate companion infra cleanup, not yet merged at the source baseline. Replaced the relative tests/argocd-controller-permissions/README.md link with an immutable source-revision GitHub blob URL. The one-line PR2887 CSV cross-reference was not included because this snapshot is pinned to the merged d2fc1a1 source per the destination contract. Added an archive terminology correction identifying the denied outside-name-set ClusterRole patch and a link to supplemental matrix review notes; original prose retained. Added an archive recovery-completion clarification requiring retirement pins, pruning of interim parity RBAC, effective-binding verification and scoped permission checks after chart repair.",
+      "transformation": "Relocated to gcp-1285 as a full historical snapshot. Added a historical-snapshot banner describing repository ownership of the reusable contract and linking the companion infra change, independent of merge status. Replaced the relative tests/argocd-controller-permissions/README.md link with an immutable source-revision GitHub blob URL. The one-line PR2887 CSV cross-reference was not included because this snapshot is pinned to the merged d2fc1a1 source per the destination contract. Added an archive terminology correction identifying the denied outside-name-set ClusterRole patch and a link to supplemental matrix review notes; original prose retained. Added an archive recovery-completion clarification requiring retirement pins, pruning of interim parity RBAC, effective-binding verification and scoped permission checks after chart repair.",
       "checksum_manifest_member": false
     },
     {

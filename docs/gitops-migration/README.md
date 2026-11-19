@@ -6,9 +6,10 @@ It is not current operating guidance and does not authorize a deployment,
 cutover, rollout, support claim, or repeat run. Each linked record carries the
 details and its own limits.
 
-The archive and companion infra cleanup are separate changes. Merge this
-destination first. The original records remain in infra until the cleanup
-merges, and its retained permission guide becomes the shorter reusable contract.
+Project history and validation evidence live in this archive. Reusable
+permission contracts and operating guidance belong in `gcp-hcp-infra`. The
+[companion infra change](https://github.com/openshift-online/gcp-hcp-infra/pull/2904)
+records that separation.
 
 Records preserve the full historical source text. Markdown adds relocation
 links, historical framing and explicit archive-review clarifications; raw JSON,

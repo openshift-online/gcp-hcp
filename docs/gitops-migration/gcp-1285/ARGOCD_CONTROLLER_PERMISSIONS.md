@@ -1,11 +1,12 @@
 # Argo CD application-controller permissions
 
-> **Historical source snapshot (GCP-1285).** A companion infra cleanup will
-> retain the reusable permission contract at
-> `gcp-hcp-infra/docs/ARGOCD_CONTROLLER_PERMISSIONS.md`; until that cleanup
-> merges, infra still has the full record. This snapshot preserves the full
-> reviewed matrices and runtime evidence from the disposable validation. It is
-> not current operating guidance for another target.
+> **Historical source snapshot (GCP-1285).** This snapshot preserves the full
+> reviewed matrices and runtime evidence from the disposable validation. The
+> reusable permission contract belongs in
+> `gcp-hcp-infra/docs/ARGOCD_CONTROLLER_PERMISSIONS.md`; the
+> [companion infra change](https://github.com/openshift-online/gcp-hcp-infra/pull/2904)
+> records that separation. This snapshot is not current operating guidance for
+> another target.
 
 [GCP-1285](https://redhat.atlassian.net/browse/GCP-1285) validates an opt-in,
 direct-permission reduction on a disposable Dev AIO MC/region pair. The
