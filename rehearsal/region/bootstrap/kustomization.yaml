@@ -6,3 +6,12 @@ resources:
 - targets/region
 components:
 - components/argocd-config-release
+patches:
+- target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: openshift-gitops-operator-controller-manager
+    namespace: gitops-operator
+  patch: "- op: remove\n  path: /metadata/annotations/config.kubernetes.io~1depends-on\n\
+    - op: replace\n  path: /spec/replicas\n  value: 0\n"

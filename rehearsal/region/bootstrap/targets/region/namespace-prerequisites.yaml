@@ -118,7 +118,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/cert-manager/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -167,7 +166,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/config-connector/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -234,7 +232,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/configconnector-operator-system/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -283,7 +280,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/default/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -350,7 +346,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/external-dns/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -417,7 +412,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/gateway-system/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -466,7 +460,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/gcp-dashboards/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -661,7 +654,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/gecko-system/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -725,7 +717,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/kube-system/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -810,7 +801,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/monitoring/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -868,7 +858,6 @@ metadata:
     gke-bootstrap/target-type: region
   annotations:
     gke-bootstrap/controller-policy-sha256: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/platform-gateway/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

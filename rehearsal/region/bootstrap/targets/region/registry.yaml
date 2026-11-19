@@ -25,8 +25,6 @@ metadata:
   labels:
     app.kubernetes.io/part-of: gke-bootstrap
     gke-bootstrap/target-type: region
-  annotations:
-    config.kubernetes.io/depends-on: external-secrets.io/namespaces/gitops-operator/SecretStore/gitops-registry-bootstrap-gcpsm
 spec:
   refreshInterval: 1h
   secretStoreRef:
