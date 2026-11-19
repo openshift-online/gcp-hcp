@@ -1,0 +1,21 @@
+# Ingress-only default deny for the operator namespace's ordinary pod traffic.
+# Deliberately no Egress isolation (outbound API/DNS is unchanged by this
+# policy) and no allow rules: no ServiceMonitor, metrics Service or scraper is
+# shipped, and the manager's probes are its own kubelet httpGet. Policies are
+# additive and traffic from a pod's own node is allowed, so this is not a
+# complete network lockdown. It only has an effect where the cluster's CNI
+# enforces NetworkPolicy; enforcement must be verified before activation.
+# A future metrics consumer or webhook needs a separately reviewed allow policy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: operator-default-deny-ingress
+  namespace: gitops-operator
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: mc
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress: []
