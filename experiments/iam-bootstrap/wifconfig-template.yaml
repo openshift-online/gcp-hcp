@@ -71,12 +71,22 @@ spec:
     # separate roles. Hence the differing role counts per service account
     # (most components 2, ctrlplane-op 3, CCM 4); the comment on each role
     # below records why it is separate.
+    # Prefix-scoped roles also show the CEL resource.name condition their
+    # binding would carry, using GCP's documented resource-name formats with
+    # [^/]+ standing in for the variable project/zone/region segments. These
+    # conditions are provisional: no renderer exists and components do not
+    # necessarily support prefix scoping yet (GCP-1446). Project-scope
+    # bindings carry no condition.
     roles:
       - name: hcpCloudControllerResources
         # Load-balancer resource mutations (firewalls, forwarding rules,
         # regional backend services) on resources that carry the {infraID}-
         # prefix on new installs; bound prefix-scoped so they cannot reach
         # other clusters' resources in a shared project.
+        # Provisional binding condition:
+        # resource.name.matches('projects/[^/]+/global/firewalls/{infraID}-.*') ||
+        # resource.name.matches('projects/[^/]+/regions/[^/]+/forwardingRules/{infraID}-.*') ||
+        # resource.name.matches('projects/[^/]+/regions/[^/]+/backendServices/{infraID}-.*')
         permissions:
           - compute.firewalls.create
           - compute.firewalls.delete
@@ -95,6 +105,8 @@ spec:
         # from the mutations above so instance lifecycle stays with
         # nodepool-mgmt: this component reads and uses instances but never
         # creates or deletes them.
+        # Provisional binding condition:
+        # resource.name.matches('projects/[^/]+/zones/[^/]+/instances/{infraID}-.*')
         permissions:
           - compute.instances.get
           - compute.instances.use
@@ -152,6 +164,8 @@ spec:
         # The component's only mutating access: updating network interfaces
         # (alias IP configuration) on worker VMs. Bound prefix-scoped to this
         # cluster's instances, unlike the shared-subnet access below.
+        # Provisional binding condition:
+        # resource.name.matches('projects/[^/]+/zones/[^/]+/instances/{infraID}-.*')
         permissions:
           - compute.instances.get
           - compute.instances.updateNetworkInterface
@@ -184,6 +198,9 @@ spec:
         # Connect rules, on {infraID}-prefixed resources; bound prefix-scoped
         # so control-plane ingress changes cannot reach other clusters'
         # resources.
+        # Provisional binding condition:
+        # resource.name.matches('projects/[^/]+/global/firewalls/{infraID}-.*') ||
+        # resource.name.matches('projects/[^/]+/regions/[^/]+/forwardingRules/{infraID}-.*')
         permissions:
           - compute.firewalls.create
           - compute.firewalls.delete
@@ -236,6 +253,11 @@ spec:
         # carries a reliable prefix (see roleBindings below), so one role and
         # one prefix-scoped binding suffice; contrast with CCM, which needs
         # two scoped roles for different resource surfaces.
+        # Provisional binding condition:
+        # resource.name.matches('projects/[^/]+/zones/[^/]+/instances/{infraID}-.*') ||
+        # resource.name.matches('projects/[^/]+/zones/[^/]+/disks/{infraID}-pvc-.*') ||
+        # resource.name.matches('projects/[^/]+/global/snapshots/{infraID}-snapshot-.*') ||
+        # resource.name.matches('projects/[^/]+/global/images/{infraID}-snapshot-.*')
         permissions:
           - compute.disks.create
           - compute.disks.createSnapshot
@@ -268,6 +290,8 @@ spec:
       - name: hcpImageRegistryResources
         # Registry bucket and object CRUD on the cluster's {infraID}- bucket;
         # bound prefix-scoped to the registry bucket and its objects.
+        # Provisional binding condition ('.*' also covers /objects/ paths):
+        # resource.name.matches('projects/_/buckets/{infraID}-.*')
         permissions:
           - storage.buckets.create
           - storage.buckets.delete
@@ -282,6 +306,9 @@ spec:
         # Worker instance and boot-disk lifecycle: create, delete, labels,
         # metadata, service account and tags. Bound prefix-scoped to this
         # cluster's instances and disks.
+        # Provisional binding condition:
+        # resource.name.matches('projects/[^/]+/zones/[^/]+/instances/{infraID}-.*') ||
+        # resource.name.matches('projects/[^/]+/zones/[^/]+/disks/{infraID}-.*')
         permissions:
           - compute.disks.create
           - compute.disks.setLabels
@@ -304,6 +331,8 @@ spec:
     # Original scopes encode historical bindings, not an isolation upgrade.
     # CCM scopes are source-backed proposals; the live probe did not test them.
     # Project bindings are unconditional, including support mutations.
+    # ProjectResourceNamePrefixes scoping is provisional and tracked in
+    # GCP-1446; no renderer or component support is committed yet.
     roleBindings:
       - serviceAccountRef: cloud-controller
         roleRef: hcpCloudControllerResources
