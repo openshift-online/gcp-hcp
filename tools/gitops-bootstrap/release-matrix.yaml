@@ -1,0 +1,386 @@
+# GCP-1286 release matrix: OpenShift GitOps 1.22.2 on GKE.
+#
+# Machine-readable record of the release selected for bounded validation. The
+# digests below were read and signature-checked during the GCP-1286 review; the
+# supporting evidence (manifests, detached signatures, key, logs) is retained on
+# the gcp-hcp-infra branch `gcp-1286/runtime-private` under
+# `docs/gcp-1286-evidence/`. Refresh that evidence against registry.redhat.io
+# before relying on it; do not hand-edit digests.
+#
+# This file is NOT a support or certification statement. `support.approval`
+# stays `pending`. No vendor GKE support statement exists for 1.22; the vendor
+# scope is deferred to 1.23 and tracked as GCP-1444 (split from GCP-1286 AC1).
+# Installation/packaging is accepted for this bounded validation by a named
+# GitOps engineer (B2) and the trust decisions are recorded (B3); that acceptance
+# is scoped to validation and is not a support or certification claim. B4 is
+# decided as a scoped operator identity (see the installation.deviations entry
+# and the GCP-1286 CSV/RBAC review); section B is its runtime proof. See
+# `docs/GCP-1286_PLAN.md` on the same gcp-hcp-infra branch.
+#
+# Guidance received 2026-11-11 from the GitOps engineering channel (their AI
+# assistant, self-labelled "check for accuracy") is recorded in the `guidance`
+# fields below. It is not a human decision record. The 2026-11-13 acceptance
+# from Anand Singh is recorded separately in `installation.approval` and
+# `installation.guidance.followUp`.
+apiVersion: gcp-hcp.io/v1alpha1
+kind: GitOpsReleaseMatrix
+metadata:
+  name: openshift-gitops-1.22.2
+spec:
+  product: OpenShift GitOps
+  version: "1.22.2"
+  release: "7"
+  operator: openshift-gitops-operator
+  csv: openshift-gitops-operator.v1.22.2
+  operandVersions:
+    # Listed by the engineering component matrix for 1.22.2. These are not
+    # runtime observations: no Argo CD binary version was read from the running
+    # components on 2026-11-13, and none is claimed.
+    source: "GitOps Component Matrix rev 443, 2026-11-10"
+    argocd: "3.5.5"
+    dex: "2.45.1"
+    argocdOperator: "0.20"
+    gitopsOperator: "1.22.2"
+    runtimeBinaryIdentity: not observed
+  toolVersions:
+    source: "GitOps Component Matrix rev 443, 2026-11-10"
+    helm: "4.2.4"
+    kustomize: "5.8.2"
+  channels:
+    declared: [latest, gitops-1.22]
+    default: latest
+    note: "OLM catalog channel names, not image tags; the catalog head was not resolved."
+  advisory:
+    id: RHBA-2026:83602
+    url: https://access.redhat.com/errata/RHBA-2026:83602
+    issued: "2026-10-15"
+  sources:
+    upstream:
+      url: https://github.com/redhat-developer/gitops-operator
+      commit: cf32771491be2ed7f03d43d279171d6c265f2d2b
+    downstream:
+      url: https://github.com/rh-gitops-midstream/release
+      commit: 219dafaaf0e9431f8b468b4932f337f3ce397058
+    note: "Declared source linkage from image labels; not independently reproduced build provenance."
+  bundle:
+    reference: registry.redhat.io/openshift-gitops-1/gitops-operator-bundle@sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d
+    mediaType: application/vnd.docker.distribution.manifest.v2+json
+    platform: linux/amd64
+    note: "OLM bundle (metadata/CRDs/CSV), not the runnable manager image. Do not deploy as a container."
+  trust:
+    policy: "Red Hat documented container signature policy; GPG simple signing"
+    keyFingerprint: 567E347AD0044ADE55BA8A5F199E2F91FD431D51
+    keyUrl: https://security.access.redhat.com/data/fd431d51.txt
+    sigstoreUrl: https://registry.redhat.io/containers/sigstore
+    signedIdentity: matchRepoDigestOrExact
+    verified:
+      bundleManifest: true
+      relatedImageIndexManifests: 15
+      platformChildSignatures: false
+      releaseKey3Sigstore: true
+      releaseKey3Method: "sigstore .sig artifacts; every registry.redhat.io signature verifies and binds the approved digest, signed by release key 3 (SPKI SHA-256 ending E60D446E63405576)"
+      bundleFullPolicyCopy: true
+      tamperedManifestRejected: true
+    limits:
+      - "Index manifests passed standalone verification; platform child manifests and their layers were not independently fetched/verified."
+      - "Release-key-3 Sigstore signatures now verify for the bundle and the four required images (4 signatures each, 6 for redis), all binding the approved digest. Whether key 3 is required for this deployment is still a Product Security policy question (B3)."
+      - "No chart signature exists: the charts are local packaging under the exception recorded in chartVerification."
+    chartVerification:
+      method: local_chart_exception
+      signature: "none; local packaging has no vendor chart signature"
+      approvedBy: "Anand Singh (OpenShift GitOps engineering), Slack reply 2026-11-13: \"Yes, sounds good to me.\""
+      approvalScope: "Pre-certification validation on GKE only."
+      rationale: "No vendor chart for 1.22.2 carries this deployment's 8-CRD set. The republished 1.22.2 vendor chart has 27 CRDs; this bundle trims to the 8 it owns, and that set was accepted."
+      covers: "The chart checksums recorded in installation.charts."
+      notCovered: "A positive vendor signature check. Chart bytes rest on repository review and the pinned release inputs, not on a vendor signature."
+    policyDecision:
+      decided: "2026-11-16"
+      bar: "Release key 2 and release key 3 verified for the bundle and the four required images; required artifacts digest-pinned; unsigned local charts under the recorded exception."
+      productSecurity: "Confirmation sought through OCPSTRAT-3214. No Product Security sign-off is claimed; this is an internal HCP record."
+      effect: "B3 is recorded as an internal bar. It does not create a support or certification statement."
+  platforms:
+    advertised: [linux/amd64, linux/arm64/v8, linux/ppc64le, linux/s390x]
+    certified: []
+    note: "Presence in an index is not GitOps QE certification for GKE. The certified/approved set is B1."
+  installation:
+    method: local_helm_charts
+    approval: approved
+    approvedBy: "Anand Singh (OpenShift GitOps engineering), Slack reply relayed by Roger on 2026-11-13"
+    approvalScope: "Pre-certification validation on GKE only. Not a support, certification or vendor signature statement."
+    blockedBy: []
+    charts:
+      crds:
+        path: charts/gitops-operator-crds-0.1.0.tgz
+        version: "0.1.0"
+        appVersion: "1.22.2"
+        checksum: "sha256:32bbf0742652160b3aaa953036f6bf933a45b79c55aaed9e9fdf13b9fdd9ec9b"
+      operator:
+        path: charts/gitops-operator-0.1.0.tgz
+        version: "0.1.0"
+        appVersion: "1.22.2"
+        checksum: "sha256:143d96ce2cebaaee2c4abb6cce5b8575beed9ad18cc091e1d5de4db7d1622b13"
+    deviations:
+      - "ArgoCD CRD is v1beta1-only with no conversion webhook; ENABLE_CONVERSION_WEBHOOK=false."
+      - "Manager resources are an untuned local budget, not the CSV's resources: {}."
+      - "Scoped operator identity (B4), off by default in the chart and on in the GKE bundles: spec.defaultClusterScopedRoleDisabled=true, CONTROLLER_CLUSTER_ROLE and SERVER_CLUSTER_ROLE set to bundle-owned ClusterRoles, and the manager ClusterRole drops unqualified bind and escalate in favour of one bind limited by resourceNames to those two roles. The vendor rule set stays the chart default and the rule-for-rule baseline."
+    integrationReview:
+      reviewedBy: "Roger Flores Jr"
+      reviewedOn: "2026-11-16"
+      scope: "Matrix pins match the bundle images; 8 CRDs as declared; the argocds CRD is v1beta1-only with no conversion; conversion webhook false; registry auth through the ESO ExternalSecret path with no credential in the rendered bundles."
+      independent: false
+      note: "Team-owned integration review for this validation. Not a vendor review and not a second-party security review."
+    guidance:
+      received: "2026-11-11"
+      source: "GitOps engineering channel, their AI assistant (self-labelled for accuracy checking)"
+      states: "Local packaging is acceptable for validation; no official vendor chart exists for 1.22.x and none will be produced before 1.23; the approach matches the GITOPS-10648 xKS path (strip v1alpha1 and spec.conversion, ENABLE_CONVERSION_WEBHOOK=false, Helm install)."
+      verified: "Packaged argocds CRD has no spec.conversion key and a single v1beta1 served/storage version (run-step2-tests.sh:136-140; run-release-verification-tests.sh:404-409)."
+      followUp:
+        received: "2026-11-13"
+        source: "Anand Singh, Slack reply relayed by Roger (chart author)"
+        states: "Both charts were repackaged from the v4.22 catalog: argocds trimmed to v1beta1 with spec.conversion removed, ENABLE_CONVERSION_WEBHOOK=false, gitopsservices.pipelines.openshift.io CRD removed, Helm install. Republished tags: 1.22.2 OCI manifest sha256:85ab6beee148511bc9c44948c611ab47fea005bdbd2d8ab4db5278925baa59e4, 1.22.3 sha256:457391a3798708e0999aa812533cf86471968de97299128bc9f6e1d90185ed2e."
+        effect: "The packaging method is confirmed in writing, the author republished both charts to match, and he then accepted this bundle's chart set for the pre-certification validation. Installation approval is recorded as approved with the approver and scope. Still not a support or certification statement."
+    note: "Local chart packaging, not vendor-published; adopting or replacing it is B2."
+  support:
+    approval: pending
+    blockedBy: [B1b]
+    deferredTo: GCP-1444
+    position: "No vendor-published GKE support or certification statement exists for 1.22.2-7. The GitOps engineering channel's assistant replied on 2026-11-11 (self-flagged for accuracy, not a human decision record) that 1.22.2-7 is viable for HCP's own bounded xKS validation and that certification and the support model target 1.23. This run claims no support, SLA, Tech Preview tier, patch floor or escalation commitment."
+    guidance:
+      received: "2026-11-11"
+      source: "GitOps engineering channel, their AI assistant (self-labelled for accuracy checking)"
+      states: "1.22.2-7 is viable for our own bounded xKS validation; no formal 1.22.x xKS certification; certification and support model targeted at 1.23; no Autopilot-specific testing; arm64 not in xKS certification scope; no documented minimum Kubernetes patch level; no formal escalation contacts (#forum-openshift-gitops is the public channel)."
+      effect: "B1a settled (we proceed, claiming nothing certified). B1b partially answered; escalation contact and support-tier wording remain open. Not a support statement."
+    gke:
+      scope: unapproved
+      kubernetesVersions: unapproved
+      observedBaseline:
+        # Recorded 2026-11-11 for the B1 request: the target is the GKE version
+        # the GCP HCP environments already run, not a separately chosen one.
+        version: "1.35.8-gke.1796000"
+        nodeVersion: "1.35.8-gke.1796000"
+        channel: REGULAR
+        autopilot: true
+        observedOn:
+          - int-mgt-us-c1-yjiv  # integration management cluster, us-central1
+          - int-reg-us-c1-nkcw  # integration region, us-central1
+          - stg-mgt-us-w1-zkpf  # stage management cluster, us-west1
+          - stg-reg-us-w1-cvxu  # stage region, us-west1
+          - gcp-hcp-int-global  # us-central1
+          - gcp-hcp-stg-global  # us-west1
+        source: "gcloud container clusters list, 2026-11-11; all six clusters identical"
+      architectures: unapproved
+      validationBaseline:
+        # What the 2026-11-13 bounded run actually tested. The observedBaseline
+        # above is what the target environments run; no 1.35.8 parity is claimed.
+        version: "1.36.4-gke.2377000"
+        autopilot: true
+        architecture: linux/amd64
+        observedOn: "2026-11-13, disposable pair rfl1286m1111, us-central1"
+      techPreview: "Source Hydrator and GitOps Promoter are Technology Preview; both are out of scope here. Source: 1.22 release notes, read 2026-11-10 (see GCP-1286_PLAN.md)."
+    note: "No GKE support, SLA or Tech Preview tier for the installation as a whole is claimed."
+  routeFix:
+    ticket: GITOPS-11466
+    fixVersion: "1.22.2"
+    originalPR: https://github.com/redhat-developer/gitops-operator/pull/1321
+    releaseBackportPR: https://github.com/redhat-developer/gitops-operator/pull/1354
+    releaseBackportCommit: 139db716ae65182624429cc1d78cd5a1c625f15c
+    note: "Released operator source cf327714 is one commit ahead of the backport; runtime topologies still require tests."
+  components:
+    required:
+    - name: manager
+      csvNames: [manager]
+      repository: registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator
+      reference: registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator@sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a
+      indexDigest: sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: required
+      platforms:
+        amd64: sha256:7d4f3f467ec9a64a7145e4ebe214375ad2e91a6c0c27e08380a06e136629da10
+        arm64/v8: sha256:b0dd0c85797a7f48e8cd92ef6867cc2c5159eeac9cd9275c4efded36ea7ff2f8
+        ppc64le: sha256:69dac3a2b4c3f8031c047daac673f0f7fba2d4514ebabf75bcdee6189b21b3aa
+        s390x: sha256:b373a9976c91795fcd8993987cdb63561190e2fdf04ff77beb8d4a8d9ddbe3d0
+      inclusionReason: "Required for core operator/Argo CD startup and reconciliation."
+    - name: argocd_image
+      csvNames: [argocd_image]
+      repository: registry.redhat.io/openshift-gitops-1/argocd-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+      indexDigest: sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: required
+      platforms:
+        amd64: sha256:a82f8ec909e149f97b51038abe5f18cf0b0be022ee25c845e8f2e3cfb80f5769
+        arm64/v8: sha256:742ab1d4784f69e05cdf9668b03842987bf4bbb67fa00d68a0f18b33583c1277
+        ppc64le: sha256:895b1b2e7b6cf10f1e85ddc1652f15fac2adc47fae1762a731ae4855a45fd447
+        s390x: sha256:523d9f9ec9832005a4bb99f8c99dfb62f03a7c3224157875ed4617e2a4f924a4
+      inclusionReason: "Required for core operator/Argo CD startup and reconciliation."
+    - name: argocd_dex_image
+      csvNames: [argocd_dex_image]
+      repository: registry.redhat.io/openshift-gitops-1/dex-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/dex-rhel9@sha256:1294cf5c2d8ba1dcfe199511f1fbf11e219a8c6eedb698e47d1970484056ef60
+      indexDigest: sha256:1294cf5c2d8ba1dcfe199511f1fbf11e219a8c6eedb698e47d1970484056ef60
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: required
+      platforms:
+        amd64: sha256:c26521bcd470baa1a1586c5da6cedba4d990ee6aa15838fb73ca667ac1079d9c
+        arm64/v8: sha256:f098f4696fb5d4808576953b33e33278c03f8b0cc881b2d7c78542bd925ab904
+        ppc64le: sha256:632bbd730a3f04385707517c87b87ff9a08b7a22a493d26456683f5499e4fcfc
+        s390x: sha256:dc00f3471937a5aa3d5fd212fcefb47298e0352534a03fb85351be668038db1e
+      inclusionReason: "Required for core operator/Argo CD startup and reconciliation."
+    - name: argocd_redis_image
+      csvNames: [argocd_redis_image]
+      repository: registry.redhat.io/rhel9/redis-7
+      reference: registry.redhat.io/rhel9/redis-7@sha256:8e0c52a2f304473c1f62d1112e116e0e8d541ed9cbeea86f6ece3318146be105
+      indexDigest: sha256:8e0c52a2f304473c1f62d1112e116e0e8d541ed9cbeea86f6ece3318146be105
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: required
+      platforms:
+        amd64: sha256:84cc29e751a74ca318b5b9f8e21fbe78564cae35c42d264a5b26157e74500623
+        arm64/v8: sha256:638579db9c2185c17132f4a930cfc93eb063d98eb63ac225a224a1abb695b4aa
+        s390x: sha256:36c2cedc7285ed8d29322deeec190bb1442405fe7cf290f80e5ec0c7085c29d6
+        ppc64le: sha256:5539a30e98ce7aa28f510aaa59dcd0b078eba72618decfad0d153e6095de23c2
+      inclusionReason: "Required for core operator/Argo CD startup and reconciliation."
+    conditional:
+    - name: argocd_redis_ha_proxy_image
+      csvNames: [argocd_redis_ha_proxy_image]
+      repository: registry.redhat.io/openshift4/ose-haproxy-router-rhel9
+      reference: registry.redhat.io/openshift4/ose-haproxy-router-rhel9@sha256:c1a1301fa4175237d863c9e97057c786acb1453e487c2afa189345e76832cde8
+      indexDigest: sha256:c1a1301fa4175237d863c9e97057c786acb1453e487c2afa189345e76832cde8
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: conditional
+      platforms:
+        amd64: sha256:bbb416c41c3bab7ef94cf1eb51a0feb789e2cedc48885edbc204404139c518e0
+        arm64/v8: sha256:e62816020d29e81ed657b8ceb8e1a22c241289471352bd3d2bac85473f926ce1
+        s390x: sha256:ab195a110134a05b977afe9e9bfd3068b807d14882743228eae66f6e21648ae2
+        ppc64le: sha256:e0e6930f87483d3e8137efb3592cd97202e34ec07916c9d67c974932501f2760
+      inclusionCondition: "Only when Argo CD Redis HA is selected."
+    excluded:
+    - name: argo_rollouts_image
+      csvNames: [argo_rollouts_image]
+      repository: registry.redhat.io/openshift-gitops-1/argo-rollouts-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/argo-rollouts-rhel9@sha256:061217a286fbf1296a5f121097ef50351f1e5381dac43e7c9345c81ae853ad78
+      indexDigest: sha256:061217a286fbf1296a5f121097ef50351f1e5381dac43e7c9345c81ae853ad78
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:ea697becf01289e087296a183b5fc03ed4669cb44fdabec433909d3fff69ce33
+        arm64/v8: sha256:4ffcf2a01608abca545ff8507af62e64176bae49837d623012868d98ea2dc1d0
+        ppc64le: sha256:af9e88e52587c560ac3d080113f4fb2224a8910d6f21d4f5e0bbadfb3ad06402
+        s390x: sha256:ef708282223959f3ca691155fae8641822eec1f50faf4839edcfbfaa5eff7117
+      exclusionReason: "Argo Rollouts controller; no RolloutManager CR is created for core validation."
+    - name: argocd_agent_image
+      csvNames: [argocd_principal_image, argocd_agent_image]
+      repository: registry.redhat.io/openshift-gitops-1/argocd-agent-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/argocd-agent-rhel9@sha256:040edd45c6d6153f7940063d3d5c6306d4f489a5c7db02ad3916ab40e7884511
+      indexDigest: sha256:040edd45c6d6153f7940063d3d5c6306d4f489a5c7db02ad3916ab40e7884511
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:4cef4a3651c7219d4d9d7e106bf3166d6f917b3e1806fca016c7d19f7fc4bb3a
+        arm64/v8: sha256:c3cf248e0a3b9a0471a820203dae796279ba21880322de383d8f21112ecf5068
+        ppc64le: sha256:f15e9be47a0943853a404bd85ba790d5b93e4bf813e8bac797ed951ecf11d5d8
+        s390x: sha256:6ab5cb7ec744ad828973ee490872448842e738b8609fcde20a04e55d2954cc29
+      exclusionReason: "Argo CD agent/principal disabled for core validation."
+    - name: argocd_image_updater_image
+      csvNames: [argocd_image_updater_image]
+      repository: registry.redhat.io/openshift-gitops-1/argocd-image-updater-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/argocd-image-updater-rhel9@sha256:36c9f6ecef9a791ce91affee82e0c1f285d37235239bcbb5834b157bf2270e9e
+      indexDigest: sha256:36c9f6ecef9a791ce91affee82e0c1f285d37235239bcbb5834b157bf2270e9e
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:bd99afeadcbd789ad8dd7f93a7b88a2a1ea27b2155892ddb9799abea558112ec
+        arm64/v8: sha256:59dbb3178cc92d563748f5266292f8b1e5d1159601bebdb1bc124c03a8f1f995
+        ppc64le: sha256:0aea3db1f31674d3114325ff4e503c18c6b15e56f3d62ad21c2cc300c9495144
+        s390x: sha256:d5c1d20527ac83e72ee73a7b2120e40a7cf9aea069bb807a47da55dddc2c3f46
+      exclusionReason: "ImageUpdater CRD is not packaged; argocd-operator disables the component via API discovery."
+    - name: backend_image
+      csvNames: [backend_image]
+      repository: registry.redhat.io/openshift-gitops-1/gitops-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/gitops-rhel9@sha256:6530b754dfe2d9b5182e32a62d115c5613c064da59c900476570d6be82a4b16b
+      indexDigest: sha256:6530b754dfe2d9b5182e32a62d115c5613c064da59c900476570d6be82a4b16b
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:aecc69f70bc4f6c268f2a4d779376859fe373a56be8cbea7ab920ef35289c218
+        arm64/v8: sha256:9b8287f8de95dabd4a9dcc2a985bd379102e124d4e0203a565ed186556d21757
+        ppc64le: sha256:dfee9f7638e88126433ead51b1524fc8e3a16b2c15e3f28607e6d870684c267b
+        s390x: sha256:5b1035ab5a0895959a7fb4011bad00d91d631af89a8f638b118bfe92a3c1fc5b
+      exclusionReason: "The GitopsService controller (which creates the backend Deployment) is registered only when config.openshift.io is available (gitops-operator cmd/main.go @ cf327714); it is skipped on both GKE topologies, so no backend Pod is expected. Still allowlisted for rendering; the operator fallback for an unset BACKEND_IMAGE is a developer quay :main image."
+    - name: gitops_console_plugin_image
+      csvNames: [gitops_console_plugin_image]
+      repository: registry.redhat.io/openshift-gitops-1/console-plugin-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/console-plugin-rhel9@sha256:e814cc4ad19806e71380bd6e6d3f6419fb6df2cfdac2b1fc781bc818678c1bb4
+      indexDigest: sha256:e814cc4ad19806e71380bd6e6d3f6419fb6df2cfdac2b1fc781bc818678c1bb4
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:868f262db729d2ecd15985b3ad33eecfe0b67bb1c1774089d5bee59a963944bf
+        arm64/v8: sha256:b0ce91f396bf191c76fa0740cd488ca52e5208ecd79fd64064f6fd7a3c8fd34b
+        ppc64le: sha256:7633955b9a361ae8d1139207e2b775eda9bc51eecb58623443be0a788ffbf559
+        s390x: sha256:8466ddfec8958ed4ed347fa281c5016942ab1c69a3dd51b11620dba04b0722ae
+      exclusionReason: "OpenShift console plugin; no OpenShift console on GKE."
+    - name: gitops_console_plugin_image_pf5
+      csvNames: [gitops_console_plugin_image_pf5]
+      repository: registry.redhat.io/openshift-gitops-1/console-plugin-4-18-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/console-plugin-4-18-rhel9@sha256:70ecb0886c99f9427b7a464c956a38b46a0c1e1f07cb447f1106a224a07a8640
+      indexDigest: sha256:70ecb0886c99f9427b7a464c956a38b46a0c1e1f07cb447f1106a224a07a8640
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:cdf9490f8a29683f132ae02e84a8a0a4c868014415db927de1c908ce35d8066a
+        arm64/v8: sha256:37104f0feb939f926f5004b14470e03f434a3559d32fdef119eae152a562ee07
+        ppc64le: sha256:16f3d62aeaf529b6f6528d5141c6d541528fbd6c03576c169413284d01f1aeab
+        s390x: sha256:5b763ceb519d78818e085d71fa8b4f9edb74764b45054a3b9f526f4e886352a5
+      exclusionReason: "OpenShift console plugin (PatternFly 5 variant); no OpenShift console on GKE."
+    - name: gitops_promoter_image
+      csvNames: [gitops_promoter_image]
+      repository: registry.redhat.io/openshift-gitops-1/gitops-promoter-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/gitops-promoter-rhel9@sha256:24871a04cad45b8fc3e82d2c1c26b7c6695315809c4f786cb254f219ca9ccda1
+      indexDigest: sha256:24871a04cad45b8fc3e82d2c1c26b7c6695315809c4f786cb254f219ca9ccda1
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:dd1bd750b6a274fd4a2e43c14b227d2289987d8d7fb4fad91a6afdb01a1a37ee
+        arm64/v8: sha256:fac06e5c716ad1662a4da5abf7331d84b0cee0565f3337bae3c74df29dcf7bea
+        ppc64le: sha256:a4969ee6916e589568f4c669db7e4af9cb29504bda6f2e7498e672827db08341
+        s390x: sha256:d7526e7d0cf353131e19e02c06cb6b765d3b174d01b9a68851cf5b102b00244b
+      exclusionReason: "GitOps Promoter; Technology Preview and optional-component scope (GCP-1287)."
+    - name: must_gather_image
+      csvNames: [must_gather_image]
+      repository: registry.redhat.io/openshift-gitops-1/must-gather-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/must-gather-rhel9@sha256:94438482f584c5b1c6acbdb37783352021fb89d747e238d0ee20d929c79080bb
+      indexDigest: sha256:94438482f584c5b1c6acbdb37783352021fb89d747e238d0ee20d929c79080bb
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:1232129514f4c97f56dc4a52c165dc0b8e0f0c718688612a906b2db3e26855a2
+        arm64: sha256:aeae7fd3f908104550728a7e5c082ab5e24cfb5ee3acc91b617d51896a1cd670
+        ppc64le: sha256:6343b286d2b62fc6c2ac1aeaca3150180a1274dd4f27bcaf59b5ad75639dd023
+        s390x: sha256:4d2b7af1762a2294db20e5e4cfcef03b03ea7e0c7752f0bd4fef99a9144f9cea
+      exclusionReason: "Diagnostic tool image; not a running workload."
+    - name: promoter_extension_image
+      csvNames: [promoter_extension_image]
+      repository: registry.redhat.io/openshift-gitops-1/argocd-promoter-extension-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/argocd-promoter-extension-rhel9@sha256:cf9c1d9af3bd038692eb3de1e788819c9326155b6edcb8b8ef9c94815ec65b2a
+      indexDigest: sha256:cf9c1d9af3bd038692eb3de1e788819c9326155b6edcb8b8ef9c94815ec65b2a
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:0cf38846853443060a5ddd39e4b5f97339d4b3abb697ff23eadec90683093293
+        arm64/v8: sha256:2c9d5033587c26e29580af560d5d6fe394efe43f2e2fb956906bee6bb95977b8
+        ppc64le: sha256:f79467ff3c296f91f5576d67bb0fa50c201be9fca78f1bb86fb8c7b534d67f56
+        s390x: sha256:9cbdbd1f67999eb205ff5047f96b6d9f9987bbe5f53fb011d03d23cf23778a43
+      exclusionReason: "GitOps Promoter UI extension; Promoter is Technology Preview and GCP-1287 scope."
+    - name: rollouts_extension_image
+      csvNames: [rollouts_extension_image]
+      repository: registry.redhat.io/openshift-gitops-1/argocd-extensions-rhel9
+      reference: registry.redhat.io/openshift-gitops-1/argocd-extensions-rhel9@sha256:877d3f4fb8141729a9861aba8ab5c60a1fcb1b354ff040af2b978148da545af4
+      indexDigest: sha256:877d3f4fb8141729a9861aba8ab5c60a1fcb1b354ff040af2b978148da545af4
+      mediaType: application/vnd.docker.distribution.manifest.list.v2+json
+      status: excluded
+      platforms:
+        amd64: sha256:cab79cd4914e89841359cec012274c2e0c3f5e33b490905b6782a0211913f33f
+        arm64/v8: sha256:4f7d8b29111f2b362f21c2f260894265382e1a8c58ce206d403cc9ea1eaf9088
+        ppc64le: sha256:2cede32de58468022f22cdf0ba29e247e0c7ecf99811509a180b5b388a0cf988
+        s390x: sha256:53a1801a910c5bf2404337e5d8637b33f66ac049028cdae435248da015a8fe06
+      exclusionReason: "Argo Rollouts UI extension; Rollouts disabled for core validation."

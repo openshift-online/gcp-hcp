@@ -16,6 +16,16 @@
 replicaCount: 1
 serviceAccount:
   name: openshift-gitops-operator-controller-manager
+# GCP-1286 scoped identity. When enabled, the manager ClusterRole loses the
+# unqualified bind and escalate verbs and keeps bind only on the two named
+# ClusterRoles the bundle pre-creates for the Argo CD controller and server.
+# The manager Deployment also gets CONTROLLER_CLUSTER_ROLE and
+# SERVER_CLUSTER_ROLE, so the operator stops creating those roles and binds the
+# ones we supply. Default false keeps the vendor CSV rule set verbatim.
+scopedRbac:
+  enabled: false
+  controllerClusterRole: ""
+  serverClusterRole: ""
 # Never rendered by this chart; accepted only because render.sh always sets it.
 pullSecret:
   create: false

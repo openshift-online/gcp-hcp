@@ -1,0 +1,225 @@
+# GCP-1286 scoped identity, bundle side.
+#
+# The operator's spec.defaultClusterScopedRoleDisabled stops it creating the
+# cluster-scoped controller and server ClusterRoles. CONTROLLER_CLUSTER_ROLE and
+# SERVER_CLUSTER_ROLE point the operator at roles supplied here instead, so the
+# operator creates no ClusterRole and no ClusterRoleBinding of its own.
+#
+# Controller role: the interim-parity role in controller-rbac.yaml, which is
+# already bound to the controller ServiceAccount by this bundle.
+# Server role: declared below.
+# ApplicationSet controller: the operator creates its RBAC outside both role
+# switches, so this file also carries a namespaced grant to the operator and
+# the cluster-scoped pair the operator would otherwise create. See the block
+# at the end of this file.
+#
+# The server rule set is the UNION of the operator's two server policies for the
+# reviewed seed (web terminal off), pinned source argocd-operator a213c171036a:
+#   policyRuleForServer            (namespaced Role, applied through the
+#                                   operator's namespaced RoleBinding in the
+#                                   instance namespace)
+#   policyRuleForServerClusterRole (cluster-scoped ClusterRole, applied through
+#                                   the ClusterRoleBinding below)
+# It is a copy, not a superset. Any operator update that changes either policy
+# must be diffed against this file before scoped mode is used again.
+#
+# The manager keeps no escalate verb. That is sufficient only because this
+# bundle targets GKE: the operator appends an OpenShift restricted-SCC rule to
+# its dex/redis Roles only when the OpenShift Config API is present, and the
+# manager CSV rule set has no security.openshift.io grant. Do not reuse scoped
+# mode on OpenShift without adding an escalate path for those Roles.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: __INSTANCE_NAME__-argocd-server
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets", "appprojects"]
+    verbs: ["create", "get", "list", "watch", "update", "delete", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs", "cronjobs/finalizers"]
+    verbs: ["create", "update"]
+---
+# The operator does not create this binding in custom-role mode; the bundle must.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: __INSTANCE_NAME__-argocd-server
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: __INSTANCE_NAME__-argocd-server
+subjects:
+  - kind: ServiceAccount
+    name: __INSTANCE_NAME__-argocd-server
+    namespace: __INSTANCE_NAMESPACE__
+---
+# The only bind the manager keeps in the instance namespace. The operator still
+# creates the dex, redis, redis-ha and commit-server Roles there and must bind
+# them; without this it cannot finish reconcile. It is namespaced, so it cannot
+# reach any other namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: openshift-gitops-operator-namespaced-bind
+  namespace: __INSTANCE_NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+rules:
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles"]
+    verbs: ["bind"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openshift-gitops-operator-namespaced-bind
+  namespace: __INSTANCE_NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: openshift-gitops-operator-namespaced-bind
+subjects:
+  - kind: ServiceAccount
+    name: __SERVICE_ACCOUNT__
+    namespace: __OPERATOR_NAMESPACE__
+---
+# The ApplicationSet controller is the one component whose RBAC the operator
+# creates outside CONTROLLER_CLUSTER_ROLE and SERVER_CLUSTER_ROLE. Scoped mode
+# therefore has to cover both halves of it, otherwise the operator's reconcile
+# stops at applicationSet and the instance never leaves phase Failed.
+#
+# Namespaced half: the operator creates <instance>-applicationset-controller
+# itself and, when that Role already exists, always Updates it. A Role update is
+# escalation-checked against the full rule set at the storage layer, with no
+# old-versus-new diff, so pre-creating the Role cannot work: the operator must
+# itself hold these rules in this namespace. This Role is a copy of
+# policyRuleForApplicationSetController at argocd-operator a213c171036a, bound
+# to the operator ServiceAccount in the instance namespace only. Re-diff it
+# against the operator source on every operator update.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: openshift-gitops-operator-applicationset-grant
+  namespace: __INSTANCE_NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets", "applicationsets/finalizers"]
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applicationsets/status"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["appprojects"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "get", "list", "patch", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "update", "delete", "get", "list", "patch", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps", "extensions"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openshift-gitops-operator-applicationset-grant
+  namespace: __INSTANCE_NAMESPACE__
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: openshift-gitops-operator-applicationset-grant
+subjects:
+  - kind: ServiceAccount
+    name: __SERVICE_ACCOUNT__
+    namespace: __OPERATOR_NAMESPACE__
+---
+# Cluster-scoped half. reconcileApplicationSetClusterRole and its RoleBinding
+# create both objects under GenerateUniqueResourceName, gated only by
+# argoutil.IsNamespaceClusterConfigNamespace; defaultClusterScopedRoleDisabled
+# does not reach them, and this instance namespace is deliberately in
+# ARGOCD_CLUSTER_CONFIG_NAMESPACES. Declaring them here means the operator's
+# Get finds them with identical Rules, Subjects and RoleRef and creates
+# nothing, which also keeps this CRB out of the manager's bind grant. The rule
+# list is the operator's cluster variant verbatim. If a future operator changes
+# it, the operator's Update fails closed with a visible escalation error instead
+# of silently widening anything.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: __INSTANCE_NAME__-__INSTANCE_NAMESPACE__-argocd-applicationset-controller
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications", "applicationsets", "applicationsets/finalizers"]
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["appprojects"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applicationsets/status"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "get", "list", "patch", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    resourceNames: ["58ac56fa.applicationsets.argoproj.io"]
+    verbs: ["get", "update", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: __INSTANCE_NAME__-__INSTANCE_NAMESPACE__-argocd-applicationset-controller
+  labels:
+    app.kubernetes.io/part-of: gke-bootstrap
+    gke-bootstrap/target-type: __TARGET_TYPE__
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: __INSTANCE_NAME__-__INSTANCE_NAMESPACE__-argocd-applicationset-controller
+subjects:
+  - kind: ServiceAccount
+    name: __INSTANCE_NAME__-applicationset-controller
+    namespace: __INSTANCE_NAMESPACE__

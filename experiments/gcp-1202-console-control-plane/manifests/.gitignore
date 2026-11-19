@@ -1,0 +1,11 @@
+# Guard rail. Nothing under manifests/ is a real credential, and it must stay
+# that way — this tree is a scrubbed copy of a live PoC. Reproducing the PoC
+# generates the files below locally; none of them may be committed.
+sa-signing-key.yaml
+oauth_client_secret.json
+console-guest-token.txt
+pull-secret.json
+*kubeconfig
+.oidc-client-secret
+.session-encryption-key
+.session-authentication-key

@@ -70,6 +70,7 @@ This template provides a standardized structure for creating Jira Initiatives. I
 
 **Epic(s)**: [To be created during breakdown]
 **Priority**: [Set during prioritization]
+**Size**: [XS, S, M, L, XL — T-shirt sizing based on scope/complexity, set by Architect during refinement]
 **Assignee**: [Set when work begins — leave blank in To Do]
 **Architect**: [Named during Refinement]
 **Product Manager**: [Named during Refinement]
@@ -119,6 +120,7 @@ Use k6 for load testing with custom GCP HCP scenarios. Integrate with Prow for a
 ### Metadata
 **Epic(s)**: TBD
 **Priority**: Major
+**Size**: L
 **Assignee**: TBD
 **Architect**: TBD
 **Product Manager**: TBD

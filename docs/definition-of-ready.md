@@ -44,6 +44,7 @@ Initiatives represent internal/architectural work at Level 4. See [Jira Hierarch
 - [ ] **Scope** defines what's included and what's NOT included
 - [ ] **Acceptance Criteria** are specific and measurable (3+ criteria)
 - [ ] **Priority** is set (Blocker/Critical/Major/Normal/Minor)
+- [ ] **Size** is set (XS, S, M, L, XL) by Architect for planning context
 - [ ] **Dependencies** are identified (other Initiatives, external teams, approvals)
 - [ ] At least one **Epic** has been identified for breakdown
 
@@ -63,6 +64,7 @@ Features represent customer-facing capabilities at Level 4. See [Jira Hierarchy]
 - [ ] **Scope** defines what's included AND what's NOT included
 - [ ] **Acceptance Criteria** are specific and measurable (3+ criteria)
 - [ ] **Priority** is set (Blocker/Critical/Major/Normal/Minor)
+- [ ] **Size** is set (XS, S, M, L, XL) by Architect for planning context
 - [ ] **Dependencies** are identified and documented
 - [ ] **Demo Critical** flag is set (Yes/No)
 - [ ] At least one **Epic** has been identified for breakdown

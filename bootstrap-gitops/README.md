@@ -29,21 +29,19 @@ RBAC) and `kustomization.yaml` (lifecycle and ordering patches).
 
 `assemble.sh --shared-crds-output` also emits the three shared CRDs
 (`applications`, `applicationsets`, `appprojects`) as one file for the later
-parent. That artifact is intentionally **not** committed on this tooling branch:
-the parent-wiring branch, stacked on this one, adds it at
+parent. On the GCP-1280 tooling branch that artifact is intentionally **not**
+committed. This GCP-1286 runtime branch commits it at
 `bootstrap-gitops/parent-artifacts/shared-crds.yaml`. Its identity is the file
 present at commit `c2a5990a6d3a0ead0a3b6ab18718c0cab088a2df` and unchanged since
 `5932f98f30b8163e63e49fac1d84dbed8942cef7` (git blob
 `882f677c1bc29b4bd868b0ab9d32aa8fc3c7882e`, 29,623 lines, 1,840,742 bytes, sha256
 `61c7bb96e7cd3f1fa962700518446c5e30dd3c2d841972842c9e0d403a17acb6`);
-`tests/golden.sha256` pins the same digest, so the wiring branch can commit the
-fresh assembly and must show the identical bytes.
+`tests/golden.sha256` pins the same digest, and the suite now checks that the
+committed file equals a fresh assembly and that digest.
 
-**Wiring handoff (not implemented here):** the later wiring change must replace
-two guards in `tests/run-step2-tests.sh`, "no generated bundle or parent
-artifact is committed" and "nothing outside the subtrees references
-`bootstrap-gitops/`", commit the shared artifact at the path above, and add a
-check that the committed file equals both a fresh assembly and the golden line.
+The artifact guard allows exactly this shared-CRD path and checks its equality
+with a fresh assembly. Generated child bundles remain uncommitted. This tooling
+PR changes no active Config Sync target or environment revision.
 
 Only **MC** and **region** exist. A global bundle is out of scope: the
 assembler rejects `global` (and every other unknown type) before doing any work,
@@ -228,7 +226,9 @@ Additional later Dev AIO acceptance checks:
   is appropriate for the target. The budget is untuned and has no sizing
   guarantee; adjust through the reviewed values only after observation.
 - Interim controller RBAC: confirm the effective controller permissions on the
-  target and track GCP-1285 for the scoped replacement.
+  target. GCP-1285 closed with a reviewed controller policy for the real
+  clusters; the scoped bundle cannot bind it yet, and GCP-1433 tracks that and
+  the interim-parity removal.
 - NetworkPolicy: verify the target cluster enforces NetworkPolicy, the effective
   policy set for the operator namespace, the manager's own-kubelet probe health
   and readiness, reconcile and API/DNS connectivity with the policy in place.
@@ -263,9 +263,10 @@ Additional later Dev AIO acceptance checks:
   role would lose writes to workload kinds in unmanaged namespaces and cluster
   writes such as CRDs and webhooks that the legacy controller performs. This is
   pinned-source evidence, not GKE runtime proof (details and file digests:
-  `tools/gitops-bootstrap/chart-src/PROVENANCE.md`). **Exit criterion: GCP-1285**
-  supplies and validates scoped permissions covering the managed workloads
-  before the grant can be removed or narrowed; it is not redesigned here.
+  `tools/gitops-bootstrap/chart-src/PROVENANCE.md`). **Exit criterion:** a
+  reviewed controller role that scoped mode can bind; GCP-1285 supplied that
+  policy for the real clusters and GCP-1433 tracks making it selectable here.
+  The grant is not redesigned on this branch.
 - **Operator-namespace NetworkPolicy (ingress default-deny only).** One
   child-owned, prunable `operator-default-deny-ingress` NetworkPolicy selects all
   pods in the operator namespace with `policyTypes: [Ingress]` and no allow

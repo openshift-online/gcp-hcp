@@ -174,6 +174,7 @@ Missing evidence lowers confidence; it does not automatically raise effort.
 | Level | Guideline |
 | --- | --- |
 | `NONE` | No implementation remains. |
+| `XS` | Trivial change: single config value, documentation-only, or mechanical field copy requiring no validation or new tests. |
 | `S` | Mechanical API/CLI exposure, field passthrough, docs, or local tests. |
 | `M` | Moderate validation, generated API/client changes, simple transforms, or localized Terraform/Helm changes. |
 | `L` | New HyperShift, Gecko, or kube-applier behavior; durable reconciliation; lifecycle semantics; significant infrastructure rollout; image pre-warming; or integration tests. |
@@ -203,7 +204,7 @@ SUPPORTED: TRUE|FALSE|UNVERIFIED
 SCOPE: NONE|<comma-separated scope values>|UNVERIFIED
 UNVERIFIED LAYERS: NONE|<required repository, artifact, environment, or dependency and reason>
 OPEN QUESTIONS: NONE|<material assumption awaiting user confirmation>
-LEVEL OF EFFORT: NONE|S|M|L|XL|UNVERIFIED
+LEVEL OF EFFORT: NONE|XS|S|M|L|XL|UNVERIFIED
 RISK: LOW|MEDIUM|HIGH
 CONFIDENCE: HIGH|MEDIUM|LOW
 SUMMARY: One or two sentences on current support, remaining work, and any partial assessment.
@@ -225,3 +226,25 @@ For an unanswered question that could change scope or effort, use
 same known work or bound applies under every plausible answer. Keep missing
 evidence in `UNVERIFIED LAYERS` and unanswered user questions in
 `OPEN QUESTIONS`.
+
+## Creating Jira tickets from assessments
+
+When creating a Feature or Initiative in Jira to track work identified by this assessment, use LEVEL OF EFFORT as a **starting point** for the Size field (customfield_10795), then adjust based on the playbook's Epic-count criteria.
+
+**Playbook sizing criteria** (from `docs/feature-initiative-playbook.md`):
+- **XS**: 1 Epic, well-understood, minimal dependencies
+- **S**: 1-2 Epics, low complexity, few dependencies
+- **M**: 2-3 Epics, moderate complexity or cross-team coordination
+- **L**: 3-5 Epics, significant complexity or multiple dependencies
+- **XL**: 5+ Epics, high complexity, architectural changes, or extensive unknowns
+
+**Initial mapping from LEVEL OF EFFORT:**
+- `NONE` → Do not create a ticket (work is complete)
+- `XS` → Consider Size: XS (if truly single Epic, trivial change)
+- `S` → Consider Size: S or M (depends on Epic count and complexity)
+- `M` → Consider Size: M or L (refine based on Epic breakdown)
+- `L` → Consider Size: L or XL (significant work, validate Epic count)
+- `XL` → Size: XL (upstream dependencies, multi-stage work)
+- `UNVERIFIED` → Architect estimates Size based on Epic breakdown and scope evidence when available; leave unset only if sizing evidence is insufficient. Record uncertainty in ticket description.
+
+**Rationale:** LEVEL OF EFFORT reflects implementation complexity; Size reflects total scope (Epic count + complexity + dependencies). Use LEVEL OF EFFORT as initial guidance, then refine based on expected Epic breakdown and playbook criteria during Feature/Initiative refinement. This ensures Size accurately represents the full scope and satisfies the Definition of Ready requirement.

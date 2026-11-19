@@ -80,7 +80,7 @@ floating tag and no fallback registry).
 | Archive | Version / appVersion | SHA256 (pinned in `../pins.yaml`) |
 | --- | --- | --- |
 | `../charts/gitops-operator-crds-0.1.0.tgz` | `0.1.0` / `1.22.2` | `32bbf0742652160b3aaa953036f6bf933a45b79c55aaed9e9fdf13b9fdd9ec9b` |
-| `../charts/gitops-operator-0.1.0.tgz` | `0.1.0` / `1.22.2` | `694b209eddc8b16b31e1d0bed2fbee2a8457774d88b8e76ace851c7f0bcd1010` |
+| `../charts/gitops-operator-0.1.0.tgz` | `0.1.0` / `1.22.2` | `143d96ce2cebaaee2c4abb6cce5b8575beed9ad18cc091e1d5de4db7d1622b13` |
 
 `0.1.0` is a truthful local packaging version, distinct from the official
 appVersion. The archives have no registry/OCI manifest digest of their own; the
@@ -188,8 +188,8 @@ instance namespace. No runtime closure is claimed.
 ## Official operator RBAC exception (separate from the controller grant above)
 
 The generated `gitops-operator/templates/rbac.yaml` carries the official CSV's
-operator ClusterRole unchanged (rule-for-rule parity, asserted by the offline
-tests). Among those rules (about lines 408-424) it grants
+operator ClusterRole rule set as its default (rule-for-rule parity, asserted by
+the offline tests). Among those rules (about lines 408-424) it grants
 `rbac.authorization.k8s.io` resources `*`, `clusterroles` and `clusterrolebindings`
 the verbs `bind`, `create`, `delete`, `deletecollection`, `escalate`, `get`,
 `list`, `patch`, `update` and `watch`, and the Role/RoleBinding rule that follows
@@ -207,17 +207,25 @@ exactly the verbs that waive that check:
 
 Status and boundaries:
 
-- It is retained unchanged **for upstream CSV parity in inactive engineering
-  artifacts**. No rule or binding was redesigned or narrowed here.
+- The vendor rule set is the chart default and stays rule-for-rule equal to the
+  CSV, so inactive engineering artifacts still show what upstream ships.
+- The chart also carries an opt-in `scopedRbac` mode, used by the GKE bundles:
+  the unqualified `bind` and `escalate` are removed and one `bind` limited by
+  `resourceNames` to two bundle-owned ClusterRoles replaces them, with the
+  operator pointed at those roles. The design, its limits and the residual risk
+  are recorded in `gcp-hcp-infra/docs/GCP-1286_CSV_RBAC_REVIEW.md`; it is not a
+  support statement and it has no runtime proof yet.
 - It is a **different exception** from the additive Argo CD application
   controller grant in the previous section. GCP-1285 is the exit criterion for
   that application-controller grant **only**; nothing here claims GCP-1285 owns,
   scopes or removes the operator grant.
-- Owner and ticket for this exception: **unassigned**, pending a pre-activation
-  review.
-- Before any activation, a risk and permission review of the operator grant is
-  required (including whether upstream supports a narrower role for this
-  deployment). No production risk acceptance or approval is claimed or implied.
+- Owner and ticket: GCP HCP GitOps workstream under **GCP-1286**. The review, the
+  comparison against the three cluster roles the current bootstrap installs, the
+  GKE-availability breakdown of all 102 API targets and the risk position are in
+  `gcp-hcp-infra/docs/GCP-1286_CSV_RBAC_REVIEW.md`.
+- No supported narrower role exists in this release, so the scoped mode is our
+  own role design rather than a vendor one. No production risk acceptance
+  beyond that statement is claimed or implied.
 
 ## Controller-dependency evidence (selected-release assumptions)
 
@@ -234,6 +242,9 @@ downstream build.
 | argocd-operator `controllers/argocd/argocd_controller.go` @ `a213c171…` | `af71f8f0af182dda6821506934c06812e2ab9c109424ee0925c2b232afcf0f18` | `NamespaceManagement` handling |
 | argocd-operator `controllers/argocd/util.go` @ `a213c171…` | `194c7b8b23c1540d02e9ced62f919fb391501b4705ab396d5b4641971a65f06b` | watches `ArgoCD`, owns `NotificationsConfiguration`, watches `NamespaceManagement`; `reconcileGitOpsPromoter` runs on every reconcile; ImageUpdater detected via API discovery and disabled when absent; deletion path lists `ControllerConfiguration` |
 | argocd-operator `controllers/gitopspromoter/controllerconfiguration.go` @ `a213c171…` | `4e5185f554dce35ef852aa60e5bc485df5a41939dba52953de15183d6754e565` | `Get` of the ControllerConfiguration before checking whether Promoter is enabled; any non-NotFound error (a missing API) aborts the reconcile |
+| argocd-operator `controllers/argocd/role.go` @ `a213c171…` | `20c9c379fab26d996923cc7afb929ed5fe85f70899fe658d58a0e5e25388bba3` | `verifyInstallationMode` rejects `defaultClusterScopedRoleDisabled` together with `aggregatedClusterRoles`; `checkCustomClusterRoleMode` deletes or skips the controller, controller-view, controller-admin and server ClusterRoles |
+| argocd-operator `controllers/argocd/policyrule.go` @ `a213c171…` | `703056ffc59f68578344365ae60582a46e9c327ff7ff51a9481a1d9ee0f30cc5` | `policyRuleForApplicationControllerView` is the cache-read set (`*/*` get/list/watch plus non-resource `*` get/list) that scoped mode stops the operator from creating; `policyRuleForApplicationController` is the default `*/*/*` namespace Role plus serviceaccount impersonation |
+| argocd-operator `controllers/argocd/rolebinding.go` @ `a213c171…` | `de59446b2b63e3e3f5b58c8027aba156add28c65e17479973fb5e54b1c9f9c34` | with `CONTROLLER_CLUSTER_ROLE` set, the operator creates a namespaced RoleBinding per managed namespace whose `roleRef` is that ClusterRole and whose subject is `<instance>-argocd-application-controller`; `reconcileClusterRoleBinding` creates nothing while `defaultClusterScopedRoleDisabled` is true |
 | argo-rollouts-manager `controllers/argorollouts_controller.go` @ `67002e56…` | `fa405fbd475ab30ef136f4e5fe387b2b572a24f1321e0603a5de0a9870f6a6c7` | `For(&RolloutManager{})` |
 
 ## Config Sync lifecycle/dependency evidence
@@ -254,6 +265,49 @@ the first. This is a source-derived constraint, not a runtime observation, and
 valid annotation syntax alone does not prove safe second-sync behavior. The
 `depends-on` token syntax comes from the Config Sync v1.23.3 vendored
 `pkg/object/dependson` (`strings.go`).
+
+## Release validation status (GCP-1286)
+
+Selected candidate: **OpenShift GitOps 1.22.2-7**, bundle
+`registry.redhat.io/openshift-gitops-1/gitops-operator-bundle@sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d`,
+per [RHBA-2026:83602](https://access.redhat.com/errata/RHBA-2026:83602)
+(2026-10-15). The release contains the Route/Scheme fix
+([GITOPS-11466](https://redhat.atlassian.net/browse/GITOPS-11466), operator
+PR [#1321](https://github.com/redhat-developer/gitops-operator/pull/1321),
+release backport [#1354](https://github.com/redhat-developer/gitops-operator/pull/1354));
+the released operator source `cf327714…` is one commit ahead of that backport.
+
+Trust evidence from the review: the bundle manifest and all 15 distinct
+related-image index manifests matched their digests and passed GPG simple
+signing with Red Hat release key 2 (`567E347AD0044ADE55BA8A5F199E2F91FD431D51`);
+the bundle also passed a full `skopeo copy` under a `reject`-default policy with
+`matchRepoDigestOrExact`; a tampered manifest was rejected. Limits: platform
+child manifests/layers were not independently fetched, and the charts here have
+no vendor signature. Release-key-3 Sigstore signatures **were** verified on
+2026-11-11 for the bundle and the four required images (every
+`registry.redhat.io` signature in each `sha256-<digest>.sig` artifact verifies,
+binds the approved digest, and is signed by release key 3); whether key 3 is
+*required* is B3, a policy question routed to Product Security and ultimately
+recorded by us, not something this repository decides.
+Manifests, signatures, key and logs are retained in
+`gcp-hcp-infra/docs/gcp-1286-evidence/`.
+
+Machine-readable state is `../release-matrix.yaml`; the verification entry point
+is `../verify-release.sh`. Required core images are `manager`, `argocd_image`,
+`argocd_dex_image` and `argocd_redis_image`; `argocd_redis_ha_proxy_image` is
+conditional on HA. `backend_image` is excluded because the GitopsService
+controller is registered only when `config.openshift.io` is available, so no
+backend Deployment is expected on GKE; console, Rollouts, Promoter, agents,
+image updater and must-gather are likewise excluded from core validation. An
+allowlisted image does not mean its component runs.
+
+Outstanding gates, not satisfied by this repository: B1b GKE support tier and a
+named escalation contact; B2 human confirmation of the installation/packaging
+answer (channel guidance says the local chart and the v1beta1-only CRD
+adaptation are acceptable, and the CRD's missing `spec.conversion` is verified);
+B3 the release-specific trust policy record, now an internal decision informed by
+Product Security; B4 operator-wide CSV RBAC owner/risk review. Runtime validation
+and cleanup are separately authorized work.
 
 ## Rebuild
 

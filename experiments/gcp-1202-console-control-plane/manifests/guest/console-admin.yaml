@@ -1,0 +1,23 @@
+# Grants cluster-admin to the single identity reproducing this spike. Applied by
+# hand because there is no console-operator / default RBAC for external-OIDC
+# identities in this topology.
+#
+# Deliberately bound to an explicit User, NOT to a domain group. The guest KAS
+# maps the token's `hd` (hosted-domain) claim to a group, so a `redhat.com`
+# Group subject would grant cluster-admin to every Workspace account in the
+# domain. Worse, hostedcluster.yaml also accepts the public gcloud client as an
+# audience, so any such user could mint an accepted ID token with `gcloud` and
+# act as cluster-admin on the guest API without going near the console. Do not
+# reintroduce a domain-wide subject.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: console-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: REPLACE_USER@redhat.com

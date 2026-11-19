@@ -26,6 +26,14 @@ Usage: render.sh --pins <pins.yaml> --output-dir <dir> \
 Optional:
   --controller-cluster-role NAME  Reviewed controller namespace role; the role
                                   must be supplied separately by its owner.
+  --server-cluster-role NAME      Reviewed Argo CD server ClusterRole. Requires
+                                  --scoped-rbac.
+  --scoped-rbac                   GCP-1286 scoped identity. Requires both role
+                                  flags. Renders the manager ClusterRole without
+                                  the unqualified bind and escalate verbs, with a
+                                  single bind limited by resourceNames to the two
+                                  named ClusterRoles, and sets CONTROLLER_CLUSTER_ROLE
+                                  and SERVER_CLUSTER_ROLE from the same values.
 
 Required:
   --pins FILE                 Pin/input contract (see pins.example.yaml).
@@ -130,6 +138,8 @@ NAMESPACE=""
 INSTANCE_NAMESPACE=""
 SERVICE_ACCOUNT=""
 CONTROLLER_CLUSTER_ROLE=""
+SERVER_CLUSTER_ROLE=""
+SCOPED_RBAC="false"
 IMAGE_PULL_SECRET_NAME=""
 ALLOWLIST_FILE=""
 declare -a ALLOWED_IMAGES=()
@@ -142,6 +152,8 @@ while [[ $# -gt 0 ]]; do
     --instance-namespace) INSTANCE_NAMESPACE="$2"; shift 2 ;;
     --service-account) SERVICE_ACCOUNT="$2"; shift 2 ;;
     --controller-cluster-role) CONTROLLER_CLUSTER_ROLE="$2"; shift 2 ;;
+    --server-cluster-role) SERVER_CLUSTER_ROLE="$2"; shift 2 ;;
+    --scoped-rbac) SCOPED_RBAC="true"; shift ;;
     --image-pull-secret-name) IMAGE_PULL_SECRET_NAME="$2"; shift 2 ;;
     --allowed-image) ALLOWED_IMAGES+=("$2"); shift 2 ;;
     --image-allowlist) ALLOWLIST_FILE="$2"; shift 2 ;;
@@ -169,6 +181,16 @@ for n in "$SERVICE_ACCOUNT" "$IMAGE_PULL_SECRET_NAME"; do
 done
 if [[ -n "$CONTROLLER_CLUSTER_ROLE" ]]; then
   valid_dns_subdomain "$CONTROLLER_CLUSTER_ROLE" || die "invalid --controller-cluster-role (DNS-1123 subdomain, max 253 chars)"
+fi
+if [[ -n "$SERVER_CLUSTER_ROLE" ]]; then
+  valid_dns_subdomain "$SERVER_CLUSTER_ROLE" || die "invalid --server-cluster-role (DNS-1123 subdomain, max 253 chars)"
+fi
+if [[ "$SCOPED_RBAC" == "true" ]]; then
+  [[ -n "$CONTROLLER_CLUSTER_ROLE" && -n "$SERVER_CLUSTER_ROLE" ]] \
+    || die "--scoped-rbac requires --controller-cluster-role and --server-cluster-role: the bundle must own both roles the operator would otherwise create"
+else
+  [[ -z "$SERVER_CLUSTER_ROLE" ]] \
+    || die "--server-cluster-role requires --scoped-rbac (otherwise the manager has no bind permission for it)"
 fi
 
 [[ -z "$OUTPUT_DIR" || "$OUTPUT_DIR" != "/" ]] || die "refusing to use / as --output-dir"
@@ -289,7 +311,16 @@ strip_top_level_status "$WORK_DIR/rendered/crds.yaml"
 # into the output; imagePullSecrets is a reference to a Secret supplied
 # independently by the caller, not a value rendered here.
 declare -a CONTROLLER_ROLE_ARGS=()
-if [[ -n "$CONTROLLER_CLUSTER_ROLE" ]]; then
+declare -a SCOPED_RBAC_ARGS=()
+if [[ "$SCOPED_RBAC" == "true" ]]; then
+  # The chart fails when the same env is also set through env.*, so the role
+  # values go through scopedRbac.* and the chart injects both env entries.
+  SCOPED_RBAC_ARGS=(
+    --set scopedRbac.enabled=true
+    --set-string "scopedRbac.controllerClusterRole=$CONTROLLER_CLUSTER_ROLE"
+    --set-string "scopedRbac.serverClusterRole=$SERVER_CLUSTER_ROLE"
+  )
+elif [[ -n "$CONTROLLER_CLUSTER_ROLE" ]]; then
   CONTROLLER_ROLE_ARGS=(--set-string "env.CONTROLLER_CLUSTER_ROLE=$CONTROLLER_CLUSTER_ROLE")
 fi
 helm template gitops-operator "$OPERATOR_CHART_DIR" \
@@ -300,6 +331,7 @@ helm template gitops-operator "$OPERATOR_CHART_DIR" \
   --set-string env.ARGOCD_CLUSTER_CONFIG_NAMESPACES="$INSTANCE_NAMESPACE" \
   --set-string "imagePullSecrets[0].name=$IMAGE_PULL_SECRET_NAME" \
   ${CONTROLLER_ROLE_ARGS[@]+"${CONTROLLER_ROLE_ARGS[@]}"} \
+  ${SCOPED_RBAC_ARGS[@]+"${SCOPED_RBAC_ARGS[@]}"} \
   > "$WORK_DIR/operator-overlay/operator-helm.yaml"
 
 # Helm's release namespace is not emitted in most of this chart's manifests;
@@ -425,6 +457,29 @@ assert_manager_env_value ENABLE_CONVERSION_WEBHOOK false
 assert_manager_env_value ARGOCD_CLUSTER_CONFIG_NAMESPACES "$INSTANCE_NAMESPACE"
 if [[ -n "$CONTROLLER_CLUSTER_ROLE" ]]; then
   assert_manager_env_value CONTROLLER_CLUSTER_ROLE "$CONTROLLER_CLUSTER_ROLE"
+fi
+if [[ "$SCOPED_RBAC" == "true" ]]; then
+  assert_manager_env_value SERVER_CLUSTER_ROLE "$SERVER_CLUSTER_ROLE"
+
+  # The manager ClusterRole must keep only the narrowed bind. An unqualified
+  # bind or any escalate would make the scoping cosmetic.
+  manager_rules="$(
+    yq eval -o=json -I=0 '.' "$WORK_DIR/rendered/operator.yaml" |
+      jq -sc '[.[] | select(.kind == "ClusterRole" and .metadata.name == "openshift-gitops-operator-controller-manager")]'
+  )"
+  [[ "$(jq 'length' <<<"$manager_rules")" -eq 1 ]] \
+    || die "scoped mode must render exactly one manager ClusterRole"
+  jq -e '
+    [ .[0].rules[] | select((.verbs // []) | index("escalate")) ] | length == 0' <<<"$manager_rules" >/dev/null \
+    || die "scoped mode rendered an escalate verb"
+  jq -e --arg c "$CONTROLLER_CLUSTER_ROLE" --arg s "$SERVER_CLUSTER_ROLE" '
+    ([ .[0].rules[] | select((.verbs // []) | index("bind")) ]) as $binds
+    | ($binds | length) == 1
+      and (($binds[0].verbs | sort) == ["bind"])
+      and (($binds[0].resources | sort) == ["clusterroles"])
+      and (($binds[0].apiGroups | sort) == ["rbac.authorization.k8s.io"])
+      and (($binds[0].resourceNames | sort) == ([$c, $s] | sort))' <<<"$manager_rules" >/dev/null \
+    || die "scoped mode must keep exactly one bind, limited to the two named ClusterRoles"
 fi
 
 pull_secret_referenced="$(

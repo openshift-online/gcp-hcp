@@ -18,4 +18,4 @@ operatorChart:
   version: "0.1.0"
   origin: "local packaging authored around the operator Deployment/RBAC of registry.redhat.io/openshift-gitops-1/gitops-operator-bundle (appVersion 1.22.2); see chart-src/PROVENANCE.md"
   digest: "sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d"
-  checksum: "sha256:694b209eddc8b16b31e1d0bed2fbee2a8457774d88b8e76ace851c7f0bcd1010"
+  checksum: "sha256:143d96ce2cebaaee2c4abb6cce5b8575beed9ad18cc091e1d5de4db7d1622b13"

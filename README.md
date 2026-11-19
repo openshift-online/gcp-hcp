@@ -2,6 +2,15 @@
 
 Documentation, design decisions, and experiments for Hypershift on GCP managed service
 
+## Team Structure
+
+The GCP HCP team is organized into three pods (A, B, C) to improve focus and execution. Pod structure is dynamic through private preview delivery.
+
+**Resources:**
+- [Team Ceremonies Calendar](https://redhat.atlassian.net/wiki/spaces/GCP/pages/424214835) — Pod membership, ceremonies, and communication guidelines
+- [New Hire Onboarding](https://redhat.atlassian.net/wiki/spaces/GCP/pages/418190496) — Comprehensive onboarding checklist and team resources
+- [Using Pod Boards](https://redhat.atlassian.net/wiki/spaces/GCP/pages/506364992) — How to use Quick Filters and Team field automation
+
 ## Repository Structure
 
 - `design-decisions/` -- Architecture Decision Records (ADRs) covering all aspects of system design.

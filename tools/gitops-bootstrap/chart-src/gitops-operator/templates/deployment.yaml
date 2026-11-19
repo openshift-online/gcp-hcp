@@ -12,6 +12,11 @@
 {{- fail (printf "env key %s is also an imageEnv key" $name) }}
 {{- end }}
 {{- end }}
+{{- if .Values.scopedRbac.enabled }}
+{{- if or (hasKey .Values.env "CONTROLLER_CLUSTER_ROLE") (hasKey .Values.env "SERVER_CLUSTER_ROLE") }}
+{{- fail "scopedRbac.enabled sets CONTROLLER_CLUSTER_ROLE and SERVER_CLUSTER_ROLE from scopedRbac values; unset them in env" }}
+{{- end }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -57,6 +62,12 @@ spec:
             {{- range $name := keys .Values.imageEnv | sortAlpha }}
             - name: {{ $name }}
               value: {{ index $.Values.imageEnv $name | quote }}
+            {{- end }}
+            {{- if .Values.scopedRbac.enabled }}
+            - name: CONTROLLER_CLUSTER_ROLE
+              value: {{ required "scopedRbac.controllerClusterRole is required when scopedRbac.enabled" .Values.scopedRbac.controllerClusterRole | quote }}
+            - name: SERVER_CLUSTER_ROLE
+              value: {{ required "scopedRbac.serverClusterRole is required when scopedRbac.enabled" .Values.scopedRbac.serverClusterRole | quote }}
             {{- end }}
           livenessProbe:
             httpGet:

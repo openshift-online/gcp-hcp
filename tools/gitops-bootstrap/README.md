@@ -222,6 +222,47 @@ fails closed rather than silently producing unreviewed output):
 - All namespaced operator objects are explicitly scoped to `--namespace`;
   `ClusterRole`/`ClusterRoleBinding` must not declare a namespace.
 
+## Release validation (GCP-1286)
+
+`release-matrix.yaml` records the OpenShift GitOps release selected for
+bounded validation, its provenance, trust results, and the required,
+conditional, and excluded component images. `support.approval` stays
+`pending` until GitOps engineering/QE supplies the GKE scope (B1b).
+`installation.approval` is approved only with a named approver and a stated
+scope; it is currently approved for this validation by Anand Singh (B2), with
+the trust decisions recorded (B3). Channel guidance is recorded in the matrix's
+`guidance` fields but changes no approval. The
+operator-wide CSV RBAC exception needs its own owner/risk review (B4) before
+activation.
+
+`verify-release.sh` is the single artifact verification entry point:
+
+```sh
+./verify-release.sh --matrix release-matrix.yaml --image NAME \
+  --authfile FILE --key-file FILE --workdir DIR [--arch amd64]
+```
+
+It copies the approved digest under an isolated, fail-closed containers/image
+policy, then checks the saved layout against the matrix: the source index digest
+is the approved one, the saved manifest is the approved selected-platform child
+with intact bytes, every config and layer blob that manifest references is
+present and hashes to its digest, and `--all`-copied layouts also verify the
+approved index and child linkage. A platform-selected `dir:` copy saves the
+child manifest, so the index digest is enforced by the pinned source reference
+and signature policy rather than by the saved `manifest.json`. `--layout-dir DIR`
+re-checks an existing copy without a registry (it still needs `--workdir DIR`,
+which must be new or empty and is created private; the entry point never reuses
+or follows a pre-existing directory). It refuses excluded components, unknown
+images, unadvertised architectures, non-digest or duplicate-pinned references,
+a permissive policy, and any digest/platform/blob mismatch. It does not print
+credentials, does not offer an insecure option, and does not establish GKE
+support or runtime behavior.
+
+The supporting manifests, detached signatures, key, and logs from the review
+are retained on the gcp-hcp-infra branch `gcp-1286/t3-release-validation` under
+`docs/gcp-1286-evidence/`; refresh that evidence against registry.redhat.io
+before relying on it.
+
 ## Offline checks
 
 ```sh
@@ -267,6 +308,11 @@ and uppercase (negative).
 
 Contacts no network and no cluster.
 
+`tests/run-release-verification-tests.sh` (invoked by `run-tests.sh`) exercises
+the GCP-1286 entry point with synthetic fixtures: fail-closed policy rejection,
+wrong platform digest, unadvertised architecture, tampered manifest, missing
+platform child, excluded/unknown image and a missing auth file.
+
 ## Controller namespace role (GCP-1285)
 
 `render.sh` and `assemble.sh` accept the optional
@@ -277,3 +323,111 @@ must supply that ClusterRole separately. This input replaces default namespace
 roles; it does not remove default cluster-wide or interim parity bindings, grant
 cloud access, or establish an admission-enforced permission boundary. Coordinate
 it with the reviewed ArgoCD policy and verify the effective binding inventory.
+
+## Reviewed controller policy (GCP-1433)
+
+Scoped mode can bind a reviewed controller policy instead of the interim-parity
+wildcard:
+
+```
+assemble.sh --type mc|region ... --scoped-rbac \
+  --controller-policy <reviewed-policy.yaml>
+```
+
+The artifact is plain YAML, never applied to a cluster. It declares `target`,
+`name`, optional `clusterName`/`subject`, `localRules`, `clusterRules`, optional
+`namespacePrerequisites`, and `provenance`. `assemble.sh` validates it strictly
+and fails closed, before writing anything, on: an unknown or missing key, a
+target that does not match `--type`, a role or subject name that is not derived
+from `--instance-name`, a name that shadows an operator-generated or parent
+identity, any wildcard or `nonResourceURLs` rule, `bind`/`escalate` outside named
+RBAC roles, duplicate rules, `clusterRules` that bind namespaced roles, an
+unknown namespace lifecycle, and a prerequisite in the instance or operator
+namespace.
+
+What that mode renders, and why it is two ClusterRoles:
+
+| Object | Rules | Binding |
+| --- | --- | --- |
+| ClusterRole `<name>` | `localRules` | operator-created namespaced RoleBinding in the instance namespace (`CONTROLLER_CLUSTER_ROLE`) |
+| ClusterRole `<clusterName>` | pinned cache-read rules + `clusterRules` | bundle-owned ClusterRoleBinding to `<instance>-argocd-application-controller` |
+
+`localRules` must stay namespace-scoped: granting them cluster-wide would widen
+what GCP-1285 reviewed. The cache-read rules are the pinned operator's
+`policyRuleForApplicationControllerView` (`a213c171036a`), which the operator
+stops creating under `defaultClusterScopedRoleDisabled`; they are a bundle
+constant, not an artifact input, so a caller cannot introduce a wildcard. The
+seed keeps `aggregatedClusterRoles` false because the operator rejects it
+together with the scoped switch.
+
+The subject is validated, not configurable: `rolebinding.go` always binds
+`<instance>-argocd-application-controller`, so an override would be inert.
+
+### Namespace prerequisites and their ordering
+
+Each `namespacePrerequisites` entry is declared in the same child bundle as the
+controller roles, so Config Sync applies it as one ordered graph rather than as
+a side file someone might forget:
+
+```
+Namespace (lifecycle: ensure)          <- declared here, deletion: detach
+  -> Role <instance>-hcp-controller     (depends-on /Namespace/<ns>)
+      -> RoleBinding <instance>-hcp-controller
+          (depends-on /Namespace/<ns> and .../namespaces/<ns>/Role/...)
+              -> ArgoCD/<instance> seed
+                  (depends-on every prerequisite RoleBinding)
+```
+
+The seed waits for every prerequisite binding, so the operator's first
+reconciliation and the first workload sync cannot outrun the grants. A Role is
+never applied before its namespace exists, which is why the namespace has to be
+part of this graph.
+
+Ownership and lifecycle:
+
+- `lifecycle: ensure` (default) makes the bundle the single declarative owner of
+  that Namespace object. It sets `client.lifecycle.config.k8s.io/deletion:
+  detach`, so dropping the declaration never deletes the namespace or anything
+  in it, and it adds only two bundle-scoped labels
+  (`gke-bootstrap/namespace-prerequisite`, `gke-bootstrap/target-type`). It does
+  not set `mutation: ignore`: a mutation-ignored target would make every
+  dependent skip on later syncs.
+- `lifecycle: existing` is for namespaces that are always present (`default`,
+  `kube-system`, or anything the target platform owns). Nothing is declared for
+  them, no dependency edge is emitted, and only the finite Role/RoleBinding is
+  created.
+- The workload Applications keep `CreateNamespace=true`. Once the namespace
+  exists that option is a no-op, so Argo CD does not become a second owner.
+- Pre-existing metadata on a namespace is not reset: the declared object carries
+  no `app.kubernetes.io/part-of` or other shared keys, so server-side apply only
+  adds the two bundle labels.
+
+Known limits, not solved here:
+
+- `testdata/controller-policy/` holds **fixtures only**. They are derived from
+  the GCP-1285 disposable pair plus the cert-manager `startupapicheck` hook
+  delta. They are not reviewed policy for integration, stage or production and
+  must not be copied there; each environment needs its own inventory.
+- The day-two configuration chart still owns its own `namespaceRules` grants
+  (`<instance>-hcp-controller` in the same namespaces). Two owners for one Role
+  identity would fight, so a scoped target must select the chart's bootstrap
+  owner mode: set `operator.scopedControllerRoles: true`,
+  `operator.controllerPermissions.owner: bootstrap`, and leave its chart-owned
+  grants disabled and empty. The `gcp-hcp-infra` chart companion supplies this
+  opt-in contract; target policy and values changes need their own review.
+- Adopting a namespace that another component already owns is a target
+  decision, not an assembly decision: review the existing namespace labels and
+  any `managed-by` annotations before selecting `lifecycle: ensure`. The
+  fixtures mark `default` and `kube-system` as `existing` for that reason.
+- Enabling this mode is code-complete only. It is not runtime proof, and the
+  interim-parity wildcard is not authorized for removal on any persistent
+  cluster until that proof exists.
+- The bundle ships the pinned 1.22 `controllerconfigurations.promoter.argoproj.io`
+  CRD. It must never be applied over an existing newer live schema; that schema
+  and its CRs are owned elsewhere and are preserved as-is (Promoter stays at
+  upstream v0.49 during Preview, operator-managed Promoter disabled).
+
+Exit-criterion wording note: `bundle-templates/controller-rbac.yaml.tmpl` still
+names GCP-1285 in its comment. That comment is part of the byte-pinned vendor
+output (`tests/golden.sha256`), so it is deliberately not edited here; the
+current replacement path is the one above.
