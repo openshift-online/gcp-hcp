@@ -1,0 +1,491 @@
+[
+  {
+    "name": "manager",
+    "ref": "registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator@sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:7d4f3f467ec9a64a7145e4ebe214375ad2e91a6c0c27e08380a06e136629da10"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:b0dd0c85797a7f48e8cd92ef6867cc2c5159eeac9cd9275c4efded36ea7ff2f8"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:69dac3a2b4c3f8031c047daac673f0f7fba2d4514ebabf75bcdee6189b21b3aa"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:b373a9976c91795fcd8993987cdb63561190e2fdf04ff77beb8d4a8d9ddbe3d0"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a"
+  },
+  {
+    "name": "argocd_dex_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/dex-rhel9@sha256:1294cf5c2d8ba1dcfe199511f1fbf11e219a8c6eedb698e47d1970484056ef60",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:c26521bcd470baa1a1586c5da6cedba4d990ee6aa15838fb73ca667ac1079d9c"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:f098f4696fb5d4808576953b33e33278c03f8b0cc881b2d7c78542bd925ab904"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:632bbd730a3f04385707517c87b87ff9a08b7a22a493d26456683f5499e4fcfc"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:dc00f3471937a5aa3d5fd212fcefb47298e0352534a03fb85351be668038db1e"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/dex-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:1294cf5c2d8ba1dcfe199511f1fbf11e219a8c6eedb698e47d1970484056ef60"
+  },
+  {
+    "name": "backend_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/gitops-rhel9@sha256:6530b754dfe2d9b5182e32a62d115c5613c064da59c900476570d6be82a4b16b",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:aecc69f70bc4f6c268f2a4d779376859fe373a56be8cbea7ab920ef35289c218"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:9b8287f8de95dabd4a9dcc2a985bd379102e124d4e0203a565ed186556d21757"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:dfee9f7638e88126433ead51b1524fc8e3a16b2c15e3f28607e6d870684c267b"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:5b1035ab5a0895959a7fb4011bad00d91d631af89a8f638b118bfe92a3c1fc5b"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/gitops-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:6530b754dfe2d9b5182e32a62d115c5613c064da59c900476570d6be82a4b16b"
+  },
+  {
+    "name": "argocd_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/argocd-rhel9@sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:a82f8ec909e149f97b51038abe5f18cf0b0be022ee25c845e8f2e3cfb80f5769"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:742ab1d4784f69e05cdf9668b03842987bf4bbb67fa00d68a0f18b33583c1277"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:895b1b2e7b6cf10f1e85ddc1652f15fac2adc47fae1762a731ae4855a45fd447"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:523d9f9ec9832005a4bb99f8c99dfb62f03a7c3224157875ed4617e2a4f924a4"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/argocd-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f"
+  },
+  {
+    "name": "argocd_redis_image",
+    "ref": "registry.redhat.io/rhel9/redis-7@sha256:8e0c52a2f304473c1f62d1112e116e0e8d541ed9cbeea86f6ece3318146be105",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:84cc29e751a74ca318b5b9f8e21fbe78564cae35c42d264a5b26157e74500623"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:638579db9c2185c17132f4a930cfc93eb063d98eb63ac225a224a1abb695b4aa"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:36c2cedc7285ed8d29322deeec190bb1442405fe7cf290f80e5ec0c7085c29d6"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:5539a30e98ce7aa28f510aaa59dcd0b078eba72618decfad0d153e6095de23c2"
+      }
+    ],
+    "signedReference": "registry.redhat.io/rhel9/redis-7:1",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:8e0c52a2f304473c1f62d1112e116e0e8d541ed9cbeea86f6ece3318146be105"
+  },
+  {
+    "name": "argocd_redis_ha_proxy_image",
+    "ref": "registry.redhat.io/openshift4/ose-haproxy-router-rhel9@sha256:c1a1301fa4175237d863c9e97057c786acb1453e487c2afa189345e76832cde8",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:bbb416c41c3bab7ef94cf1eb51a0feb789e2cedc48885edbc204404139c518e0"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:e62816020d29e81ed657b8ceb8e1a22c241289471352bd3d2bac85473f926ce1"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:ab195a110134a05b977afe9e9bfd3068b807d14882743228eae66f6e21648ae2"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:e0e6930f87483d3e8137efb3592cd97202e34ec07916c9d67c974932501f2760"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift4/ose-haproxy-router-rhel9:1790715518",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:c1a1301fa4175237d863c9e97057c786acb1453e487c2afa189345e76832cde8"
+  },
+  {
+    "name": "gitops_console_plugin_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/console-plugin-rhel9@sha256:e814cc4ad19806e71380bd6e6d3f6419fb6df2cfdac2b1fc781bc818678c1bb4",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:868f262db729d2ecd15985b3ad33eecfe0b67bb1c1774089d5bee59a963944bf"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:b0ce91f396bf191c76fa0740cd488ca52e5208ecd79fd64064f6fd7a3c8fd34b"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:7633955b9a361ae8d1139207e2b775eda9bc51eecb58623443be0a788ffbf559"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:8466ddfec8958ed4ed347fa281c5016942ab1c69a3dd51b11620dba04b0722ae"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/console-plugin-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:e814cc4ad19806e71380bd6e6d3f6419fb6df2cfdac2b1fc781bc818678c1bb4"
+  },
+  {
+    "name": "gitops_console_plugin_image_pf5",
+    "ref": "registry.redhat.io/openshift-gitops-1/console-plugin-4-18-rhel9@sha256:70ecb0886c99f9427b7a464c956a38b46a0c1e1f07cb447f1106a224a07a8640",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:cdf9490f8a29683f132ae02e84a8a0a4c868014415db927de1c908ce35d8066a"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:37104f0feb939f926f5004b14470e03f434a3559d32fdef119eae152a562ee07"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:16f3d62aeaf529b6f6528d5141c6d541528fbd6c03576c169413284d01f1aeab"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:5b763ceb519d78818e085d71fa8b4f9edb74764b45054a3b9f526f4e886352a5"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/console-plugin-4-18-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:70ecb0886c99f9427b7a464c956a38b46a0c1e1f07cb447f1106a224a07a8640"
+  },
+  {
+    "name": "rollouts_extension_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/argocd-extensions-rhel9@sha256:877d3f4fb8141729a9861aba8ab5c60a1fcb1b354ff040af2b978148da545af4",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:cab79cd4914e89841359cec012274c2e0c3f5e33b490905b6782a0211913f33f"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:4f7d8b29111f2b362f21c2f260894265382e1a8c58ce206d403cc9ea1eaf9088"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:2cede32de58468022f22cdf0ba29e247e0c7ecf99811509a180b5b388a0cf988"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:53a1801a910c5bf2404337e5d8637b33f66ac049028cdae435248da015a8fe06"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/argocd-extensions-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:877d3f4fb8141729a9861aba8ab5c60a1fcb1b354ff040af2b978148da545af4"
+  },
+  {
+    "name": "argo_rollouts_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/argo-rollouts-rhel9@sha256:061217a286fbf1296a5f121097ef50351f1e5381dac43e7c9345c81ae853ad78",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:ea697becf01289e087296a183b5fc03ed4669cb44fdabec433909d3fff69ce33"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:4ffcf2a01608abca545ff8507af62e64176bae49837d623012868d98ea2dc1d0"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:af9e88e52587c560ac3d080113f4fb2224a8910d6f21d4f5e0bbadfb3ad06402"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:ef708282223959f3ca691155fae8641822eec1f50faf4839edcfbfaa5eff7117"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/argo-rollouts-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:061217a286fbf1296a5f121097ef50351f1e5381dac43e7c9345c81ae853ad78"
+  },
+  {
+    "name": "must_gather_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/must-gather-rhel9@sha256:94438482f584c5b1c6acbdb37783352021fb89d747e238d0ee20d929c79080bb",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:1232129514f4c97f56dc4a52c165dc0b8e0f0c718688612a906b2db3e26855a2"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "digest": "sha256:aeae7fd3f908104550728a7e5c082ab5e24cfb5ee3acc91b617d51896a1cd670"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:6343b286d2b62fc6c2ac1aeaca3150180a1274dd4f27bcaf59b5ad75639dd023"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:4d2b7af1762a2294db20e5e4cfcef03b03ea7e0c7752f0bd4fef99a9144f9cea"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/must-gather-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:94438482f584c5b1c6acbdb37783352021fb89d747e238d0ee20d929c79080bb"
+  },
+  {
+    "name": "argocd_agent_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/argocd-agent-rhel9@sha256:040edd45c6d6153f7940063d3d5c6306d4f489a5c7db02ad3916ab40e7884511",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:4cef4a3651c7219d4d9d7e106bf3166d6f917b3e1806fca016c7d19f7fc4bb3a"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:c3cf248e0a3b9a0471a820203dae796279ba21880322de383d8f21112ecf5068"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:f15e9be47a0943853a404bd85ba790d5b93e4bf813e8bac797ed951ecf11d5d8"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:6ab5cb7ec744ad828973ee490872448842e738b8609fcde20a04e55d2954cc29"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/argocd-agent-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:040edd45c6d6153f7940063d3d5c6306d4f489a5c7db02ad3916ab40e7884511"
+  },
+  {
+    "name": "argocd_image_updater_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/argocd-image-updater-rhel9@sha256:36c9f6ecef9a791ce91affee82e0c1f285d37235239bcbb5834b157bf2270e9e",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:bd99afeadcbd789ad8dd7f93a7b88a2a1ea27b2155892ddb9799abea558112ec"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:59dbb3178cc92d563748f5266292f8b1e5d1159601bebdb1bc124c03a8f1f995"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:0aea3db1f31674d3114325ff4e503c18c6b15e56f3d62ad21c2cc300c9495144"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:d5c1d20527ac83e72ee73a7b2120e40a7cf9aea069bb807a47da55dddc2c3f46"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/argocd-image-updater-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:36c9f6ecef9a791ce91affee82e0c1f285d37235239bcbb5834b157bf2270e9e"
+  },
+  {
+    "name": "promoter_extension_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/argocd-promoter-extension-rhel9@sha256:cf9c1d9af3bd038692eb3de1e788819c9326155b6edcb8b8ef9c94815ec65b2a",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:0cf38846853443060a5ddd39e4b5f97339d4b3abb697ff23eadec90683093293"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:2c9d5033587c26e29580af560d5d6fe394efe43f2e2fb956906bee6bb95977b8"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:f79467ff3c296f91f5576d67bb0fa50c201be9fca78f1bb86fb8c7b534d67f56"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:9cbdbd1f67999eb205ff5047f96b6d9f9987bbe5f53fb011d03d23cf23778a43"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/argocd-promoter-extension-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:cf9c1d9af3bd038692eb3de1e788819c9326155b6edcb8b8ef9c94815ec65b2a"
+  },
+  {
+    "name": "gitops_promoter_image",
+    "ref": "registry.redhat.io/openshift-gitops-1/gitops-promoter-rhel9@sha256:24871a04cad45b8fc3e82d2c1c26b7c6695315809c4f786cb254f219ca9ccda1",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+    "platforms": [
+      {
+        "architecture": "amd64",
+        "os": "linux",
+        "digest": "sha256:dd1bd750b6a274fd4a2e43c14b227d2289987d8d7fb4fad91a6afdb01a1a37ee"
+      },
+      {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8",
+        "digest": "sha256:fac06e5c716ad1662a4da5abf7331d84b0cee0565f3337bae3c74df29dcf7bea"
+      },
+      {
+        "architecture": "ppc64le",
+        "os": "linux",
+        "digest": "sha256:a4969ee6916e589568f4c669db7e4af9cb29504bda6f2e7498e672827db08341"
+      },
+      {
+        "architecture": "s390x",
+        "os": "linux",
+        "digest": "sha256:d7526e7d0cf353131e19e02c06cb6b765d3b174d01b9a68851cf5b102b00244b"
+      }
+    ],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/gitops-promoter-rhel9:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:24871a04cad45b8fc3e82d2c1c26b7c6695315809c4f786cb254f219ca9ccda1"
+  },
+  {
+    "name": "bundle",
+    "ref": "registry.redhat.io/openshift-gitops-1/gitops-operator-bundle@sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d",
+    "digestMatch": true,
+    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+    "platforms": [],
+    "signedReference": "registry.redhat.io/openshift-gitops-1/gitops-operator-bundle:1.22",
+    "signatureVerified": true,
+    "verificationOutput": "Signature verified using fingerprint 567E347AD0044ADE55BA8A5F199E2F91FD431D51, digest sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d"
+  }
+]

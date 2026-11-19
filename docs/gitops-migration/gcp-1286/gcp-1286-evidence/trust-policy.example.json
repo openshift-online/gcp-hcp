@@ -1,0 +1,21 @@
+{
+  "default": [
+    {
+      "type": "reject"
+    }
+  ],
+  "transports": {
+    "docker": {
+      "registry.redhat.io": [
+        {
+          "type": "signedBy",
+          "keyType": "GPGKeys",
+          "keyPath": "./release-key2.txt",
+          "signedIdentity": {
+            "type": "matchRepoDigestOrExact"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# Keep only the named evidence files visible despite repository-wide ignores
+# for generic JSON and text. Any other JSON here, including a service-account
+# key, stays ignored by the root rules.
+!/all-image-verification.json
+!/candidate-raw.json
+!/core-labels.json
+!/review-summary.json
+!/trust-policy.example.json
+!/fresh-copies/*/summary.json
+!/sigstore/results.json
+!/release-key2.txt

@@ -1,0 +1,1491 @@
+cluster: mgt
+scope: Disposable rfl1285m1109; not a policy for other targets
+sourceBaseline: gcp-hcp-infra@d916de0d1ba274254c96a6b2338ea680f607a1b5
+desiredApplications:
+- name: cert-manager
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  source:
+    repoURL: https://charts.jetstack.io
+    targetRevision: v1.19.1
+    path: null
+    chart: cert-manager
+  resolvedRevision: v1.19.1
+- name: compute-capacity
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gke-capacity
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/compute-capacity
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: config-connector
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: configconnector-operator-system
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/config-connector
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: gar-image-rewriter
+  destination:
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/gar-image-rewriter
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: gcp-dashboards
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gcp-dashboards
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/gcp-dashboards
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: hypershift
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hypershift
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: kustomize/hypershift
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: kcc-common-labels
+  destination:
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/kcc-common-labels
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: kube-applier-gcp
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-applier-system
+  source:
+    repoURL: https://github.com/openshift-online/kube-applier-gcp
+    targetRevision: ad75b072650df9ebbd5737f112136de329d37993
+    path: charts/kube-applier-gcp
+    chart: null
+  resolvedRevision: ad75b072650df9ebbd5737f112136de329d37993
+- name: kube-state-metrics-custom
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/kube-state-metrics-custom
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: prometheus-hcp
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/prometheus-hcp
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: prometheus-operator
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/prometheus-operator
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: root-app-dev-mgt-na-ne2-rfl1285m1109-gke
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: argocd/rendered/management-cluster/dev/rflores-gcp1285/northamerica-northeast2
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: shared-gateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gateway-system
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/shared-gateway
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: prometheus-crds
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prometheus-system
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 31.0.0
+    path: null
+    chart: prometheus-operator-crds
+  resolvedRevision: 31.0.0
+resourceMatrix:
+- namespace: cert-manager
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager
+  - cert-manager-cainjector
+  - cert-manager-webhook
+  applications:
+  - cert-manager
+  discovery: served API
+- namespace: cert-manager
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager
+  - cert-manager-cainjector
+  - cert-manager-webhook
+  applications:
+  - cert-manager
+  discovery: served API
+- namespace: null
+  apiVersion: admissionregistration.k8s.io/v1
+  resource: mutatingwebhookconfigurations
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-webhook
+  - prometheus-operator-kube-p-admission
+  applications:
+  - cert-manager
+  - prometheus-operator
+  discovery: served API
+- namespace: null
+  apiVersion: admissionregistration.k8s.io/v1
+  resource: validatingwebhookconfigurations
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-webhook
+  - prometheus-operator-kube-p-admission
+  applications:
+  - cert-manager
+  - prometheus-operator
+  discovery: served API
+- namespace: null
+  apiVersion: apiextensions.k8s.io/v1
+  resource: customresourcedefinitions
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - alertmanagerconfigs.monitoring.coreos.com
+  - alertmanagers.monitoring.coreos.com
+  - auditlogpersistenceconfigs.auditlogpersistence.hypershift.openshift.io
+  - certificaterequests.cert-manager.io
+  - certificaterevocationrequests.certificates.hypershift.openshift.io
+  - certificates.cert-manager.io
+  - certificatesigningrequestapprovals.certificates.hypershift.openshift.io
+  - certificatesigningrequestapprovals.hypershift.openshift.io
+  - challenges.acme.cert-manager.io
+  - clusterclasses.cluster.x-k8s.io
+  - clusterissuers.cert-manager.io
+  - clusterresourcesetbindings.addons.cluster.x-k8s.io
+  - clusterresourcesets.addons.cluster.x-k8s.io
+  - clusters.cluster.x-k8s.io
+  - clustersizingconfigurations.scheduling.hypershift.openshift.io
+  - configconnectorcontexts.core.cnrm.cloud.google.com
+  - configconnectors.core.cnrm.cloud.google.com
+  - controllerreconcilers.customize.core.cnrm.cloud.google.com
+  - controllerresources.customize.core.cnrm.cloud.google.com
+  - controlplanecomponents.hypershift.openshift.io
+  - dnsendpoints.externaldns.k8s.io
+  - gcpclusters.infrastructure.cluster.x-k8s.io
+  - gcpclustertemplates.infrastructure.cluster.x-k8s.io
+  - gcpmachines.infrastructure.cluster.x-k8s.io
+  - gcpmachinetemplates.infrastructure.cluster.x-k8s.io
+  - gcpprivateserviceconnects.hypershift.openshift.io
+  - hcpetcdbackups.hypershift.openshift.io
+  - hostedclusters.hypershift.openshift.io
+  - hostedcontrolplanes.hypershift.openshift.io
+  - ipaddressclaims.ipam.cluster.x-k8s.io
+  - ipaddresses.ipam.cluster.x-k8s.io
+  - issuers.cert-manager.io
+  - machinedeployments.cluster.x-k8s.io
+  - machinedrainrules.cluster.x-k8s.io
+  - machinehealthchecks.cluster.x-k8s.io
+  - machinepools.cluster.x-k8s.io
+  - machines.cluster.x-k8s.io
+  - machinesets.cluster.x-k8s.io
+  - mutatingwebhookconfigurationcustomizations.customize.core.cnrm.cloud.google.com
+  - namespacedcontrollerreconcilers.customize.core.cnrm.cloud.google.com
+  - namespacedcontrollerresources.customize.core.cnrm.cloud.google.com
+  - nodepools.hypershift.openshift.io
+  - orders.acme.cert-manager.io
+  - podmonitors.monitoring.coreos.com
+  - probes.monitoring.coreos.com
+  - prometheusagents.monitoring.coreos.com
+  - prometheuses.monitoring.coreos.com
+  - prometheusrules.monitoring.coreos.com
+  - routes.route.openshift.io
+  - scrapeconfigs.monitoring.coreos.com
+  - servicemonitors.monitoring.coreos.com
+  - thanosrulers.monitoring.coreos.com
+  - validatingwebhookconfigurationcustomizations.customize.core.cnrm.cloud.google.com
+  applications:
+  - cert-manager
+  - config-connector
+  - hypershift
+  - prometheus-crds
+  discovery: served API
+- namespace: cert-manager
+  apiVersion: apps/v1
+  resource: deployments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager
+  - cert-manager-cainjector
+  - cert-manager-webhook
+  applications:
+  - cert-manager
+  discovery: served API
+- namespace: null
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: clusterroles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-cainjector
+  - cert-manager-cluster-view
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-edit
+  - cert-manager-view
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - gitops-hcp-controller-local
+  - gitops-hcp-controller-writes
+  - hypershift-operator
+  - kube-applier
+  - kube-state-metrics-custom
+  - prometheus-hcp
+  - prometheus-operator-kube-p-operator
+  applications:
+  - argocd-config (candidate)
+  - cert-manager
+  - config-connector
+  - hypershift
+  - kube-applier-gcp
+  - kube-state-metrics-custom
+  - prometheus-hcp
+  - prometheus-operator
+  discovery: served API
+- namespace: null
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: clusterrolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-cainjector
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer-role-binding
+  - configconnector-operator-rolebinding
+  - external-dns
+  - hypershift-operator
+  - kube-applier-gcp
+  - kube-state-metrics-custom
+  - prometheus-hcp
+  - prometheus-operator-kube-p-operator
+  applications:
+  - cert-manager
+  - config-connector
+  - hypershift
+  - kube-applier-gcp
+  - kube-state-metrics-custom
+  - prometheus-hcp
+  - prometheus-operator
+  discovery: served API
+- namespace: cert-manager
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-cainjector:leaderelection
+  - cert-manager-tokenrequest
+  - cert-manager-webhook:dynamic-serving
+  - cert-manager:leaderelection
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  - cert-manager
+  discovery: served API
+- namespace: cert-manager
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-cainjector:leaderelection
+  - cert-manager-tokenrequest
+  - cert-manager-webhook:dynamic-serving
+  - cert-manager:leaderelection
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  - cert-manager
+  discovery: served API
+- namespace: null
+  apiVersion: admissionregistration.k8s.io/v1beta1
+  resource: mutatingadmissionpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - autopilot-min-cpu-request
+  - gar-image-rewriter-gcp-hcp-images
+  - hcp-compute-class
+  - kcc-common-labels
+  applications:
+  - compute-capacity
+  - gar-image-rewriter
+  - hypershift
+  - kcc-common-labels
+  discovery: served API
+- namespace: null
+  apiVersion: admissionregistration.k8s.io/v1beta1
+  resource: mutatingadmissionpolicybindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - autopilot-min-cpu-request
+  - gar-image-rewriter-gcp-hcp-images
+  - hcp-compute-class
+  - kcc-common-labels
+  applications:
+  - compute-capacity
+  - gar-image-rewriter
+  - hypershift
+  - kcc-common-labels
+  discovery: served API
+- namespace: null
+  apiVersion: cloud.google.com/v1
+  resource: computeclasses
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - hcp-control-plane
+  applications:
+  - compute-capacity
+  discovery: served API
+- namespace: null
+  apiVersion: v1
+  resource: namespaces
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector-operator-system
+  - hypershift
+  - monitoring
+  applications:
+  - config-connector
+  - hypershift
+  - prometheus-hcp
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector-operator-service
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector-operator
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: apps/v1
+  resource: statefulsets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector-operator
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: null
+  apiVersion: core.cnrm.cloud.google.com/v1beta1
+  resource: configconnectors
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector.core.cnrm.cloud.google.com
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: gcp-dashboards
+  apiVersion: monitoring.cnrm.cloud.google.com/v1beta1
+  resource: monitoringdashboards
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-application-overview
+  - argocd-notifications-overview
+  - argocd-operational-overview
+  - etcd-health
+  - gcp-hcp-counter
+  - hcp-control-plane-health
+  - hcp-fleet-overview
+  - ingress-gateway-urls
+  applications:
+  - gcp-dashboards
+  discovery: served API
+- namespace: hypershift
+  apiVersion: v1
+  resource: configmaps
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - feature-gate
+  - openshift-config-managed-trusted-ca-bundle
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - operator
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - external-dns
+  - global-secret-store
+  - operator
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: apps/v1
+  resource: deployments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - external-dns
+  - operator
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: null
+  apiVersion: cert-manager.io/v1
+  resource: clusterissuers
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - public-issuer
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: external-secrets.io/v1
+  resource: externalsecrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - pull-secret
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: external-secrets.io/v1
+  resource: secretstores
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - global-gcp-secret-manager
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iamcustomroles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - hypershift-psc-operator
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iampolicymembers
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - hypershift-operator-psc-permissions
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: monitoring.coreos.com/v1
+  resource: podmonitors
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - external-dns
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: monitoring.coreos.com/v1
+  resource: prometheusrules
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - metrics
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: monitoring.coreos.com/v1
+  resource: servicemonitors
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - operator
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: policy/v1
+  resource: poddisruptionbudgets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - operator
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  - hypershift-operator
+  - prometheus
+  applications:
+  - argocd-config (candidate)
+  - hypershift
+  discovery: served API
+- namespace: hypershift
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  - hypershift-operator
+  - prometheus
+  applications:
+  - argocd-config (candidate)
+  - hypershift
+  discovery: served API
+- namespace: kube-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  - hypershift:extension-apiserver-authentication-reader
+  applications:
+  - argocd-config (candidate)
+  - hypershift
+  discovery: served API
+- namespace: null
+  apiVersion: scheduling.k8s.io/v1
+  resource: priorityclasses
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - hypershift-api-critical
+  - hypershift-control-plane
+  - hypershift-etcd
+  - hypershift-operator
+  applications:
+  - hypershift
+  discovery: served API
+- namespace: kube-applier-system
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-applier-gcp
+  applications:
+  - kube-applier-gcp
+  discovery: served API
+- namespace: kube-applier-system
+  apiVersion: apps/v1
+  resource: deployments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-applier-gcp
+  applications:
+  - kube-applier-gcp
+  discovery: served API
+- namespace: monitoring
+  apiVersion: v1
+  resource: configmaps
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom-customresourcestate-config
+  applications:
+  - kube-state-metrics-custom
+  discovery: served API
+- namespace: monitoring
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom
+  - prometheus-operator-kube-p-operator
+  applications:
+  - kube-state-metrics-custom
+  - prometheus-operator
+  discovery: served API
+- namespace: monitoring
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom
+  - prometheus-hcp
+  - prometheus-operator-kube-p-operator
+  applications:
+  - kube-state-metrics-custom
+  - prometheus-hcp
+  - prometheus-operator
+  discovery: served API
+- namespace: monitoring
+  apiVersion: apps/v1
+  resource: deployments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom
+  - prometheus-operator-kube-p-operator
+  applications:
+  - kube-state-metrics-custom
+  - prometheus-operator
+  discovery: served API
+- namespace: monitoring
+  apiVersion: monitoring.googleapis.com/v1
+  resource: podmonitorings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom-kube-state-metrics
+  applications:
+  - kube-state-metrics-custom
+  discovery: served API
+- namespace: monitoring
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iampartialpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - prometheus-hcp-exporter-workload-identity
+  applications:
+  - prometheus-hcp
+  discovery: served API
+- namespace: monitoring
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iampolicymembers
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - prometheus-hcp-exporter-monitoring-writer
+  applications:
+  - prometheus-hcp
+  discovery: served API
+- namespace: monitoring
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iamserviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - prometheus-hcp-exporter
+  applications:
+  - prometheus-hcp
+  discovery: served API
+- namespace: monitoring
+  apiVersion: monitoring.coreos.com/v1
+  resource: prometheuses
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gmp-collector
+  applications:
+  - prometheus-hcp
+  discovery: served API
+- namespace: monitoring
+  apiVersion: monitoring.coreos.com/v1
+  resource: prometheusrules
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - hcp-apiserver-recording-rules
+  applications:
+  - prometheus-hcp
+  discovery: served API
+- namespace: monitoring
+  apiVersion: monitoring.coreos.com/v1
+  resource: servicemonitors
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - prometheus-operator-kube-p-operator
+  applications:
+  - prometheus-operator
+  discovery: served API
+- namespace: argocd
+  apiVersion: argoproj.io/v1alpha1
+  resource: applications
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager
+  - compute-capacity
+  - config-connector
+  - gar-image-rewriter
+  - gcp-dashboards
+  - hypershift
+  - kcc-common-labels
+  - kube-applier-gcp
+  - kube-state-metrics-custom
+  - prometheus-crds
+  - prometheus-hcp
+  - prometheus-operator
+  - shared-gateway
+  applications:
+  - root-app-dev-mgt-na-ne2-rfl1285m1109-gke
+  discovery: served API
+- namespace: null
+  apiVersion: external-secrets.io/v1
+  resource: clustersecretstores
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gcp-secret-manager
+  applications:
+  - root-app-dev-mgt-na-ne2-rfl1285m1109-gke
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificatemaps
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - shared-gateway-certmap
+  applications:
+  - shared-gateway
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: gateway.networking.k8s.io/v1
+  resource: gateways
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - shared-external-gateway
+  applications:
+  - shared-gateway
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iampolicymembers
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - iap-access-gcp-hcp-eng
+  applications:
+  - shared-gateway
+  discovery: served API
+- namespace: argocd
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-oauth-secret-accessor
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gcp-dashboards
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: kube-applier-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: kube-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: monitoring
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gcp-dashboards
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: kube-applier-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: monitoring
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-server
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: argoproj.io/v1beta1
+  resource: argocds
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificates
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-cert
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificatemapentries
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-dev-mgt-na-ne2-rfl1285m1109-dev-reg-na-ne2-rfl1-fb552bae
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: external-secrets.io/v1
+  resource: externalsecrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-iap-oauth
+  - argocd-notifications-secret
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: networking.gke.io/v1
+  resource: gcpbackendpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-iap-policy
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: gateway.networking.k8s.io/v1
+  resource: httproutes
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-route
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: networking.gke.io/v1
+  resource: healthcheckpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-health-check
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: argoproj.io/v1alpha1
+  resource: notificationsconfigurations
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - default-notifications-configuration
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: monitoring.googleapis.com/v1
+  resource: podmonitorings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-application-controller
+  - gitops-repo-server
+  - gitops-server
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: external-secrets.io/v1
+  resource: secretstores
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-global-secret-store
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+namedRbacExceptions:
+- namespace: null
+  resource: clusterroles
+  verb: escalate
+  resourceNames:
+  - cert-manager-cainjector
+  - cert-manager-cluster-view
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-edit
+  - cert-manager-view
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - gitops-hcp-controller-local
+  - gitops-hcp-controller-writes
+  - hypershift-operator
+  - kube-applier
+  - kube-state-metrics-custom
+  - prometheus-hcp
+  - prometheus-operator-kube-p-operator
+- namespace: null
+  resource: clusterroles
+  verb: bind
+  resourceNames:
+  - cert-manager-cainjector
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - hypershift-operator
+  - kube-applier
+  - kube-state-metrics-custom
+  - prometheus-hcp
+  - prometheus-operator-kube-p-operator
+- namespace: cert-manager
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - cert-manager-cainjector:leaderelection
+  - cert-manager-tokenrequest
+  - cert-manager-webhook:dynamic-serving
+  - cert-manager:leaderelection
+  - gitops-hcp-controller
+- namespace: cert-manager
+  resource: roles
+  verb: bind
+  resourceNames:
+  - cert-manager-cainjector:leaderelection
+  - cert-manager-tokenrequest
+  - cert-manager-webhook:dynamic-serving
+  - cert-manager:leaderelection
+  - gitops-hcp-controller
+- namespace: hypershift
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+  - hypershift-operator
+  - prometheus
+- namespace: hypershift
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+  - hypershift-operator
+  - prometheus
+- namespace: kube-system
+  resource: roles
+  verb: bind
+  resourceNames:
+  - extension-apiserver-authentication-reader
+  - gitops-hcp-controller
+- namespace: kube-system
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: configconnector-operator-system
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: configconnector-operator-system
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gateway-system
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gateway-system
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gcp-dashboards
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gcp-dashboards
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: kube-applier-system
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: kube-applier-system
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: monitoring
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: monitoring
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+retainedAuthority:
+- operator-owned wildcard cache get/list/watch including Secrets
+- named bind/escalate for privileged installer and policy lifecycle
+- writes to own ArgoCD CR and policy roles
+- create for enumerated cluster resource kinds cannot be name constrained
+- namespace writes for enumerated kinds
+- indirect authority through managed admission policies, workloads and KCC IAM objects
+additionalReviewNotes:
+- Application destinations without namespaced manifests receive no RoleBinding.
+- Application status/finalizer updates and core Event recording are controller control-loop additions.
+- Cluster resources permit create by enumerated kind; update/patch/delete are limited to reviewed names.
+  Namespace creation is required for application lifecycle.
+- Gecko Channel/PlatformRole discovery was unavailable at baseline. Mapping is pinned Gecko private API
+  source; runtime readiness must be recorded separately.
+- GCP cloud mutations are delegated to KCC/ESO/GKE and other installed controllers. No direct GCP role
+  is added.

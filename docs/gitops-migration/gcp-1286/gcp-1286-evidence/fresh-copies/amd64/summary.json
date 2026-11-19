@@ -1,0 +1,53 @@
+{
+  "arch": "linux/amd64",
+  "credential": "commons-dev pull secret, supplied as --authfile and never written here",
+  "results": {
+    "argocd_dex_image": {
+      "arch": "amd64",
+      "blobsVerified": 3,
+      "digest": "sha256:1294cf5c2d8ba1dcfe199511f1fbf11e219a8c6eedb698e47d1970484056ef60",
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "platformDigest": "sha256:c26521bcd470baa1a1586c5da6cedba4d990ee6aa15838fb73ca667ac1079d9c",
+      "repository": "registry.redhat.io/openshift-gitops-1/dex-rhel9",
+      "savedManifestDigest": "sha256:c26521bcd470baa1a1586c5da6cedba4d990ee6aa15838fb73ca667ac1079d9c"
+    },
+    "argocd_image": {
+      "arch": "amd64",
+      "blobsVerified": 3,
+      "digest": "sha256:9aaeb618197e278fb95f812fed82dc9253fc4843b9e08d16288bb885859b0f1f",
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "platformDigest": "sha256:a82f8ec909e149f97b51038abe5f18cf0b0be022ee25c845e8f2e3cfb80f5769",
+      "repository": "registry.redhat.io/openshift-gitops-1/argocd-rhel9",
+      "savedManifestDigest": "sha256:a82f8ec909e149f97b51038abe5f18cf0b0be022ee25c845e8f2e3cfb80f5769"
+    },
+    "argocd_redis_image": {
+      "arch": "amd64",
+      "blobsVerified": 4,
+      "digest": "sha256:8e0c52a2f304473c1f62d1112e116e0e8d541ed9cbeea86f6ece3318146be105",
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "platformDigest": "sha256:84cc29e751a74ca318b5b9f8e21fbe78564cae35c42d264a5b26157e74500623",
+      "repository": "registry.redhat.io/rhel9/redis-7",
+      "savedManifestDigest": "sha256:84cc29e751a74ca318b5b9f8e21fbe78564cae35c42d264a5b26157e74500623"
+    },
+    "bundle": {
+      "arch": "amd64",
+      "blobsVerified": 2,
+      "digest": "sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d",
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "platformDigest": null,
+      "repository": "registry.redhat.io/openshift-gitops-1/gitops-operator-bundle",
+      "savedManifestDigest": "sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d"
+    },
+    "manager": {
+      "arch": "amd64",
+      "blobsVerified": 3,
+      "digest": "sha256:f5773d35e496a55999590024d1d8290e916c05d77ebdadcdc3263c29ea1a434a",
+      "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+      "platformDigest": "sha256:7d4f3f467ec9a64a7145e4ebe214375ad2e91a6c0c27e08380a06e136629da10",
+      "repository": "registry.redhat.io/openshift-gitops-1/gitops-rhel9-operator",
+      "savedManifestDigest": "sha256:7d4f3f467ec9a64a7145e4ebe214375ad2e91a6c0c27e08380a06e136629da10"
+    }
+  },
+  "source": "registry.redhat.io under the entry point's fail-closed policy",
+  "verifiedAt": "2026-11-10"
+}

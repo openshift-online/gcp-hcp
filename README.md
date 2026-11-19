@@ -14,12 +14,18 @@ The GCP HCP team is organized into three pods (A, B, C) to improve focus and exe
 ## Repository Structure
 
 - `design-decisions/` -- Architecture Decision Records (ADRs) covering all aspects of system design.
-- `docs/` -- Jira templates and team processes (definition of done, story/epic/feature templates).
+- `docs/` -- Project documentation, validation records, Jira templates and team processes.
 - `experiments/` -- Proofs of concept and research spikes (auth, networking, Terraform tooling, etc.).
 - `implementation-plans/` -- Step-by-step plans for delivering approved designs.
 - `incidents/` -- Incident reports and postmortems.
 - `slo/` -- Service Level Objective definitions and related artifacts.
 - `studies/` -- In-depth technical studies and analyses.
+
+The [GitOps migration records](docs/gitops-migration/README.md) collect the
+configuration, authentication, notification, permission and release validation
+evidence for GCP-1186. Deployment configuration and infrastructure-specific test
+procedures stay with the infra code; the index also links the separate bootstrap
+and release-verification tooling.
 
 ## Claude Code Plugin
 

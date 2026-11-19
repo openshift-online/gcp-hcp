@@ -1,0 +1,1736 @@
+cluster: reg
+scope: Disposable rfl1285m1109; not a policy for other targets
+sourceBaseline: gcp-hcp-infra@d916de0d1ba274254c96a6b2338ea680f607a1b5
+desiredApplications:
+- name: cert-manager
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  source:
+    repoURL: https://charts.jetstack.io
+    targetRevision: v1.21.1
+    path: null
+    chart: cert-manager
+  resolvedRevision: v1.21.1
+- name: cloud-armor-policies
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: config-connector
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/cloud-armor-policies
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: config-connector
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: configconnector-operator-system
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/config-connector
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: external-dns
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  source:
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    targetRevision: 1.15.0
+    path: null
+    chart: external-dns
+  resolvedRevision: 1.15.0
+- name: feature-flags
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/feature-flags
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: gar-image-rewriter
+  destination:
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/gar-image-rewriter
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: gcp-dashboards
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gcp-dashboards
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/gcp-dashboards
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: gecko-cloud-resources
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/gecko-cloud-resources
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: gecko-control-plane-upgrade
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: https://github.com/openshift-online/gecko
+    targetRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+    path: helm/charts/gecko-control-plane-upgrade
+    chart: null
+  resolvedRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+- name: gecko-hc
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: https://github.com/openshift-online/gecko
+    targetRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+    path: helm/charts/gecko-hc
+    chart: null
+  resolvedRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+- name: gecko-nodepool
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: https://github.com/openshift-online/gecko
+    targetRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+    path: helm/charts/gecko-nodepool
+    chart: null
+  resolvedRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+- name: gecko-nodepool-vr-resolution
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: https://github.com/openshift-online/gecko
+    targetRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+    path: helm/charts/gecko-nodepool-vr-resolution
+    chart: null
+  resolvedRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+- name: gecko-placement
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: https://github.com/openshift-online/gecko
+    targetRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+    path: helm/charts/gecko-placement
+    chart: null
+  resolvedRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+- name: gecko-version-resolution
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: https://github.com/openshift-online/gecko
+    targetRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+    path: helm/charts/gecko-version-resolution
+    chart: null
+  resolvedRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+- name: gecko-version-sync
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: https://github.com/openshift-online/gecko
+    targetRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+    path: helm/charts/gecko-version-sync
+    chart: null
+  resolvedRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+- name: kcc-common-labels
+  destination:
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/kcc-common-labels
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: kube-state-metrics-custom
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/kube-state-metrics-custom
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: platform-api-server
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gecko-system
+  source:
+    repoURL: https://github.com/openshift-online/gecko
+    targetRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+    path: helm/charts/platform-api-server
+    chart: null
+  resolvedRevision: b6237baf1c2aa11a9291a8de65ac475ad84c7177
+- name: platform-gateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-gateway
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/shared-gateway
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: root-app-dev-reg-na-ne2-rfl1285m1109-gke
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: argocd/rendered/region/dev/rflores-gcp1285/northamerica-northeast2
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: selfsigned-issuer
+  destination:
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: kustomize/selfsigned-clusterissuer
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+- name: shared-gateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gateway-system
+  source:
+    repoURL: git@github.com:floresroger/gcp-hcp-infra.git
+    targetRevision: dev-rflores-gcp1285
+    path: helm/charts/shared-gateway
+    chart: null
+  resolvedRevision: 0efdd1b016f6768f23777d48c799854de703954f
+resourceMatrix:
+- namespace: cert-manager
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager
+  - cert-manager-cainjector
+  - cert-manager-webhook
+  applications:
+  - cert-manager
+  discovery: served API
+- namespace: cert-manager
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager
+  - cert-manager-cainjector
+  - cert-manager-webhook
+  applications:
+  - cert-manager
+  discovery: served API
+- namespace: null
+  apiVersion: admissionregistration.k8s.io/v1
+  resource: mutatingwebhookconfigurations
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-webhook
+  applications:
+  - cert-manager
+  discovery: served API
+- namespace: null
+  apiVersion: admissionregistration.k8s.io/v1
+  resource: validatingwebhookconfigurations
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-webhook
+  applications:
+  - cert-manager
+  discovery: served API
+- namespace: null
+  apiVersion: apiextensions.k8s.io/v1
+  resource: customresourcedefinitions
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - certificaterequests.cert-manager.io
+  - certificates.cert-manager.io
+  - challenges.acme.cert-manager.io
+  - clusterissuers.cert-manager.io
+  - configconnectorcontexts.core.cnrm.cloud.google.com
+  - configconnectors.core.cnrm.cloud.google.com
+  - controllerreconcilers.customize.core.cnrm.cloud.google.com
+  - controllerresources.customize.core.cnrm.cloud.google.com
+  - dnsendpoints.externaldns.k8s.io
+  - issuers.cert-manager.io
+  - mutatingwebhookconfigurationcustomizations.customize.core.cnrm.cloud.google.com
+  - namespacedcontrollerreconcilers.customize.core.cnrm.cloud.google.com
+  - namespacedcontrollerresources.customize.core.cnrm.cloud.google.com
+  - orders.acme.cert-manager.io
+  - validatingwebhookconfigurationcustomizations.customize.core.cnrm.cloud.google.com
+  applications:
+  - cert-manager
+  - config-connector
+  - external-dns
+  discovery: served API
+- namespace: cert-manager
+  apiVersion: apps/v1
+  resource: deployments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager
+  - cert-manager-cainjector
+  - cert-manager-webhook
+  applications:
+  - cert-manager
+  discovery: served API
+- namespace: null
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: clusterroles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-cache-watchdog
+  - cert-manager-cainjector
+  - cert-manager-cluster-view
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-edit
+  - cert-manager-view
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - gitops-hcp-controller-local
+  - gitops-hcp-controller-writes
+  - kube-state-metrics-custom
+  applications:
+  - argocd-config (candidate)
+  - cert-manager
+  - config-connector
+  - external-dns
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - kube-state-metrics-custom
+  discovery: served API
+- namespace: null
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: clusterrolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-cache-watchdog
+  - cert-manager-cainjector
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer-role-binding
+  - configconnector-operator-rolebinding
+  - external-dns-viewer
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - kube-state-metrics-custom
+  - platform-api-server:system:auth-delegator
+  applications:
+  - argocd-config (candidate)
+  - cert-manager
+  - config-connector
+  - external-dns
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - kube-state-metrics-custom
+  - platform-api-server
+  discovery: served API
+- namespace: cert-manager
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-cainjector:leaderelection
+  - cert-manager-webhook:dynamic-serving
+  - cert-manager:leaderelection
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  - cert-manager
+  discovery: served API
+- namespace: cert-manager
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager-cainjector:leaderelection
+  - cert-manager-webhook:dynamic-serving
+  - cert-manager:leaderelection
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  - cert-manager
+  discovery: served API
+- namespace: config-connector
+  apiVersion: compute.cnrm.cloud.google.com/v1beta1
+  resource: computesecuritypolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - github-webhook-ingress-policy
+  - redhat-github-webhook-ingress-policy
+  - redhat-ingress-policy
+  applications:
+  - cloud-armor-policies
+  discovery: served API
+- namespace: null
+  apiVersion: v1
+  resource: namespaces
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector-operator-system
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector-operator-service
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector-operator
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: apps/v1
+  resource: statefulsets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector-operator
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: null
+  apiVersion: core.cnrm.cloud.google.com/v1beta1
+  resource: configconnectors
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - configconnector.core.cnrm.cloud.google.com
+  applications:
+  - config-connector
+  discovery: served API
+- namespace: external-dns
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - external-dns
+  applications:
+  - external-dns
+  discovery: served API
+- namespace: external-dns
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - external-dns
+  applications:
+  - external-dns
+  discovery: served API
+- namespace: external-dns
+  apiVersion: apps/v1
+  resource: deployments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - external-dns
+  applications:
+  - external-dns
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: v1
+  resource: configmaps
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - feature-flags
+  - gecko-hc-resource-config
+  applications:
+  - feature-flags
+  - gecko-hc
+  discovery: served API
+- namespace: null
+  apiVersion: admissionregistration.k8s.io/v1beta1
+  resource: mutatingadmissionpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gar-image-rewriter-gcp-hcp-images
+  - kcc-common-labels
+  applications:
+  - gar-image-rewriter
+  - kcc-common-labels
+  discovery: served API
+- namespace: null
+  apiVersion: admissionregistration.k8s.io/v1beta1
+  resource: mutatingadmissionpolicybindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gar-image-rewriter-gcp-hcp-images
+  - kcc-common-labels
+  applications:
+  - gar-image-rewriter
+  - kcc-common-labels
+  discovery: served API
+- namespace: gcp-dashboards
+  apiVersion: monitoring.cnrm.cloud.google.com/v1beta1
+  resource: monitoringdashboards
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-application-overview
+  - argocd-notifications-overview
+  - argocd-operational-overview
+  - ingress-gateway-urls
+  applications:
+  - gcp-dashboards
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iampolicymembers
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gecko-placement-secretmanager-accessor
+  - gecko-placement-secretmanager-viewer
+  - gecko-placement-workload-identity
+  - platform-api-server-esp-service-controller
+  - platform-api-server-migrate-workload-identity
+  - platform-api-server-workload-identity
+  applications:
+  - gecko-cloud-resources
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iamserviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gecko-placement
+  - platform-api-server
+  - platform-api-server-migrate
+  applications:
+  - gecko-cloud-resources
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - platform-api-server
+  applications:
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - platform-api-server
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: apps/v1
+  resource: deployments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - platform-api-server
+  applications:
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - platform-api-server
+  discovery: served API
+- namespace: null
+  apiVersion: gcp.managed.openshift.io/v1
+  resource: channels
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - candidate
+  - eus
+  - fast
+  - stable
+  applications:
+  - gecko-version-sync
+  discovery: gecko@b6237baf1c2aa11a9291a8de65ac475ad84c7177/private/v1/zz_generated.schemas.go; API not
+    served at baseline
+- namespace: monitoring
+  apiVersion: v1
+  resource: configmaps
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom-customresourcestate-config
+  applications:
+  - kube-state-metrics-custom
+  discovery: served API
+- namespace: monitoring
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom
+  applications:
+  - kube-state-metrics-custom
+  discovery: served API
+- namespace: monitoring
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom
+  applications:
+  - kube-state-metrics-custom
+  discovery: served API
+- namespace: monitoring
+  apiVersion: apps/v1
+  resource: deployments
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom
+  applications:
+  - kube-state-metrics-custom
+  discovery: served API
+- namespace: monitoring
+  apiVersion: monitoring.googleapis.com/v1
+  resource: podmonitorings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - kube-state-metrics-custom-kube-state-metrics
+  applications:
+  - kube-state-metrics-custom
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-gateway-svc
+  - platform-api-server
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: cert-manager.io/v1
+  resource: certificates
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-server
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificates
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-cert
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificatemapentries
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-northamerica-northeast2-rfl1285m1109-dev-0de63dec
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: compute.cnrm.cloud.google.com/v1beta1
+  resource: computesecuritypolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-server-cloud-armor
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: gateway.networking.k8s.io/v1
+  resource: httproutes
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-server-route
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: null
+  apiVersion: gcp.managed.openshift.io/v1
+  resource: platformroles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cluster-admin
+  - cluster-viewer
+  - service-admin
+  applications:
+  - platform-api-server
+  discovery: gecko@b6237baf1c2aa11a9291a8de65ac475ad84c7177/private/v1/zz_generated.schemas.go; API not
+    served at baseline
+- namespace: gecko-system
+  apiVersion: networking.gke.io/v1
+  resource: gcpbackendpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-server-backend-policy
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: networking.gke.io/v1
+  resource: healthcheckpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-server-health-check
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: policy/v1
+  resource: poddisruptionbudgets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-api-server
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: kube-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  - platform-api-server:extension-apiserver-authentication-reader
+  applications:
+  - argocd-config (candidate)
+  - platform-api-server
+  discovery: served API
+- namespace: null
+  apiVersion: apiregistration.k8s.io/v1
+  resource: apiservices
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - v1.gcp.managed.openshift.io
+  applications:
+  - platform-api-server
+  discovery: served API
+- namespace: platform-gateway
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificatemaps
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-gateway-certmap
+  applications:
+  - platform-gateway
+  discovery: served API
+- namespace: platform-gateway
+  apiVersion: gateway.networking.k8s.io/v1
+  resource: gateways
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - platform-external-gateway
+  applications:
+  - platform-gateway
+  discovery: served API
+- namespace: default
+  apiVersion: v1
+  resource: configmaps
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - region-config
+  applications:
+  - root-app-dev-reg-na-ne2-rfl1285m1109-gke
+  discovery: served API
+- namespace: argocd
+  apiVersion: argoproj.io/v1alpha1
+  resource: applications
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - cert-manager
+  - cloud-armor-policies
+  - config-connector
+  - external-dns
+  - feature-flags
+  - gar-image-rewriter
+  - gcp-dashboards
+  - gecko-cloud-resources
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - kcc-common-labels
+  - kube-state-metrics-custom
+  - platform-api-server
+  - platform-gateway
+  - selfsigned-issuer
+  - shared-gateway
+  applications:
+  - root-app-dev-reg-na-ne2-rfl1285m1109-gke
+  discovery: served API
+- namespace: null
+  apiVersion: cert-manager.io/v1
+  resource: clusterissuers
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - selfsigned
+  applications:
+  - selfsigned-issuer
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificatemaps
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - shared-gateway-certmap
+  applications:
+  - shared-gateway
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: gateway.networking.k8s.io/v1
+  resource: gateways
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - shared-external-gateway
+  applications:
+  - shared-gateway
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: iam.cnrm.cloud.google.com/v1beta1
+  resource: iampolicymembers
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - iap-access-gcp-hcp-eng
+  applications:
+  - shared-gateway
+  discovery: served API
+- namespace: argocd
+  apiVersion: v1
+  resource: serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-cache-watchdog
+  - argocd-oauth-secret-accessor
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: config-connector
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: default
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: external-dns
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gcp-dashboards
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: kube-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: monitoring
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: platform-gateway
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-cache-watchdog
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: config-connector
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: configconnector-operator-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: default
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: external-dns
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gateway-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gcp-dashboards
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: gecko-system
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: monitoring
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: platform-gateway
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-hcp-controller
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: rbac.authorization.k8s.io/v1
+  resource: rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-cache-watchdog
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: v1
+  resource: services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-server
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: batch/v1
+  resource: cronjobs
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-cache-watchdog
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: argoproj.io/v1beta1
+  resource: argocds
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificates
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-cert
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: certificatemanager.cnrm.cloud.google.com/v1beta1
+  resource: certificatemanagercertificatemapentries
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-dev-reg-na-ne2-rfl1285m1109-dev-gcp-hcp-devshift-net
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: external-secrets.io/v1
+  resource: externalsecrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-iap-oauth
+  - argocd-notifications-secret
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: networking.gke.io/v1
+  resource: gcpbackendpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-iap-policy
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: gateway.networking.k8s.io/v1
+  resource: httproutes
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-route
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: networking.gke.io/v1
+  resource: healthcheckpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-health-check
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: argoproj.io/v1alpha1
+  resource: notificationsconfigurations
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - default-notifications-configuration
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: monitoring.googleapis.com/v1
+  resource: podmonitorings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - gitops-application-controller
+  - gitops-repo-server
+  - gitops-server
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+- namespace: argocd
+  apiVersion: external-secrets.io/v1
+  resource: secretstores
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  names:
+  - argocd-global-secret-store
+  applications:
+  - argocd-config (candidate)
+  discovery: served API
+namedRbacExceptions:
+- namespace: null
+  resource: clusterroles
+  verb: escalate
+  resourceNames:
+  - argocd-cache-watchdog
+  - cert-manager-cainjector
+  - cert-manager-cluster-view
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-edit
+  - cert-manager-view
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - gitops-hcp-controller-local
+  - gitops-hcp-controller-writes
+  - kube-state-metrics-custom
+- namespace: null
+  resource: clusterroles
+  verb: bind
+  resourceNames:
+  - argocd-cache-watchdog
+  - cert-manager-cainjector
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - kube-state-metrics-custom
+  - system:auth-delegator
+- namespace: cert-manager
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - cert-manager-cainjector:leaderelection
+  - cert-manager-webhook:dynamic-serving
+  - cert-manager:leaderelection
+  - gitops-hcp-controller
+- namespace: cert-manager
+  resource: roles
+  verb: bind
+  resourceNames:
+  - cert-manager-cainjector:leaderelection
+  - cert-manager-webhook:dynamic-serving
+  - cert-manager:leaderelection
+  - gitops-hcp-controller
+- namespace: kube-system
+  resource: roles
+  verb: bind
+  resourceNames:
+  - extension-apiserver-authentication-reader
+  - gitops-hcp-controller
+- namespace: kube-system
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: config-connector
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: config-connector
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: configconnector-operator-system
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: configconnector-operator-system
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: default
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: default
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: external-dns
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: external-dns
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gateway-system
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gateway-system
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gcp-dashboards
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gcp-dashboards
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gecko-system
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: gecko-system
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: monitoring
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: monitoring
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: platform-gateway
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: platform-gateway
+  resource: roles
+  verb: bind
+  resourceNames:
+  - gitops-hcp-controller
+- namespace: argocd
+  resource: roles
+  verb: escalate
+  resourceNames:
+  - argocd-cache-watchdog
+- namespace: argocd
+  resource: roles
+  verb: bind
+  resourceNames:
+  - argocd-cache-watchdog
+retainedAuthority:
+- operator-owned wildcard cache get/list/watch including Secrets
+- named bind/escalate for privileged installer and policy lifecycle
+- writes to own ArgoCD CR and policy roles
+- create for enumerated cluster resource kinds cannot be name constrained
+- namespace writes for enumerated kinds
+- indirect authority through managed admission policies, workloads and KCC IAM objects
+additionalReviewNotes:
+- Application destinations without namespaced manifests receive no RoleBinding.
+- Application status/finalizer updates and core Event recording are controller control-loop additions.
+- Cluster resources permit create by enumerated kind; update/patch/delete are limited to reviewed names.
+  Namespace creation is required for application lifecycle.
+- Gecko Channel/PlatformRole discovery was unavailable at baseline. Mapping is pinned Gecko private API
+  source; runtime readiness must be recorded separately.
+- GCP cloud mutations are delegated to KCC/ESO/GKE and other installed controllers. No direct GCP role
+  is added.
