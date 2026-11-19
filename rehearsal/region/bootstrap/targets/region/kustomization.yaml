@@ -5,6 +5,7 @@ resources:
 - operator.yaml
 - registry.yaml
 - networkpolicy.yaml
+- gitops-instance.yaml
 - controller-policy.yaml
 - controller-cluster-policy.yaml
 - namespace-prerequisites.yaml
@@ -18,6 +19,14 @@ patches:
   patch: "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n\
     \  name: controllerconfigurations.promoter.argoproj.io\n  annotations:\n    client.lifecycle.config.k8s.io/deletion:\
     \ detach"
+- target:
+    group: argoproj.io
+    version: v1beta1
+    kind: ArgoCD
+    name: gitops
+    namespace: argocd
+  patch: "apiVersion: argoproj.io/v1beta1\nkind: ArgoCD\nmetadata:\n  name: gitops\n\
+    \  namespace: argocd\nspec:\n  defaultClusterScopedRoleDisabled: true"
 - target:
     group: apps
     version: v1
@@ -61,4 +70,4 @@ patches:
     kind: Deployment
     name: openshift-gitops-operator-controller-manager
   patch: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: openshift-gitops-operator-controller-manager\n\
-    \  namespace: gitops-operator\nspec:\n  replicas: 1\n"
+    \  namespace: gitops-operator\nspec:\n  replicas: 0\n"

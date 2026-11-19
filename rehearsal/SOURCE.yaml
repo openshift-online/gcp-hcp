@@ -5,4 +5,16 @@ preparationManifestSha256: cd4815b11b51434c4dff0d0172499813678d39238ee3f2c0e625e
 policySha256:
   region: e398b16aef3327a488451ab34022ec2f682c2e56bf09c3048a252bead69e6792
   mc: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
+correctedStages:
+- P1
+- P2a
+- R
+- bad
+- P2b
+- Q
+releaseMechanism: 'source-declared configmanagement.gke.io/managed: disabled on both
+  seeds'
+historicalStages:
+- P3a
+- P3b
 runtimeAuthorized: false
