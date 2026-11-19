@@ -66,8 +66,17 @@ spec:
     # Names below are logical references, NOT customer-project GCP role IDs.
     # Original five components match custom-roles-ctrlplane-dns.yaml unchanged.
     # CCM: 48 declared permissions + 3 source-traced operation reads; ccm-audit.md.
+    # One role per (scope x nature) bucket: a binding grants its whole role at
+    # one scope, so permissions that need different scopes must live in
+    # separate roles. Hence the differing role counts per service account
+    # (most components 2, ctrlplane-op 3, CCM 4); the comment on each role
+    # below records why it is separate.
     roles:
       - name: hcpCloudControllerResources
+        # Load-balancer resource mutations (firewalls, forwarding rules,
+        # regional backend services) on resources that carry the {infraID}-
+        # prefix on new installs; bound prefix-scoped so they cannot reach
+        # other clusters' resources in a shared project.
         permissions:
           - compute.firewalls.create
           - compute.firewalls.delete
@@ -82,10 +91,18 @@ spec:
           - compute.regionBackendServices.update
           - compute.regionBackendServices.use
       - name: hcpCloudControllerInstances
+        # Worker-VM access for load-balancer backends; get/use only. Separate
+        # from the mutations above so instance lifecycle stays with
+        # nodepool-mgmt: this component reads and uses instances but never
+        # creates or deletes them.
         permissions:
           - compute.instances.get
           - compute.instances.use
       - name: hcpCloudControllerReadOnly
+        # List-style discovery reads and operation polling. List permissions
+        # are checked at project level and cannot be restricted by resource-
+        # name conditions, and operation names are GCP-generated without the
+        # infra ID; read-only, so project scope is least privilege here.
         permissions:
           - compute.addresses.list
           - compute.globalOperations.get
@@ -96,6 +113,10 @@ spec:
           - compute.zones.list
       - name: hcpCloudControllerSupport
         # Explicit project-wide exceptions, not read-only or per-cluster isolation.
+        # Covers shared-network permissions (networks.updatePolicy,
+        # subnetworks.use) and mutations on resources this component names
+        # after Kubernetes services instead of the infra ID, which therefore
+        # cannot be prefix-scoped like the roles above.
         permissions:
           - compute.addresses.create
           - compute.addresses.createInternal
@@ -128,15 +149,25 @@ spec:
           - compute.targetPools.removeInstance
           - compute.targetPools.use
       - name: hcpCloudNetworkInstances
+        # The component's only mutating access: updating network interfaces
+        # (alias IP configuration) on worker VMs. Bound prefix-scoped to this
+        # cluster's instances, unlike the shared-subnet access below.
         permissions:
           - compute.instances.get
           - compute.instances.updateNetworkInterface
       - name: hcpCloudNetworkSupport
+        # Shared-subnet reads and zone operation polling; subnetworks and
+        # operation names are not cluster-scoped, so these cannot be
+        # prefix-conditioned and remain project-wide.
         permissions:
           - compute.subnetworks.get
           - compute.subnetworks.use
           - compute.zoneOperations.get
       - name: hcpControlPlaneDNS
+        # Cloud DNS managed zones, record sets and Service Directory bindings
+        # for the private zone: a distinct service surface from the compute
+        # roles, bound at project scope. Kept separate so DNS and compute
+        # grants can change without altering each other.
         permissions:
           - dns.changes.create
           - dns.managedZones.create
@@ -149,6 +180,10 @@ spec:
           - dns.resourceRecordSets.list
           - dns.resourceRecordSets.update
       - name: hcpControlPlaneResources
+        # Firewall and forwarding-rule mutations, including Private Service
+        # Connect rules, on {infraID}-prefixed resources; bound prefix-scoped
+        # so control-plane ingress changes cannot reach other clusters'
+        # resources.
         permissions:
           - compute.firewalls.create
           - compute.firewalls.delete
@@ -162,6 +197,10 @@ spec:
           - compute.forwardingRules.pscSetLabels
           - compute.forwardingRules.setLabels
       - name: hcpControlPlaneSupport
+        # Internal addresses, shared-network use and Service Directory entries
+        # backing control-plane ingress; these act on project-shared
+        # infrastructure rather than {infraID}-prefixed resources, so the
+        # binding is project-wide.
         permissions:
           - compute.addresses.createInternal
           - compute.addresses.deleteInternal
@@ -179,6 +218,9 @@ spec:
           - servicedirectory.services.create
           - servicedirectory.services.delete
       - name: hcpGCPPDCSIReadOnly
+        # Discovery reads and operation polling; list permissions are checked
+        # at project level and cannot be name-conditioned, so like the CCM
+        # read-only role this is granted project-wide.
         permissions:
           - compute.diskTypes.list
           - compute.disks.list
@@ -189,6 +231,11 @@ spec:
           - compute.zoneOperations.get
           - compute.zones.list
       - name: hcpGCPPDCSIResources
+        # Volume lifecycle (disks, snapshots, snapshot-derived images) plus
+        # the instance attach/detach/get needed to mount volumes. Every target
+        # carries a reliable prefix (see roleBindings below), so one role and
+        # one prefix-scoped binding suffice; contrast with CCM, which needs
+        # two scoped roles for different resource surfaces.
         permissions:
           - compute.disks.create
           - compute.disks.createSnapshot
@@ -213,9 +260,14 @@ spec:
           - compute.snapshots.setLabels
           - compute.snapshots.useReadOnly
       - name: hcpImageRegistryDiscovery
+        # storage.buckets.list only: project-level enumeration that cannot be
+        # name-conditioned, kept separate so the mutating registry role stays
+        # prefix-scoped.
         permissions:
           - storage.buckets.list
       - name: hcpImageRegistryResources
+        # Registry bucket and object CRUD on the cluster's {infraID}- bucket;
+        # bound prefix-scoped to the registry bucket and its objects.
         permissions:
           - storage.buckets.create
           - storage.buckets.delete
@@ -227,6 +279,9 @@ spec:
           - storage.objects.get
           - storage.objects.list
       - name: hcpNodePoolResources
+        # Worker instance and boot-disk lifecycle: create, delete, labels,
+        # metadata, service account and tags. Bound prefix-scoped to this
+        # cluster's instances and disks.
         permissions:
           - compute.disks.create
           - compute.disks.setLabels
@@ -239,6 +294,9 @@ spec:
           # Compute network tags are not Resource Manager tag bindings.
           - compute.instances.setTags
       - name: hcpNodePoolSupport
+        # Shared-subnet use for instance creation and zone operation polling;
+        # subnetworks and operation names are not cluster-scoped, so these
+        # remain project-wide.
         permissions:
           - compute.subnetworks.use
           - compute.zoneOperations.get
