@@ -120,7 +120,6 @@ metadata:
     gke-bootstrap/target-type: mc
   annotations:
     gke-bootstrap/controller-policy-sha256: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/cert-manager/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -187,7 +186,6 @@ metadata:
     gke-bootstrap/target-type: mc
   annotations:
     gke-bootstrap/controller-policy-sha256: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/configconnector-operator-system/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -254,7 +252,6 @@ metadata:
     gke-bootstrap/target-type: mc
   annotations:
     gke-bootstrap/controller-policy-sha256: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/gateway-system/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -303,7 +300,6 @@ metadata:
     gke-bootstrap/target-type: mc
   annotations:
     gke-bootstrap/controller-policy-sha256: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/gcp-dashboards/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -487,7 +483,6 @@ metadata:
     gke-bootstrap/target-type: mc
   annotations:
     gke-bootstrap/controller-policy-sha256: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/hypershift/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -545,7 +540,6 @@ metadata:
     gke-bootstrap/target-type: mc
   annotations:
     gke-bootstrap/controller-policy-sha256: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/kube-applier-system/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -609,7 +603,6 @@ metadata:
     gke-bootstrap/target-type: mc
   annotations:
     gke-bootstrap/controller-policy-sha256: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/kube-system/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -840,7 +833,6 @@ metadata:
     gke-bootstrap/target-type: mc
   annotations:
     gke-bootstrap/controller-policy-sha256: 4c8fab7974fe278f4643e03a87f98fc053d2bed210cc130f4238e2acd9c36184
-    config.kubernetes.io/depends-on: rbac.authorization.k8s.io/namespaces/monitoring/Role/gitops-hcp-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
