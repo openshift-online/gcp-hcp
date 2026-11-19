@@ -222,6 +222,89 @@ fails closed rather than silently producing unreviewed output):
 - All namespaced operator objects are explicitly scoped to `--namespace`;
   `ClusterRole`/`ClusterRoleBinding` must not declare a namespace.
 
+## Global operator bundle (GCP-1186)
+
+`assemble.sh --type global` composes the same operator workload for a global
+target. It is Argo CD operator adoption only; it is not a Promoter migration
+and does not reopen GCP-1287 downstream distribution adoption.
+
+Preservation contract for the existing standalone upstream Promoter v0.49
+(integration global):
+
+- **Nothing from `promoter.argoproj.io` is declared by default.** The existing
+  owner keeps `promoter-system`, its CRs, credentials, aggregated API,
+  dashboard/route/IAP, TLS and topology. The 1.22.2-7 bundle ships the older
+  v0.35 `controllerconfigurations` schema; applying it over the live v0.49 CRD
+  would prune v0.49-only fields (`scope`, `clusterScmProvider`,
+  `webRequestCommitStatus.namespaceMetadata`, `metrics`, the three
+  `changeTransferPolicyHistory`/`restoreActiveCommit`/`dependent*` sections and
+  the rate-limiter shape). The global bundle therefore omits that CRD.
+- **The seed states the guardrails explicitly:** `spec.promoter.enabled: false`
+  and `spec.sourceHydrator.enabled: false`. No operator-managed Promoter
+  workload, APIService or dashboard is installed, and the Source Hydrator stays
+  off.
+- Global mode rejects `promoter-system` as the operator or instance namespace.
+  A reviewed policy may declare only the generated controller Role/RoleBinding
+  pair there, with `lifecycle: existing`; namespace and workload ownership stay
+  with the existing installation. Promoter CRs remain undeclared; the only
+  optional Promoter CRD declaration is described below.
+
+Pinned-source semantics (argocd-operator `a213c171036a`, the release's declared
+linkage; source reading, not runtime proof):
+
+- The ArgoCD reconcile calls `reconcileGitOpsPromoter` unconditionally
+  (`controllers/argocd/util.go`). Promoter resource creation is disabled when
+  `cr.Spec.Promoter.IsEnabled()` is false. `PromoterSpec.IsEnabled` is
+  `p != nil && p.Enabled != nil && *p.Enabled`, so nil and `enabled: false` are
+  both disabled. ControllerConfiguration still has the read and conditional
+  cleanup behavior described below.
+- `ReconcilePromoterControllerConfiguration`
+  (`controllers/gitopspromoter/controllerconfiguration.go`) Gets
+  `promoter-controller-configuration` **before** checking whether Promoter is
+  enabled. Any non-NotFound error (including a missing API) aborts the whole
+  ArgoCD reconcile, so the CRD is a hard dependency even with Promoter off.
+  With Promoter disabled it creates no CR. It deletes an existing CR only when
+  `app.kubernetes.io/managed-by` equals the ArgoCD CR name; otherwise it leaves
+  it untouched. Runtime preflight must confirm the live v0.49 CR is not labelled
+  with the new ArgoCD CR name.
+- Operator-internal `ControllerConfiguration` objects are therefore not
+  prohibited: the bundle only refuses to declare or co-own the shared CRD/CR.
+  An operator-created object (present or future) stays outside this bundle.
+
+Modes:
+
+- `--promoter-controller-configuration absent` (default): declare nothing. Use
+  where the API already has an owner (integration global's v0.49 install). A
+  runtime preflight must confirm the API exists before relying on operator
+  ArgoCD reconciliation; until it does, the reconcile fails closed and retries.
+- `--promoter-controller-configuration create-if-absent`: declare only the
+  pinned 1.22 `controllerconfigurations` CRD with
+  `client.lifecycle.config.k8s.io/mutation: ignore` and
+  `client.lifecycle.config.k8s.io/deletion: detach`, for a fresh global target
+  with no existing Promoter owner. Config Sync skips the apply when the object
+  exists, so a newer live schema is never overwritten or downgraded; on a fresh
+  cluster the required API is created. Nothing may depend on it (a
+  mutation:ignore dependency target makes its dependents skip on every later
+  sync), so the seed waits only on the ArgoCD CRD and the manager and the
+  operator retries until the API exists. This mode is not overlap-safe on a
+  target that already has a promoter owner; prefer `absent` there. It is not
+  an approval to overwrite an existing schema.
+
+The global bundle reuses `--scoped-rbac`, `--controller-policy` and the
+namespace-prerequisite graph. The offline suite derives a `target: global`
+policy mechanically from the MC fixture; that artifact is **FIXTURE ONLY** and
+is not reviewed global authority.
+
+```sh
+tools/gitops-bootstrap/assemble.sh --type global \
+  --global-project-id synthetic-global-project --output-dir /new/dir/global \
+  [--shared-crds-output /new/file/shared-crds.yaml] \
+  [--promoter-controller-configuration create-if-absent] \
+  [--scoped-rbac --controller-policy <reviewed-policy.yaml>]
+```
+
+No generated global bundle is committed and nothing references one.
+
 ## Release validation (GCP-1286)
 
 `release-matrix.yaml` records the OpenShift GitOps release selected for

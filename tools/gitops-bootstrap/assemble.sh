@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Assemble an INACTIVE, offline MC or region workload bundle (GCP-1280 Step 2)
-# from render.sh output plus the templates in bundle-templates/.
+# Assemble an INACTIVE, offline MC, region or global workload bundle
+# (GCP-1280 Step 2; global operator adoption in GCP-1186) from render.sh output
+# plus the templates in bundle-templates/.
 #
 # Never contacts a network or a cluster. Takes synthetic or real GCP global
 # project IDs as plain input and writes nothing outside the new output
-# directory (and the optional shared-CRD artifact file). Only the types
-# `mc` and `region` exist: any other value (including `global`) is rejected
-# before any work happens.
+# directory (and the optional shared-CRD artifact file). `global` is the Argo CD
+# operator workload only: it declares no promoter.argoproj.io CRD or CR by
+# default so the existing standalone upstream Promoter v0.49 owner keeps the
+# shared schema and its CRs. Any other value is rejected before any work
+# happens.
 #
 # See ../../bootstrap-gitops/README.md for the ownership model and
 # README.md in this directory for the renderer contract it builds on.
@@ -14,14 +17,18 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-Usage: assemble.sh --type mc|region --global-project-id <project-id> \
+Usage: assemble.sh --type mc|region|global --global-project-id <project-id> \
          --output-dir <new-dir> [--shared-crds-output <new-file>] \
          [--pins FILE] [--image-allowlist FILE] [--template-dir DIR] \
          [--namespace NAME] [--instance-name NAME] [--instance-namespace NAME] \
          [--scoped-rbac --controller-cluster-role NAME --server-cluster-role NAME] \
-         [--controller-policy FILE]
+         [--controller-policy FILE] \
+         [--promoter-controller-configuration absent|create-if-absent]
 
-  --type                 mc or region. Anything else (global, unknown) is rejected.
+  --type                 mc, region or global. Anything else is rejected.
+                          global is the Argo CD operator workload only: no
+                          Promoter deployment and no promoter.argoproj.io
+                          CRD/CR by default.
   --global-project-id    Global GCP project ID holding the registry pull secret
                           (ESO controller identity reads it; no cluster IDs/keys).
   --output-dir           New directory for the self-contained bundle (must not exist).
@@ -50,6 +57,17 @@ Usage: assemble.sh --type mc|region --global-project-id <project-id> \
                           and a bundle-owned cluster read/write ClusterRole, and
                           declares the artifact's namespace prerequisites in the
                           same bundle, ordered before the ArgoCD seed.
+  --promoter-controller-configuration
+                         global only. `absent` (default) declares no
+                          promoter.argoproj.io object: the existing standalone
+                          upstream Promoter owner keeps the shared newer schema
+                          and its CRs. `create-if-absent` declares only the
+                          pinned 1.22 controllerconfigurations CRD with
+                          mutation: ignore + deletion: detach, for a global
+                          target with no existing Promoter owner (fresh
+                          install); it is never a depends-on target. Not valid
+                          for mc or region, and not an approval to overwrite an
+                          existing newer schema.
 EOF
 }
 
@@ -75,6 +93,9 @@ CONTROLLER_CLUSTER_ROLE=""
 SERVER_CLUSTER_ROLE=""
 SCOPED_RBAC="false"
 CONTROLLER_POLICY_FILE=""
+PROMOTER_CC_MODE="absent"
+PROMOTER_CC_MODE_SET="false"
+GLOBAL_PROMOTER_NAMESPACE="promoter-system"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -92,18 +113,30 @@ while [[ $# -gt 0 ]]; do
     --server-cluster-role) SERVER_CLUSTER_ROLE="$2"; shift 2 ;;
     --scoped-rbac) SCOPED_RBAC="true"; shift ;;
     --controller-policy) CONTROLLER_POLICY_FILE="$2"; shift 2 ;;
+    --promoter-controller-configuration)
+      PROMOTER_CC_MODE="$2"; PROMOTER_CC_MODE_SET="true"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
 
-# Target type is the very first decision: only MC and region bundles exist.
+# Target type is the very first decision. global exists only as the Argo CD
+# operator workload: it never installs Promoter and never declares the shared
+# newer promoter schema unless the caller explicitly asks for the fresh-install
+# create-if-absent mode below.
 case "$TYPE" in
-  mc|region) ;;
-  global) die "unsupported --type global: a global bundle is out of scope (only mc and region)" ;;
-  "") usage; die "missing required argument --type (mc or region)" ;;
-  *) die "unsupported --type '$TYPE' (only mc or region)" ;;
+  mc|region|global) ;;
+  "") usage; die "missing required argument --type (mc, region or global)" ;;
+  *) die "unsupported --type '$TYPE' (only mc, region or global)" ;;
 esac
+case "$PROMOTER_CC_MODE" in
+  absent|create-if-absent) ;;
+  *) die "--promoter-controller-configuration must be absent or create-if-absent, not '$PROMOTER_CC_MODE'" ;;
+esac
+if [[ "$TYPE" != "global" ]]; then
+  [[ "$PROMOTER_CC_MODE_SET" == "false" ]] \
+    || die "--promoter-controller-configuration is global only (mc and region keep their reviewed ControllerConfiguration CRD)"
+fi
 [[ -n "$GLOBAL_PROJECT_ID" ]] || { usage; die "missing required argument --global-project-id"; }
 [[ -n "$OUTPUT_DIR" ]] || { usage; die "missing required argument --output-dir"; }
 
@@ -139,6 +172,13 @@ for r in "${RESERVED_NAMES[@]}"; do
 done
 [[ "$INSTANCE_NAMESPACE" != "kube-system" && "$NAMESPACE" != "kube-system" && "$NAMESPACE" != "argocd" ]] \
   || die "operator namespace must not be argocd or kube-system"
+if [[ "$TYPE" == "global" ]]; then
+  # The standalone upstream Promoter v0.49 owns promoter-system, its CRs, its
+  # credentials and its aggregated API. The operator bundle must never place an
+  # object there or become a second writer.
+  [[ "$NAMESPACE" != "$GLOBAL_PROMOTER_NAMESPACE" && "$INSTANCE_NAMESPACE" != "$GLOBAL_PROMOTER_NAMESPACE" ]] \
+    || die "global bundle must not use the standalone Promoter namespace $GLOBAL_PROMOTER_NAMESPACE"
+fi
 
 # Scoped RBAC (GCP-1286). Both cluster roles are declared by the bundle
 # templates from --instance-name, so a caller-supplied name can only confirm
@@ -276,6 +316,11 @@ validate_controller_policy() {
         || die "controller policy: prerequisite namespace $ns is the instance namespace (covered by the local role)"
       [[ "$ns" != "$NAMESPACE" ]] \
         || die "controller policy: prerequisite namespace $ns is the operator namespace"
+      if [[ "$TYPE" == "global" && "$ns" == "$GLOBAL_PROMOTER_NAMESPACE" ]]; then
+        jq -e --arg ns "$ns" '.namespacePrerequisites[] | select(.namespace == $ns)
+          | .lifecycle == "existing"' <<<"$json" >/dev/null \
+          || die "controller policy: promoter-system requires lifecycle: existing (namespace ownership stays with Promoter)"
+      fi
     done < <(jq -r '.namespacePrerequisites[].namespace' <<<"$json")
     # An `existing` namespace is never declared by this bundle: the claim is
     # that it is always present (for example `default` or `kube-system`), so no
@@ -372,13 +417,32 @@ fi
 
 # CRD ownership split. Exact sets, both directions: a chart that adds or drops
 # a CRD fails here rather than silently changing ownership.
+#
+# global is different on purpose. The standalone upstream Promoter v0.49 owns a
+# newer controllerconfigurations.promoter.argoproj.io schema on integration
+# global. A 1.22 bundle must never stamp the older schema over it, so the
+# default global set omits that CRD entirely. The global/fresh-install opt-in
+# (`create-if-absent`) declares it with mutation:ignore instead of the MC/region
+# mutation-managed form, and nothing is allowed to depend on it.
 CHILD_CRDS=(argocds.argoproj.io controllerconfigurations.promoter.argoproj.io
   namespacemanagements.argoproj.io notificationsconfigurations.argoproj.io rolloutmanagers.argoproj.io)
+if [[ "$TYPE" == "global" ]]; then
+  CHILD_CRDS=(argocds.argoproj.io namespacemanagements.argoproj.io
+    notificationsconfigurations.argoproj.io rolloutmanagers.argoproj.io)
+  if [[ "$PROMOTER_CC_MODE" == "create-if-absent" ]]; then
+    CHILD_CRDS+=(controllerconfigurations.promoter.argoproj.io)
+  fi
+fi
 SHARED_CRDS=(applications.argoproj.io applicationsets.argoproj.io appprojects.argoproj.io)
+# The chart is always the full reviewed set. Global then deliberately selects a
+# subset (it omits the shared newer promoter schema by default), so this check
+# stays independent of the per-type selection.
+ALL_RENDERED_CRDS=(argocds.argoproj.io controllerconfigurations.promoter.argoproj.io
+  namespacemanagements.argoproj.io notificationsconfigurations.argoproj.io rolloutmanagers.argoproj.io)
 
 rendered_crds="$(yq eval '.metadata.name' "$WORK_DIR/rendered/crds.yaml" | grep -v '^---$' | LC_ALL=C sort | tr '\n' ' ')"
-expected_crds="$(printf '%s\n' "${CHILD_CRDS[@]}" "${SHARED_CRDS[@]}" | LC_ALL=C sort | tr '\n' ' ')"
-[[ "$rendered_crds" == "$expected_crds" ]] || die "rendered CRD set is not exactly the expected child+shared set: $rendered_crds"
+expected_crds="$(printf '%s\n' "${ALL_RENDERED_CRDS[@]}" "${SHARED_CRDS[@]}" | LC_ALL=C sort | tr '\n' ' ')"
+[[ "$rendered_crds" == "$expected_crds" ]] || die "rendered CRD set is not exactly the expected reviewed chart set: $rendered_crds"
 
 select_crds() {
   local expr="" n
@@ -387,14 +451,37 @@ select_crds() {
 }
 select_crds "${CHILD_CRDS[@]}" > "$WORK_DIR/crds.yaml"
 select_crds "${SHARED_CRDS[@]}" > "$WORK_DIR/shared-crds.yaml"
+selected_crds="$(yq eval '.metadata.name' "$WORK_DIR/crds.yaml" | grep -v '^---$' | LC_ALL=C sort | tr '\n' ' ')"
+expected_child_crds="$(printf '%s\n' "${CHILD_CRDS[@]}" | LC_ALL=C sort | tr '\n' ' ')"
+[[ "$selected_crds" == "$expected_child_crds" ]] || die "selected child CRD set is not exactly the reviewed per-type set: $selected_crds"
 cp "$WORK_DIR/rendered/operator.yaml" "$WORK_DIR/operator.yaml"
 
 crd_ref() { printf 'apiextensions.k8s.io/CustomResourceDefinition/%s' "$1"; }
+# A mutation:ignore object may never be a depends-on target. On global the
+# ControllerConfiguration CRD is either absent or mutation-ignore (fresh
+# install), so the manager never waits on it. MC/region keep the existing
+# mutation-managed dependency exactly as before.
+DEPENDENCY_CRDS=("${CHILD_CRDS[@]}")
+if [[ "$TYPE" == "global" ]]; then
+  DEPENDENCY_CRDS=()
+  for n in "${CHILD_CRDS[@]}"; do
+    [[ "$n" == "controllerconfigurations.promoter.argoproj.io" ]] || DEPENDENCY_CRDS+=("$n")
+  done
+fi
 CRD_REFS=""
-for n in "${CHILD_CRDS[@]}"; do CRD_REFS+="${CRD_REFS:+,}$(crd_ref "$n")"; done
+for n in "${DEPENDENCY_CRDS[@]}"; do CRD_REFS+="${CRD_REFS:+,}$(crd_ref "$n")"; done
 ES_REF="external-secrets.io/namespaces/$NAMESPACE/ExternalSecret/$PULL_SECRET_NAME"
 MANAGER_DEPENDS_ON="$CRD_REFS,$ES_REF"
-INSTANCE_DEPENDS_ON="$(crd_ref argocds.argoproj.io),$(crd_ref controllerconfigurations.promoter.argoproj.io),apps/namespaces/$NAMESPACE/Deployment/$MANAGER_DEPLOYMENT"
+if [[ "$TYPE" == "global" ]]; then
+  # The global bundle default declares no ControllerConfiguration CRD, and the
+  # fresh-install opt-in declares it mutation:ignore. A mutation:ignore target
+  # may never be a depends-on target: Config Sync skips its dependents on every
+  # later sync. The operator retries the ArgoCD reconcile until that externally
+  # owned API exists, so the seed waits only on the ArgoCD CRD and the manager.
+  INSTANCE_DEPENDS_ON="$(crd_ref argocds.argoproj.io),apps/namespaces/$NAMESPACE/Deployment/$MANAGER_DEPLOYMENT"
+else
+  INSTANCE_DEPENDS_ON="$(crd_ref argocds.argoproj.io),$(crd_ref controllerconfigurations.promoter.argoproj.io),apps/namespaces/$NAMESPACE/Deployment/$MANAGER_DEPLOYMENT"
+fi
 if [[ "$CONTROLLER_POLICY" == "true" ]]; then
   # The seed must not be reconciled before the controller policy it will bind
   # exists. All three targets are ordinary managed objects, so the dependency
@@ -536,26 +623,110 @@ for t in registry networkpolicy gitops-instance; do
 done
 declare -a PLACEHOLDER_FILES=("$WORK_DIR"/registry.yaml "$WORK_DIR"/networkpolicy.yaml
   "$WORK_DIR"/gitops-instance.yaml)
+CONTROLLER_RBAC_RESOURCES='  - controller-rbac.yaml'
 if [[ "$CONTROLLER_POLICY" == "true" ]]; then
   emit_controller_policy_objects
   emit_namespace_prerequisites
   PLACEHOLDER_FILES+=("$WORK_DIR"/controller-policy.yaml "$WORK_DIR"/controller-cluster-policy.yaml
     "$WORK_DIR"/namespace-prerequisites.yaml)
+  # The policy variant carries the reviewed local role and the cluster
+  # read/write pair instead of the interim-parity wildcard.
+  CONTROLLER_RBAC_RESOURCES=$'  - controller-policy.yaml\n  - controller-cluster-policy.yaml\n  - namespace-prerequisites.yaml'
 else
   render_template controller-rbac.yaml > "$WORK_DIR/controller-rbac.yaml"
   PLACEHOLDER_FILES+=("$WORK_DIR"/controller-rbac.yaml)
 fi
 if [[ "$SCOPED_RBAC" == "true" ]]; then
+  render_template scoped-rbac.yaml > "$WORK_DIR/scoped-rbac.yaml"
+  PLACEHOLDER_FILES+=("$WORK_DIR"/scoped-rbac.yaml)
+  if [[ "$TYPE" == "global" ]]; then
+    CONTROLLER_RBAC_RESOURCES+=$'\n  - scoped-rbac.yaml'
+  fi
+fi
+
+# Global-only kustomizations. The global template always states that
+# operator-managed Promoter and the Source Hydrator are off. The two optional
+# blocks are the scoped ArgoCD switch and the fresh-install
+# ControllerConfiguration CRD declaration; MC/region templates are untouched.
+emit_global_promoter_crd_patch() {
+  [[ "$PROMOTER_CC_MODE" == "create-if-absent" ]] || return 0
+  cat <<'EOF'
+  # Fresh-install dependency API only. The pinned 1.22 operator's ArgoCD
+  # reconcile reads a ControllerConfiguration before it checks whether Promoter
+  # is enabled, so a cluster with no existing owner needs the API to exist.
+  # mutation: ignore means Config Sync skips the apply when the object already
+  # exists, so an existing newer v0.49 schema is never overwritten or
+  # downgraded. deletion: detach means dropping this declaration never deletes
+  # the schema. Nothing may depend on this target (a mutation:ignore target
+  # would skip its dependents on every later sync).
+  - target:
+      group: apiextensions.k8s.io
+      version: v1
+      kind: CustomResourceDefinition
+      name: controllerconfigurations.promoter.argoproj.io
+    patch: |-
+      apiVersion: apiextensions.k8s.io/v1
+      kind: CustomResourceDefinition
+      metadata:
+        name: controllerconfigurations.promoter.argoproj.io
+        annotations:
+          client.lifecycle.config.k8s.io/mutation: ignore
+          client.lifecycle.config.k8s.io/deletion: detach
+EOF
+}
+
+emit_global_scoped_patch() {
+  [[ "$SCOPED_RBAC" == "true" ]] || return 0
+  cat <<'EOF'
+  # Scoped identity switch. With the instance namespace in
+  # ARGOCD_CLUSTER_CONFIG_NAMESPACES, true makes the operator skip its default
+  # controller and server ClusterRoles/ClusterRoleBindings and use the roles
+  # this bundle owns instead.
+  - target:
+      group: argoproj.io
+      version: v1beta1
+      kind: ArgoCD
+      name: __INSTANCE_NAME__
+      namespace: __INSTANCE_NAMESPACE__
+    patch: |-
+      apiVersion: argoproj.io/v1beta1
+      kind: ArgoCD
+      metadata:
+        name: __INSTANCE_NAME__
+        namespace: __INSTANCE_NAMESPACE__
+      spec:
+        defaultClusterScopedRoleDisabled: true
+EOF
+}
+
+render_global_kustomization() {
+  local scalars="$WORK_DIR/.kustomization.global.scalars"
+  render_template kustomization.global.yaml > "$scalars"
+  emit_global_promoter_crd_patch > "$WORK_DIR/.global-promoter-crd-patch"
+  emit_global_scoped_patch | sed \
+    -e "s|__INSTANCE_NAME__|$INSTANCE_NAME|g" \
+    -e "s|__INSTANCE_NAMESPACE__|$INSTANCE_NAMESPACE|g" \
+    > "$WORK_DIR/.global-scoped-patch"
+  while IFS= read -r line; do
+    case "$line" in
+      "__CONTROLLER_RBAC_RESOURCES__")
+        printf '%s\n' "$CONTROLLER_RBAC_RESOURCES" ;;
+      "__PROMOTER_CRD_PATCH__")
+        cat "$WORK_DIR/.global-promoter-crd-patch" ;;
+      "__SCOPED_PATCH__")
+        cat "$WORK_DIR/.global-scoped-patch" ;;
+      *)
+        printf '%s\n' "$line" ;;
+    esac
+  done < "$scalars" > "$WORK_DIR/kustomization.yaml"
+  rm -f "$scalars" "$WORK_DIR/.global-promoter-crd-patch" "$WORK_DIR/.global-scoped-patch"
+}
+
+if [[ "$TYPE" == "global" ]]; then
+  render_global_kustomization
+elif [[ "$SCOPED_RBAC" == "true" ]]; then
   # Scoped mode swaps in a kustomization that adds the bundle-owned roles and
   # the ArgoCD switch. Vendor mode keeps the original template untouched.
-  render_template scoped-rbac.yaml > "$WORK_DIR/scoped-rbac.yaml"
-  if [[ "$CONTROLLER_POLICY" == "true" ]]; then
-    # The policy variant carries the reviewed local role and the cluster
-    # read/write pair instead of the interim-parity wildcard.
-    CONTROLLER_RBAC_RESOURCES=$'  - controller-policy.yaml\n  - controller-cluster-policy.yaml\n  - namespace-prerequisites.yaml'
-  else
-    CONTROLLER_RBAC_RESOURCES='  - controller-rbac.yaml'
-  fi
   render_template kustomization.scoped.yaml | while IFS= read -r line; do
     if [[ "$line" == "__CONTROLLER_RBAC_RESOURCES__" ]]; then
       printf '%s\n' "$CONTROLLER_RBAC_RESOURCES"
@@ -647,7 +818,8 @@ jq -e --argjson allowed "$allowed_json" '
   || die "a container image or *IMAGE* env value is not in the reviewed allowlist"
 
 # Lifecycle annotations: the reviewed seed, the mutation-managed
-# ControllerConfiguration CRD, and (policy mode only) the prerequisite
+# ControllerConfiguration CRD (MC/region) or its fresh-install
+# mutation-ignored global form, and (policy mode only) the prerequisite
 # namespaces, which are deletion:detach so dropping the declaration never
 # deletes a namespace and its contents. Nothing else is protected: retiring the
 # child stays destructive and needs a separately reviewed sequence.
@@ -656,7 +828,15 @@ lifecycle="$(jq -r '.[] | select(.metadata.annotations["client.lifecycle.config.
 expected_lifecycle="$(
   {
     printf 'ArgoCD/%s=ignore,detach\n' "$INSTANCE_NAME"
-    printf 'CustomResourceDefinition/controllerconfigurations.promoter.argoproj.io=-,detach\n'
+    if [[ "$TYPE" == "global" ]]; then
+      # No promoter schema is declared by default; the fresh-install opt-in is
+      # mutation:ignore so it can never overwrite an existing newer owner.
+      if [[ "$PROMOTER_CC_MODE" == "create-if-absent" ]]; then
+        printf 'CustomResourceDefinition/controllerconfigurations.promoter.argoproj.io=ignore,detach\n'
+      fi
+    else
+      printf 'CustomResourceDefinition/controllerconfigurations.promoter.argoproj.io=-,detach\n'
+    fi
     if [[ "$CONTROLLER_POLICY" == "true" ]]; then
       jq -r '.namespacePrerequisites[]?
              | select((.lifecycle // "ensure") == "ensure")
@@ -686,6 +866,58 @@ jq -e --arg ns "$INSTANCE_NAMESPACE" --argjson scoped "$SCOPED_CR_VALUE" '
     and ((.spec.defaultClusterScopedRoleDisabled // false) == $scoped)
     and ((.spec.aggregatedClusterRoles // false) == false)' <<<"$PREVIEW_JSON" >/dev/null \
   || die "ArgoCD seed settings differ from the reviewed seed (aggregatedClusterRoles must stay false: the operator rejects it together with defaultClusterScopedRoleDisabled)"
+
+# Global adoption: the bundle is Argo CD only. It preserves the standalone
+# upstream Promoter v0.49 owner (schema, CRs, namespace, credentials, APIs,
+# dashboard, TLS and topology) by declaring none of it, and it must not become
+# a second writer or install a second Promoter.
+if [[ "$TYPE" == "global" ]]; then
+  jq -e '[.[] | select((.apiVersion // "") | test("^promoter\\.argoproj\\.io/"))] | length == 0' \
+    <<<"$PREVIEW_JSON" >/dev/null \
+    || die "global bundle declares a promoter.argoproj.io custom resource"
+  if [[ "$PROMOTER_CC_MODE" == "absent" ]]; then
+    jq -e '[.[] | select(.kind == "CustomResourceDefinition" and (.metadata.name | endswith(".promoter.argoproj.io")))] | length == 0' \
+      <<<"$PREVIEW_JSON" >/dev/null \
+      || die "global bundle declares a promoter.argoproj.io CRD in absent mode"
+  else
+    jq -e '
+      [ .[] | select(.kind == "CustomResourceDefinition"
+                     and .metadata.name == "controllerconfigurations.promoter.argoproj.io") ] as $c
+      | ($c | length) == 1
+        and (($c[0].metadata.annotations // {})["client.lifecycle.config.k8s.io/mutation"] == "ignore")
+        and (($c[0].metadata.annotations // {})["client.lifecycle.config.k8s.io/deletion"] == "detach")' \
+      <<<"$PREVIEW_JSON" >/dev/null \
+      || die "the global fresh-install ControllerConfiguration CRD is not exactly one mutation:ignore/deletion:detach declaration"
+  fi
+  # Preserve namespace/workload ownership. The reviewed controller policy may
+  # grant the replacement ArgoCD controller finite access to existing workloads
+  # there, using only the generated Role/RoleBinding pair.
+  jq -e --arg ns "$GLOBAL_PROMOTER_NAMESPACE" --arg grant "$INSTANCE_NAME-hcp-controller" '
+    all(.[]; (.metadata.namespace // "") != $ns
+      or (.apiVersion == "rbac.authorization.k8s.io/v1"
+          and (.kind == "Role" or .kind == "RoleBinding")
+          and .metadata.name == $grant))
+    and all(.[]; .kind != "Namespace" or .metadata.name != $ns)
+    and ([ .[] | select(.kind == "Deployment") ] | length == 1)
+    and ([ .[] | select(.kind == "APIService" or .kind == "StatefulSet"
+                          or .kind == "DaemonSet" or .kind == "CronJob") ] | length == 0)
+    and all(.[]; .kind != "Secret")' \
+    <<<"$PREVIEW_JSON" >/dev/null \
+    || die "global bundle declares a Promoter workload/API/credential object or an object other than the controller RBAC pair in promoter-system"
+  # Explicit off, not merely absent: the pinned operator defaults to disabled,
+  # but the global seed must say so or a later edit could enable a second writer.
+  jq -e --arg ns "$INSTANCE_NAMESPACE" '
+    .[] | select(.kind == "ArgoCD")
+    | .metadata.namespace == $ns
+      and .spec.promoter.enabled == false
+      and .spec.sourceHydrator.enabled == false' <<<"$PREVIEW_JSON" >/dev/null \
+    || die "global ArgoCD seed does not explicitly disable Promoter and the Source Hydrator"
+  jq -e '[ .[] | select(.metadata.annotations["config.kubernetes.io/depends-on"] != null)
+           | .metadata.annotations["config.kubernetes.io/depends-on"] | split(",")[]
+           | select(test("promoter\\.argoproj\\.io")) ] | length == 0' \
+    <<<"$PREVIEW_JSON" >/dev/null \
+    || die "a global bundle object depends on a promoter.argoproj.io object it does not own"
+fi
 
 # Scoped mode: the namespaced bind Role is bind-on-roles only, and the manager
 # ClusterRole keeps exactly one bind, limited to the two roles this bundle owns.

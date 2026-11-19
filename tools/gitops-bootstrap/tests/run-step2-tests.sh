@@ -262,14 +262,12 @@ check "mc and region differ only by the target-type label" \
   bash -c "sed 's/target-type: mc/target-type: region/' '$T/mc/registry.yaml' | diff - '$T/region/registry.yaml' && sed 's/target-type: mc/target-type: region/' '$T/mc/networkpolicy.yaml' | diff - '$T/region/networkpolicy.yaml' && sed 's/target-type: mc/target-type: region/' '$T/mc/gitops-instance.yaml' | diff - '$T/region/gitops-instance.yaml' && sed 's/target-type: mc/target-type: region/' '$T/mc/controller-rbac.yaml' | diff - '$T/region/controller-rbac.yaml' && cmp '$T/mc/crds.yaml' '$T/region/crds.yaml' && cmp '$T/mc/operator.yaml' '$T/region/operator.yaml' && cmp '$T/mc/kustomization.yaml' '$T/region/kustomization.yaml'"
 check "shared CRD artifact identical for mc and region" cmp "$T/mc-shared.yaml" "$T/region-shared.yaml"
 
-for bad in global Global GLOBAL "" mc2 regions " mc"; do
+for bad in Global GLOBAL "" mc2 regions " mc"; do
   rm -rf "$T/rej"
   expect_fail "type '${bad:-<empty>}' is rejected at entry; nothing is created" "unsupported --type|missing required argument --type" \
     "$TOOL/assemble.sh" --type "$bad" --global-project-id "$SYN_PROJECT" --output-dir "$T/rej" --shared-crds-output "$T/rej-shared.yaml"
   check "no output created for rejected type '${bad:-<empty>}'" bash -c "[[ ! -e '$T/rej' && ! -e '$T/rej-shared.yaml' ]]"
 done
-expect_fail "global is explicitly out of scope" "global bundle is out of scope" \
-  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/rej"
 expect_fail "existing output directory is never overwritten" "already exists" \
   "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJECT" --output-dir "$T/mc"
 expect_fail "instance name 'argocd' collides with the ESO argocd-cluster Secret" "collides with a parent/day-two identity" \
@@ -632,6 +630,228 @@ check "ArgoCD seed depends on the argocds and ControllerConfiguration CRDs and t
   bash -c "jq -e '.[] | select(.kind==\"ArgoCD\") | .metadata.annotations[\"config.kubernetes.io/depends-on\"] | split(\",\") | (index(\"apiextensions.k8s.io/CustomResourceDefinition/controllerconfigurations.promoter.argoproj.io\") != null) and (index(\"apiextensions.k8s.io/CustomResourceDefinition/argocds.argoproj.io\") != null) and (index(\"apps/namespaces/gitops-operator/Deployment/openshift-gitops-operator-controller-manager\") != null)' '$T/mc-built.json'"
 check "manager depends on all five child CRDs (API before watcher) and the registry ExternalSecret" \
   bash -c "jq -e '.[] | select(.kind==\"Deployment\") | .metadata.annotations[\"config.kubernetes.io/depends-on\"] | split(\",\") | length == 6 and (map(select(startswith(\"apiextensions.k8s.io/CustomResourceDefinition/\"))) | length == 5) and (index(\"external-secrets.io/namespaces/gitops-operator/ExternalSecret/redhat-registry-pull-secret\") != null)' '$T/mc-built.json'"
+
+# ------------------------------------ global operator bundle (GCP-1186)
+# Argo CD operator adoption only. The existing standalone upstream Promoter
+# v0.49 keeps the shared newer CRD/CRs, namespace, credentials, APIs, gates,
+# dashboard, TLS and topology. These checks exercise the assembled bundle, not
+# the documentation.
+check "assemble global (default: Argo CD operator only, no promoter.argoproj.io declaration)" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/global" --shared-crds-output "$T/global-shared.yaml"
+check "global assembly is deterministic (twice, byte-identical)" \
+  bash -c "'$TOOL/assemble.sh' --type global --global-project-id $SYN_PROJECT --output-dir '$T/global2' >/dev/null && diff -r '$T/global' '$T/global2'"
+check "global shares the parent-owned shared CRD artifact with mc and region" \
+  cmp "$T/global-shared.yaml" "$T/mc-shared.yaml"
+
+kubectl kustomize "$T/global" > "$T/global-built.yaml" 2>/dev/null
+j "$T/global-built.yaml" > "$T/global-built.json"
+cat > "$T/expected-global-ids.txt" <<'EOF'
+ArgoCD/argocd/gitops
+ClusterRole/-/gitops-application-controller-interim-parity
+ClusterRole/-/openshift-gitops-operator-controller-manager
+ClusterRoleBinding/-/gitops-application-controller-interim-parity
+ClusterRoleBinding/-/openshift-gitops-operator-controller-manager
+CustomResourceDefinition/-/argocds.argoproj.io
+CustomResourceDefinition/-/namespacemanagements.argoproj.io
+CustomResourceDefinition/-/notificationsconfigurations.argoproj.io
+CustomResourceDefinition/-/rolloutmanagers.argoproj.io
+Deployment/gitops-operator/openshift-gitops-operator-controller-manager
+ExternalSecret/gitops-operator/redhat-registry-pull-secret
+Namespace/-/gitops-operator
+NetworkPolicy/gitops-operator/operator-default-deny-ingress
+Role/gitops-operator/openshift-gitops-operator-leader-election
+RoleBinding/gitops-operator/openshift-gitops-operator-leader-election
+SecretStore/gitops-operator/gitops-registry-bootstrap-gcpsm
+ServiceAccount/gitops-operator/openshift-gitops-operator-controller-manager
+EOF
+check "global child inventory is exactly 17 identities: the operator and ArgoCD, no Promoter CRD" \
+  bash -c "diff <(LC_ALL=C sort '$T/expected-global-ids.txt') <(jq -r '.[] | [.kind, (.metadata.namespace // \"-\"), .metadata.name] | join(\"/\")' '$T/global-built.json' | LC_ALL=C sort)"
+check "global default declares no promoter.argoproj.io CRD or CR at all" \
+  bash -c "jq -e '([.[] | select((.apiVersion // \"\") | test(\"^promoter\\\\.argoproj\\\\.io/\"))] | length == 0)
+    and ([.[] | select(.kind == \"CustomResourceDefinition\" and (.metadata.name | endswith(\".promoter.argoproj.io\")))] | length == 0)' '$T/global-built.json'"
+check "global installs no Promoter workload, APIService, dashboard or credential and never targets promoter-system" \
+  bash -c "jq -e '([.[] | select(.kind == \"Deployment\")] | length == 1)
+    and ([.[] | select(.kind == \"APIService\" or .kind == \"StatefulSet\" or .kind == \"DaemonSet\" or .kind == \"CronJob\")] | length == 0)
+    and all(.[]; .kind != \"Secret\")
+    and all(.[]; (.metadata.namespace // \"\") != \"promoter-system\" and .metadata.name != \"promoter-system\")' '$T/global-built.json'"
+check "global seed explicitly disables operator-managed Promoter and the Source Hydrator" \
+  bash -c "jq -e '.[] | select(.kind == \"ArgoCD\") | .spec.promoter.enabled == false and .spec.sourceHydrator.enabled == false' '$T/global-built.json'"
+check "global manager depends on the four child CRDs and the registry ExternalSecret, never a promoter CRD" \
+  bash -c "jq -e '.[] | select(.kind == \"Deployment\")
+    | .metadata.annotations[\"config.kubernetes.io/depends-on\"] | split(\",\") as \$d
+    | (\$d | length) == 5
+      and (\$d | map(select(startswith(\"apiextensions.k8s.io/CustomResourceDefinition/\"))) | length) == 4
+      and (\$d | map(select(test(\"promoter\\\\.argoproj\\\\.io\"))) | length) == 0
+      and (\$d | index(\"external-secrets.io/namespaces/gitops-operator/ExternalSecret/redhat-registry-pull-secret\") != null)' '$T/global-built.json'"
+check "global seed depends on the argocds CRD and the manager, never a promoter CRD" \
+  bash -c "jq -e '.[] | select(.kind == \"ArgoCD\")
+    | .metadata.annotations[\"config.kubernetes.io/depends-on\"] | split(\",\") as \$d
+    | (\$d | length) == 2
+      and (\$d | index(\"apiextensions.k8s.io/CustomResourceDefinition/argocds.argoproj.io\") != null)
+      and (\$d | index(\"apps/namespaces/gitops-operator/Deployment/openshift-gitops-operator-controller-manager\") != null)
+      and (\$d | map(select(test(\"promoter\\\\.argoproj\\\\.io\"))) | length) == 0' '$T/global-built.json'"
+check "global final depends-on graph is valid (resolvable, no mutation:ignore target, acyclic)" \
+  python3 -I "$TOOL/check-depends-on.py" "$T/global-built.json"
+check "global lifecycle is exactly the seed ignore+detach: the default declares no protected Promoter schema" \
+  bash -c "diff <(jq -r '.[] | select(.metadata.annotations[\"client.lifecycle.config.k8s.io/mutation\"] != null or .metadata.annotations[\"client.lifecycle.config.k8s.io/deletion\"] != null) | .kind+\"/\"+.metadata.name+\"=\"+(.metadata.annotations[\"client.lifecycle.config.k8s.io/mutation\"] // \"-\")+\",\"+(.metadata.annotations[\"client.lifecycle.config.k8s.io/deletion\"] // \"-\")' '$T/global-built.json' | sort) <(printf 'ArgoCD/gitops=ignore,detach\n')"
+check "global reuses the reviewed operator, registry and NetworkPolicy output unchanged" \
+  bash -c "cmp '$T/global/operator.yaml' '$T/mc/operator.yaml' && cmp '$T/global/registry.yaml' <(sed 's/target-type: mc/target-type: global/' '$T/mc/registry.yaml') && cmp '$T/global/networkpolicy.yaml' <(sed 's/target-type: mc/target-type: global/' '$T/mc/networkpolicy.yaml')"
+check "global ArgoCD is still the v1beta1-only CRD seed and no child CRD carries a conversion webhook" \
+  bash -c "jq -e 'all(.[] | select(.kind==\"CustomResourceDefinition\"); .spec.conversion == null or .spec.conversion.strategy == \"None\") and (.[] | select(.metadata.name==\"argocds.argoproj.io\") | (.spec.versions | map(.name)) == [\"v1beta1\"])' '$T/global-built.json'"
+check "MC/region still declare the mutation-managed ControllerConfiguration CRD (global-only change)" \
+  bash -c "yq eval '.metadata.name' '$T/mc/crds.yaml' | grep -qx controllerconfigurations.promoter.argoproj.io && yq eval '.metadata.name' '$T/region/crds.yaml' | grep -qx controllerconfigurations.promoter.argoproj.io"
+check "MC/region seeds leave operator-managed Promoter absent (disabled in the pinned operator)" \
+  bash -c "jq -e '.[] | select(.kind == \"ArgoCD\") | (.spec | has(\"promoter\") | not) and ((.spec.sourceHydrator.enabled // false) == false)' '$T/mc-built.json'"
+
+# Fail-closed combinations.
+expect_fail "global-only promoter mode is rejected for mc" "global only" \
+  "$TOOL/assemble.sh" --type mc --global-project-id "$SYN_PROJECT" --output-dir "$T/g-rej1" --promoter-controller-configuration create-if-absent
+expect_fail "global-only promoter mode is rejected for region even when absent" "global only" \
+  "$TOOL/assemble.sh" --type region --global-project-id "$SYN_PROJECT" --output-dir "$T/g-rej2" --promoter-controller-configuration absent
+expect_fail "an unknown promoter mode is rejected" "must be absent or create-if-absent" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/g-rej3" --promoter-controller-configuration overwrite
+expect_fail "global refuses the standalone Promoter namespace as the instance namespace" "must not use the standalone Promoter namespace" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/g-rej4" --instance-namespace promoter-system
+expect_fail "global refuses the standalone Promoter namespace as the operator namespace" "must not use the standalone Promoter namespace" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/g-rej5" --namespace promoter-system --instance-namespace argocd
+expect_fail "a policy artifact for another target is rejected in global mode" "not --type global" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/g-rej6" --scoped-rbac --controller-policy "$POLICY_MC"
+check "no global bundle was published by any rejected assembly" bash -c "[[ -z \"\$(ls '$T' | grep -E '^g-rej[0-9]+\$')\" ]]"
+
+# Fresh-install mode: the only permitted promoter declaration, and it can never
+# overwrite an existing newer owner.
+check "assemble global with the explicit fresh-install ControllerConfiguration CRD" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/global-opt" --promoter-controller-configuration create-if-absent
+kubectl kustomize "$T/global-opt" > "$T/global-opt-built.yaml" 2>/dev/null
+j "$T/global-opt-built.yaml" > "$T/global-opt-built.json"
+check "fresh-install mode declares exactly one Promoter CRD with mutation:ignore + deletion:detach and no Promoter CR" \
+  bash -c "jq -e '
+    [.[] | select(.kind == \"CustomResourceDefinition\" and (.metadata.name | endswith(\".promoter.argoproj.io\")))] as \$c
+    | (\$c | length) == 1
+      and \$c[0].metadata.name == \"controllerconfigurations.promoter.argoproj.io\"
+      and \$c[0].metadata.annotations[\"client.lifecycle.config.k8s.io/mutation\"] == \"ignore\"
+      and \$c[0].metadata.annotations[\"client.lifecycle.config.k8s.io/deletion\"] == \"detach\"
+      and ([.[] | select((.apiVersion // \"\") | test(\"^promoter\\\\.argoproj\\\\.io/\"))] | length) == 0' '$T/global-opt-built.json'"
+check "nothing in fresh-install mode depends on the mutation:ignore ControllerConfiguration CRD" \
+  bash -c "jq -e '[.[] | select(.metadata.annotations[\"config.kubernetes.io/depends-on\"] != null) | .metadata.annotations[\"config.kubernetes.io/depends-on\"] | split(\",\")[] | select(test(\"promoter\\\\.argoproj\\\\.io\"))] | length == 0' '$T/global-opt-built.json'"
+check "fresh-install mode is still a valid depends-on graph and still installs no Promoter workload/API" \
+  bash -c "python3 -I '$TOOL/check-depends-on.py' '$T/global-opt-built.json' && jq -e '([.[] | select(.kind == \"Deployment\")] | length == 1) and ([.[] | select(.kind == \"APIService\")] | length == 0)' '$T/global-opt-built.json'"
+
+# Preservation by the actual declared mechanism. Source-derived simulation of
+# Config Sync v1.23.3 / cli-utils 5895ad6c17dd: an incoming mutation:ignore
+# object that already exists is a skipped apply, so the live newer v0.49 CRD is
+# unchanged. A live object with no matching declaration cannot be touched at all.
+cat > "$T/live-promoter-crd.json" <<'EOF'
+[{"apiVersion":"apiextensions.k8s.io/v1","kind":"CustomResourceDefinition",
+  "metadata":{"name":"controllerconfigurations.promoter.argoproj.io",
+              "labels":{"owner":"gitops-promoter-v0.49"},
+              "annotations":{"owner":"gitops-promoter-v0.49"}},
+  "spec":{"group":"promoter.argoproj.io","names":{"kind":"ControllerConfiguration"},
+          "versions":[{"name":"v1alpha1","served":true,"storage":true}]}}]
+EOF
+check "global default cannot touch the live newer CRD: no declared object shares its identity" \
+  bash -c "jq -e --slurpfile live '$T/live-promoter-crd.json' '
+    [.[] | [.kind, (.metadata.namespace // \"-\"), .metadata.name]] as \$declared
+    | [\$live[0][] | [.kind, (.metadata.namespace // \"-\"), .metadata.name]] as \$liveids
+    | [\$declared[] | select(. as \$i | \$liveids | index(\$i))] | length == 0' '$T/global-built.json'"
+check "fresh-install mode preserves an existing newer CRD: Config Sync skips the mutation:ignore apply and the live object is unchanged" \
+  bash -c "python3 -I - '$T/global-opt-built.json' '$T/live-promoter-crd.json' <<'PY'
+import json, sys
+bundle = json.load(open(sys.argv[1]))
+live = json.load(open(sys.argv[2]))
+def ident(o):
+    return (o[\"kind\"], o[\"metadata\"].get(\"namespace\"), o[\"metadata\"][\"name\"])
+incoming = {ident(o): o for o in bundle}
+for obj in live:
+    i = ident(obj)
+    assert i in incoming, \"fixture CRD is not declared by the opt-in bundle\"
+    ann = incoming[i][\"metadata\"].get(\"annotations\") or {}
+    assert ann.get(\"client.lifecycle.config.k8s.io/mutation\") == \"ignore\", \"existing CRD would be overwritten\"
+    assert ann.get(\"client.lifecycle.config.k8s.io/deletion\") == \"detach\", \"dropping the declaration could delete the live CRD\"
+    assert obj[\"metadata\"][\"labels\"][\"owner\"] == \"gitops-promoter-v0.49\", \"simulated live object changed\"
+print(\"existing newer CRD preserved by mutation:ignore\")
+PY"
+
+# Global reuses the reviewed scoped identity and the namespace prerequisite
+# graph. The policy is a mechanical FIXTURE ONLY copy of the MC fixture with
+# target: global; it is not reviewed global authority.
+{
+  printf '%s\n' '# FIXTURE ONLY: mechanical target: global copy of the MC fixture.'
+  printf '%s\n' '# NOT REVIEWED GLOBAL AUTHORITY. Exercises the global assembly path only.'
+  yq eval '.target = "global"' "$POLICY_MC"
+} > "$T/policy-global-fixture.yaml"
+check "assemble global with --scoped-rbac and a target: global policy fixture (namespace dependency graph reuse)" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/global-policy" \
+  --scoped-rbac --controller-policy "$T/policy-global-fixture.yaml"
+kubectl kustomize "$T/global-policy" > "$T/global-policy-built.yaml" 2>/dev/null
+j "$T/global-policy-built.yaml" > "$T/global-policy-built.json"
+check "global policy bundle keeps the scoped switch, explicit off flags and a valid graph" \
+  bash -c "jq -e '.[] | select(.kind == \"ArgoCD\") | .spec.defaultClusterScopedRoleDisabled == true and .spec.promoter.enabled == false and .spec.sourceHydrator.enabled == false' '$T/global-policy-built.json' && python3 -I '$TOOL/check-depends-on.py' '$T/global-policy-built.json'"
+check "global policy bundle still declares no promoter.argoproj.io object and no interim wildcard role" \
+  bash -c "jq -e '([.[] | select((.apiVersion // \"\") | test(\"^promoter\\\\.argoproj\\\\.io/\"))] | length == 0)
+    and ([.[] | select((.kind == \"ClusterRole\" or .kind == \"ClusterRoleBinding\") and .metadata.name == \"gitops-application-controller-interim-parity\")] | length == 0)' '$T/global-policy-built.json'"
+# FIXTURE ONLY: retain the existing Promoter namespace owner while granting the
+# replacement ArgoCD controller finite access to its existing workload.
+yq eval '.namespacePrerequisites += [{
+  "namespace": "promoter-system", "lifecycle": "existing",
+  "rules": [{"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "patch"]}]
+}]' "$T/policy-global-fixture.yaml" > "$T/policy-global-promoter.yaml"
+check "global policy accepts finite RBAC in the existing Promoter namespace" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/global-promoter-policy" \
+  --scoped-rbac --controller-policy "$T/policy-global-promoter.yaml"
+kubectl kustomize "$T/global-promoter-policy" > "$T/global-promoter-policy-built.yaml" 2>/dev/null
+j "$T/global-promoter-policy-built.yaml" > "$T/global-promoter-policy-built.json"
+check "Promoter namespace contains only the finite controller Role/RoleBinding, with namespace ownership preserved" \
+  python3 -I - "$T/global-promoter-policy-built.json" <<'PY'
+import json, sys
+bundle = json.load(open(sys.argv[1]))
+objects = [o for o in bundle if o["metadata"].get("namespace") == "promoter-system"]
+assert len(objects) == 2
+assert {o["kind"] for o in objects} == {"Role", "RoleBinding"}
+assert all(o["metadata"]["name"] == "gitops-hcp-controller" for o in objects)
+role = next(o for o in objects if o["kind"] == "Role")
+binding = next(o for o in objects if o["kind"] == "RoleBinding")
+assert role["rules"] == [{"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "patch"]}]
+assert binding["roleRef"] == {"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": "gitops-hcp-controller"}
+assert binding["subjects"] == [{"kind": "ServiceAccount", "name": "gitops-argocd-application-controller", "namespace": "argocd"}]
+assert not any(o["kind"] == "Namespace" and o["metadata"]["name"] == "promoter-system" for o in bundle)
+assert not any(o["apiVersion"].startswith("promoter.argoproj.io/") for o in bundle)
+PY
+check "global Promoter-namespace grant participates in the valid seed dependency graph" \
+  bash -c "python3 -I '$TOOL/check-depends-on.py' '$T/global-promoter-policy-built.json' &&
+    jq -e '.[] | select(.kind == \"ArgoCD\") | .metadata.annotations[\"config.kubernetes.io/depends-on\"]
+      | split(\",\") | index(\"rbac.authorization.k8s.io/namespaces/promoter-system/RoleBinding/gitops-hcp-controller\") != null' '$T/global-promoter-policy-built.json'"
+yq eval '(.namespacePrerequisites[] | select(.namespace == "promoter-system")).lifecycle = "ensure"' \
+  "$T/policy-global-promoter.yaml" > "$T/policy-global-promoter-ensure.yaml"
+expect_fail "global policy cannot adopt or create the Promoter namespace" "promoter-system requires lifecycle: existing" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/global-promoter-ensure" \
+  --scoped-rbac --controller-policy "$T/policy-global-promoter-ensure.yaml"
+yq eval 'del((.namespacePrerequisites[] | select(.namespace == "promoter-system")).lifecycle)' \
+  "$T/policy-global-promoter.yaml" > "$T/policy-global-promoter-default.yaml"
+expect_fail "global Promoter namespace requires explicit existing lifecycle" "promoter-system requires lifecycle: existing" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/global-promoter-default" \
+  --scoped-rbac --controller-policy "$T/policy-global-promoter-default.yaml"
+cp -R "$TOOL/bundle-templates" "$T/global-extra-object-templates"
+cat >> "$T/global-extra-object-templates/registry.yaml.tmpl" <<'EOF'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: extra-promoter-writer
+  namespace: promoter-system
+EOF
+expect_fail "global policy still rejects a non-RBAC object in the Promoter namespace" "bundle identity set differs from the reviewed child inventory" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/global-extra-object" \
+  --template-dir "$T/global-extra-object-templates" --scoped-rbac --controller-policy "$T/policy-global-promoter.yaml"
+
+check "assemble global with the scoped switch and the bundle-owned interim-parity identity (no policy artifact)" \
+  "$TOOL/assemble.sh" --type global --global-project-id "$SYN_PROJECT" --output-dir "$T/global-scoped" --scoped-rbac
+kubectl kustomize "$T/global-scoped" > "$T/global-scoped-built.yaml" 2>/dev/null
+j "$T/global-scoped-built.yaml" > "$T/global-scoped-built.json"
+check "global scoped-only bundle keeps the scoped switch, the bundle-owned role and no Promoter object" \
+  bash -c "jq -e '.[] | select(.kind == \"ArgoCD\") | .spec.defaultClusterScopedRoleDisabled == true and .spec.promoter.enabled == false' '$T/global-scoped-built.json' && \
+    jq -e '([.[] | select(.kind == \"ClusterRole\" and .metadata.name == \"gitops-application-controller-interim-parity\")] | length == 1) and ([.[] | select((.apiVersion // \"\") | test(\"^promoter\\\\.argoproj\\\\.io/\"))] | length == 0)' '$T/global-scoped-built.json' && \
+    python3 -I '$TOOL/check-depends-on.py' '$T/global-scoped-built.json'"
 
 # Negative regressions for the dependency-graph checker, on copies of the real built graph.
 CC_REF='apiextensions.k8s.io/CustomResourceDefinition/controllerconfigurations.promoter.argoproj.io'
