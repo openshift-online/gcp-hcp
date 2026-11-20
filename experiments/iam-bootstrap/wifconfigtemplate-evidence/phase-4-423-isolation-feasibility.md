@@ -1,5 +1,9 @@
 # Phase 4 fresh-cluster upgrade and same-project isolation feasibility
 
+**Later decision:** the user selected **4.22.21** as the source instead. Follow
+the [selected-pair preparation record](phase-4-42221-preparation.md) for current
+scope. The 4.23 NO-GO and isolation findings below remain historical evidence.
+
 **2026-11-20. Read-only checkpoint complete. NO-GO for provisioning the requested
 4.23 → exact 5.0.0 scenario: no supported path was found in the queried graphs.**
 No source code, catalog, IAM, gate, deployment, journal or customer resource was
