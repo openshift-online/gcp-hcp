@@ -1,5 +1,9 @@
 # Phase 4 public JSONPatch fix — API-only dev rollout
 
+**Later continuation:** the separately approved [fresh v2 live guard rehearsal](phase-4-api-guards-v2.md)
+subsequently passed both negative test-op cases. The lack of guard proof below
+describes this earlier rollout checkpoint, not the current resume state.
+
 **2026-11-20. API-only dev rollout passed; final independent readback
 07:22:30 UTC. Phase 4 remains incomplete: neither live JSONPatch guard is proven.**
 The user renewed authentication and explicitly approved the API rollout after
