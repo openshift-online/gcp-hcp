@@ -23,8 +23,8 @@ repository (manifest digests below).
 
 Both fixtures were created for this rehearsal on 2026-11-19 and are separate
 from the older disposable pair used by GCP-1283. Each run stopped with the
-operator namespace and manager absent, every editor at zero, and the legacy
-chain serving. This record claims bounded technical acceptance only; the open
+operator namespace and manager absent, every operator writer at zero, and the
+legacy writer chain serving. This record claims bounded technical acceptance only; the open
 gates are listed at the end.
 
 ## Topology, versions and pins
@@ -257,9 +257,12 @@ rewritten:
   intended two-grant RBAC fault, so that fault signature was not proven. The run
   then hit a hard stop before legacy restore: the operator had added
   ownerReferences from the CR onto protected ConfigMaps (and other objects) and
-  a finalizer on the CR, so resuming a prune-enabled legacy chart could have
-  cascaded into those objects. The region was left quiescent, not healthy
-  legacy.
+  a finalizer on the CR. The initial automatic-prune concern was unverified at
+  that stop. Follow-up confirmed that the live `Prune=false,Delete=false`
+  protection caused `PruneSkipped`; normal legacy reconciliation would not
+  automatically delete the protected CR. Explicit CR deletion still carried a
+  cascade risk, so recovery retained the CR/NC and restored configuration in
+  place. The stopped region was quiescent, not healthy legacy.
 - **Region legacy recovery** then restored the healthy legacy baseline with a
   bounded retain-and-converge sequence: protect the extras, converge the
   ConfigMaps in place while every writer was zero, restore the baseline source
@@ -287,7 +290,8 @@ quiesce revision and the baseline restore — again as fresh two-in-place plans
 (MC `d5f872df…` then `f1be190f…`; region `544c23b2…` then `603d188e…`) with
 2+2 membership reads; no new linear serial is claimed for them either.
 
-Git refs advanced only by non-force fast-forward to reviewed literal commits;
+During the accepted runs and login windows, Git refs advanced only by
+non-force fast-forward to reviewed literal commits;
 no force push, rewind, raw live push, pull request or `main` merge occurred. The
 read-only fixture deploy key was neither used to push nor widened.
 
