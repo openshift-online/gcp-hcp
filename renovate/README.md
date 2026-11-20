@@ -10,10 +10,21 @@ Opt in from a repository's root `renovate.json`:
 ```
 
 The preset enables the dependency dashboard, adds `ok-to-test` and
-`area/dependency`, limits concurrent PRs to 10, groups `golang.org/x` modules,
+`area/dependency`, limits concurrent PRs to 10, groups related Go modules,
 and runs Go module tidy and import-path updates. Automerge and dashboard
 vulnerability summaries are disabled; vulnerability alerts remain enabled by
 MintMaker. It does not onboard this repository to Renovate.
+
+Go module updates use these focused groups:
+
+- `golang.org/x/**` modules.
+- Kubernetes modules: `k8s.io/**`, the `sigs.k8s.io/controller-runtime` prefix
+  (including tool submodules), and exactly `sigs.k8s.io/controller-tools`.
+- Onsi modules: `github.com/onsi/**`, including Ginkgo and Gomega.
+
+Renovate's [string matching](https://docs.renovatebot.com/string-pattern-matching/)
+uses `**` for nested module paths. The controller-runtime matcher is an anchored
+prefix regex. Other dependencies are not grouped by this preset.
 
 `registry.access.redhat.com/ubi9/go-toolset` updates stay on Go `1.x` tags, not
 UBI `9.x` tags. Go 2 requires revisiting this constraint; `ubi-micro` is unaffected.
