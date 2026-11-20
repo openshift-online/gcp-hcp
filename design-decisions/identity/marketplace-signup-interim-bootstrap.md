@@ -41,6 +41,7 @@ Provide an interim, minimal sign-up service where a subscribing customer signs i
 ### Positive
 
 * Private Preview customers can self-serve the initial `service-admin` RoleBinding with no operator involvement
+* The team is notified of every activation (who, which project, outcome) with zero added credentials or services — closing the visibility gap raised at the November office hours
 * The provisioning path is identical to the future automated one (`activate-project`), so no migration of activation semantics is needed when marketplace lands
 * The identity gate is enforced by Google's signed claims, not by an application-side email allowlist
 * Zero new persistent state: removing the service removes the service's own attack surface (the RoleBindings it created, the OAuth client, and the DNS hostname are enumerated as sunset cleanup below)
@@ -58,14 +59,15 @@ Provide an interim, minimal sign-up service where a subscribing customer signs i
 
 * **Authentication**: Google-issued ID tokens validated in full (JWKS signature, `iss`, `aud`, expiry, `email_verified`); the Red Hat-only policy is enforced via the signed `hd` claim, with the allowlist held as configuration
 * **Trust boundary**: The public surface is static SPA files plus a single validated endpoint (`POST /api/v1/signup`); the backend holds no secrets — the OAuth client is public, and Workload Identity supplies workflow invocation
-* **Invoker blast radius**: The backend's service account is limited to `roles/workflows.invoker` with the PAM-gated tag condition (per the [PAM workflow gating](pam-workflow-gating.md) decision); it cannot invoke non-gated workflows beyond that binding
+* **Invoker blast radius**: The backend's service account is limited to `roles/workflows.invoker` with the PAM-gated tag condition (per the [PAM workflow gating](pam-workflow-gating.md) decision) plus invoke-only `roles/integrations.integrationInvoker` for the activation notification; it cannot invoke non-gated workflows beyond that binding, and it cannot create or edit integrations
 * **Accepted gaps (interim scope)**: No Cloud Armor edge policy and no application rate limiting. Accepted because every submission requires a verified Red Hat identity and the audience is bounded to internal Private Preview participants — obscurity of the URL is a convenience, not a control. The residual risk is a single curious or compromised Red Hat identity invoking `activate-project` in a tight loop (execution cost, claims across unclaimed project IDs); the compensating control is monitoring the activation audit log for anomalous per-subject volume. Both Cloud Armor and rate limiting become prerequisites before any broader or customer-public exposure
 * **Data handling**: The sign-in ID token is sent with the single sign-up request and never persisted by the service. The backend's structured audit log records the normalized subject (the verified email — the same value used as the RoleBinding subject), plus project, namespace, and outcome; raw tokens are never logged. Cloud Workflows suppresses call arguments in its logs (`LOG_NONE`), though the execution resource retains the argument (IAM-scoped)
 
 ### Operability:
 
 * Deployed as a Helm chart via ArgoCD in the region cluster (dev target only), behind the shared external Gateway with a Certificate Map entry; no dedicated infrastructure beyond the backend's service account and Workload Identity binding
-* Removal is a single ArgoCD application plus the Terraform identity resources
+* **Activation notification**: each successful sign-up sends exactly one email (signer, project, status) by executing the `signup-notify` Application Integration in the region project — an API trigger and a single Send Email task delivering through Google's mailer (`noreply@applicationintegration.google`), so one execution is one email with a custom subject and no credentials anywhere in the chain. This was chosen after rejecting, on per-event semantics, the only other credential-free sender: a Cloud Monitoring alert-policy email channel is welded to incident machinery (a fixed subject template and an unavoidable "resolved" follow-up email per activation), while an external mail provider or SMTP relay needs an account and a secret the interim rules out. The backend calls the integration fire-and-forget after activation succeeds, so a notification failure logs a warning and never affects the sign-up. The integration's definition is checked into the infra repo and re-published by Terraform through a gated local-exec until the provider grows native `google_integration_*` resources. Slack via the team's approved app (GCP-263) is the recorded successor for team-channel notification once the app's ownership is sorted; it needs only a bot token in Secret Manager and the same invocation pattern
+* Removal is a single ArgoCD application plus the Terraform identity resources and the `signup-notify` integration
 
 ## Sunset Condition
 
