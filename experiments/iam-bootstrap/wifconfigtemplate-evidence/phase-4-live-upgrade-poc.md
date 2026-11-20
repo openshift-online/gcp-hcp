@@ -1,5 +1,10 @@
 # Phase 4 live POC — upgrade passed; owned cleanup blocked
 
+**Continuation:** the [separately approved cleanup fix and recovery](phase-4-cleanup-recovery.md)
+subsequently completed at 13:39:48 UTC with independent retained-state acceptance
+at 13:41:09 UTC. The blocked cleanup/residual inventory below is historical;
+follow that handoff for final state, CLI artifact and sidecar checksum.
+
 **2026-11-20. Core live 4.22.21 → exact 5.0.0 proof PASSED. Phase 4 remains
 INCOMPLETE because second-installation IAM/network cleanup is blocked.** Final
 runtime/guest readback **12:39:32 UTC**: retained `wif3-first` / `workers` healthy
