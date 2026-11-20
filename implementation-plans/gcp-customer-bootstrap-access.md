@@ -48,7 +48,8 @@ superuser credential material; removing the Job does not remove that trust bound
   [Why not the CSR flow](#why-not-the-csr-flow).
 - The OIDC authentication configuration on the HostedCluster is **unchanged**.
   `claimMappings` produce identity (`<email>` user, workspace-domain group); they carry no
-  permissions. Authorization is entirely customer-owned after first access. See
+  permissions themselves. In the baseline proposal, guest RBAC is customer-owned after
+  first access. Mapping to an already-bound group is a distinct possibility; see
   [Why not OIDC claim mappings alone](#why-not-oidc-claim-mappings-alone).
   Customer-managed guest issuers are covered separately by
   [customer-managed OIDC authentication](gcp-customer-managed-oidc.md). That plan reuses
@@ -69,6 +70,10 @@ superuser credential material; removing the Job does not remove that trust bound
   existing guest RBAC grants; customers remove them after establishing their own access.
 - The CLI writes a distinct bootstrap context without changing the current context.
   Initial bootstrap uses a manual RBAC walkthrough; `--bind-admin` is deferred.
+- [Gecko-derived guest administrator access](#alternative-gecko-derived-guest-administrator-access)
+  is an alternative to evaluate, not an adopted replacement for this baseline. It could
+  remove routine manual RBAC bootstrap for eligible administrators while retaining
+  certificate-based recovery, but requires an identity bridge and a separate trust decision.
 - SRE admin credentials (`sre-system-admin-client-cert-key`) are **out of scope** for this plan;
   the same mechanics can be reused later.
 
@@ -152,27 +157,44 @@ restriction, and was validated in a development environment.
 
 ### Why not OIDC claim mappings alone
 
-OIDC `claimMappings` solve **identity mapping**, not the initial guest authorization
-grant. The current configuration maps the Google `email` claim to a username and the
-`hd` claim to a workspace-domain group. Successful authentication supplies those
-identities to the guest API server; it does not create RoleBindings or ClusterRoleBindings.
+OIDC `claimMappings` supply **identity**, not new RoleBindings or ClusterRoleBindings.
+The current configuration maps the Google `email` claim to a username and the `hd` claim
+to a workspace-domain group. Those identities receive any permissions already granted
+to them by guest RBAC. Thus claim mapping can provide administrator access **when it
+targets an already-bound group**; it does not inherently require creating a new binding.
 
 For ordinary OIDC identities, guest RBAC must already grant the required permissions.
 Mapping a claim to a group named `cluster-admin` does **not** grant the `cluster-admin`
-ClusterRole: a binding must explicitly connect that group to the role. Creating the
-initial binding itself requires an authorized identity, so claim mappings alone leave
-the bootstrap dependency unresolved. A pre-existing binding could solve the grant,
-but creating it is precisely the platform-side Job this plan replaces.
+ClusterRole: a binding must explicitly connect that group to the role. OpenShift's
+upstream bootstrap policy already defines a different, prefixed admin group:
 
-The design must not rely on mapping customer claims into reserved privileged groups
-such as `system:masters`. Such a mapping, if accepted, would create a standing
-authorization bypass rather than customer-controlled RBAC; it is not an acceptable
-bootstrap mechanism and must not be assumed to be supported by upstream validation.
+| Identity | Upstream default behavior |
+|----------|---------------------------|
+| Group `cluster-admin` | No special name-based admin grant |
+| Group `system:cluster-admins` | Bound to ClusterRole `cluster-admin` by ClusterRoleBinding `cluster-admins` |
+| Group `system:masters` | Special Kubernetes authorization bypass, not equivalent to an ordinary RBAC grant |
+
+Upstream `openshift-apiserver` bootstrap policy defines the `cluster-admins` binding
+and its `system:cluster-admins` group constant. Verify that binding's presence on supported
+guest releases and validate whether their OIDC configuration accepts the intended group
+mapping. These are source findings, not a newly performed guest mapping/login test.
+If accepted, a trusted mapping into that existing group would not need another binding.
+
+The baseline and customer-managed OIDC proposal intentionally do not expose arbitrary
+customer mappings into reserved privileged groups. In particular, `system:masters`
+would bypass authorization and is not an acceptable ordinary OIDC admin mechanism.
+Do not confuse this policy restriction with evidence that every `system:` group mapping
+is rejected by upstream. A platform-owned bridge targeting `system:cluster-admins`
+requires separate support/security validation and would use the existing RBAC binding,
+not the `system:masters` bypass.
 
 Customer bootstrap credentials provide the authorized identity needed to create the
 initial customer-chosen binding. The customer then uses normal OIDC authentication
-with that binding. OIDC configuration remains unchanged: the limitation is **claim
-mappings alone**, not OIDC combined with properly configured guest RBAC.
+with that binding. OIDC configuration remains unchanged in the baseline. Mapping alone
+neither invents Google Group membership nor evaluates Gecko authorization. Standard
+Google ID tokens do not supply Google Groups membership, and `hd` is a domain claim,
+not membership in a selected Google Group. The Gecko-derived alternative below would
+use platform authorization instead of requiring that Google membership information.
 
 #### Example 1: mapping claims supplies an identity, not an admin grant
 
@@ -253,6 +275,85 @@ Only the first command uses the bootstrap certificate. The second uses the uncha
 OIDC identity mapping and the newly created guest RBAC grant. The grant is to Alice's
 user, not the whole `example.com` group. Replace the example context names and email
 with the actual values; do not test the second command with the bootstrap context.
+
+### Alternative: Gecko-derived guest administrator access
+
+**Status: evaluation only.** The certificate/manual-binding flow remains the baseline.
+This alternative considers a deliberate policy that an applicable Gecko administrator
+entitlement for a specific cluster also grants guest `cluster-admin` access. It could
+remove the routine initial-binding step for those users, while retaining bootstrap
+certificates for independently authorized recovery and customer RBAC administration.
+
+Gecko would supply the entitlement decision, so this does **not** require Google Groups
+membership. It does require a trusted mechanism to carry that decision into guest
+authentication or guest RBAC. A Google-signed ID token cannot be modified to add Gecko
+claims, and claim mapping cannot query Cedar by itself.
+
+An illustrative broker path is:
+
+```text
+User authenticates through an explicitly supported identity flow
+  -> Gecko evaluates guest-admin entitlement for the requested project/cluster
+  -> trusted broker issues a short-lived, cluster-bound guest token
+  -> supported guest authentication maps the entitlement to system:cluster-admins
+  -> OpenShift's existing cluster-admins binding grants cluster-admin
+```
+
+The group mapping and binding must be verified on the support matrix; this is not a
+claim that the path is implemented or accepted by current OIDC validation. If that group
+cannot be used, a custom issuer-prefixed group would require its own initial binding,
+so the design could no longer assume the same binding-free bootstrap benefit.
+
+#### Candidate mechanisms
+
+| Mechanism | Required work and architectural implications |
+|-----------|----------------------------------------------|
+| Token broker | Verify user identity, evaluate scoped Gecko entitlement, issue signed short-lived guest tokens, and configure guest trust/audiences/mappings. This adds a security-critical issuer and token lifecycle, not a claim-mapping-only change. |
+| RBAC synchronization | Reconcile applicable Gecko grants into guest user bindings, including removal and drift handling. Requires an authorized guest-writing component and an explicit departure from the baseline's no-Gecko-guest-API-calls design, with approved placement/connectivity. |
+
+For synchronization, creating an OpenShift Group object alone does not cause a direct
+OIDC token authenticator to consult it for JWT group membership. Specify the actual
+identity/binding mechanism, such as user bindings, instead of assuming that a group
+object bridges the authentication boundary.
+
+#### Entitlement and security decisions
+
+- **Exact policy:** choose which Gecko grant/action means guest-admin entitlement, or
+  define an intentional role-to-guest policy. No new permission is adopted here. A role
+  called `cluster-admin` somewhere in Gecko is not sufficient: evaluate the requested
+  project, exact Cluster incarnation, and relevant Cedar conditions. Define the action,
+  method, and object context rather than substituting an arbitrary allowed CRUD action.
+- **Token isolation:** broker tokens must be unusable at other guest clusters, using
+  cluster-specific validated audiences or equivalent isolation. A common issuer with
+  an admin group and shared audience across all clusters is insufficient. Separate guest
+  token acceptance from platform API token acceptance to prevent confused-deputy use.
+- **Revocation and consistency:** evaluate entitlement at issuance/refresh, with defined
+  policy-cache/replication behavior, token lifetime, and failure handling. Grant removal
+  stops new token issuance only after policy convergence; existing tokens may remain
+  usable until expiry. Synchronization has its own reconciliation/removal delay. Neither
+  approach automatically undoes RBAC or other changes a guest administrator already made.
+- **Identity and signing:** bind the verified principal to the entitlement check and
+  signed subject. Decide supported login/token-exchange flows, signing-key custody,
+  rotation, publication, and emergency containment. A broker can assert guest identities
+  and is therefore part of the guest administrative trust boundary.
+- **Availability:** fail closed when identity/entitlement cannot be established. Document
+  IdP, broker, policy-store/cache, and synchronization outages; preserve an independently
+  authorized bootstrap recovery path without promising offline recovery.
+- **Audit:** correlate verified principal, target Cluster, entitlement decision/revision,
+  issuance or reconciliation outcome, and guest identity using safe metadata. Never log
+  bearer tokens, signing keys, or raw identity claims. Define guest audit attribution.
+- **Ownership:** decide explicitly whether platform administrators retain guest-admin
+  access independently of customer-owned guest RBAC preferences, and whether customers
+  can opt out. In the broker variant, access still depends on the guest binding, but
+  platform-issued membership is an ongoing source of privilege while that binding exists.
+- **Issuer compatibility:** account for the one-provider constraint and
+  [customer-managed OIDC](gcp-customer-managed-oidc.md#interaction-with-gecko-derived-guest-administrator-access).
+  A broker is not automatically an additional provider alongside Google/customer OIDC.
+
+These are comparison gates, not implementation requirements silently added to the
+baseline. Do not expose reserved-group mapping to arbitrary customer-controlled issuers
+or equate `system:cluster-admins` with `system:masters`. Selection requires an explicit
+architecture/security decision and revised implementation scope.
 
 ### PoC validation in a development environment
 
@@ -663,6 +764,12 @@ Record these decisions here before build-out:
    and startup orphan reconciliation are verified in deployed-tag source, not yet by a
    live Secret lifecycle test. Assign cross-repository dependency and CRR owners.
 
+Separate alternative-evaluation track: verify OpenShift's default admin binding and
+release-specific OIDC mapping acceptance; define scoped Gecko guest-admin entitlement;
+compare broker and synchronization feasibility, customer-IdP compatibility, revocation,
+cross-cluster isolation, signing/audit, and recovery. Record an explicit decision before
+changing the baseline or treating that alternative as a delivery dependency.
+
 ### Phase 1 — additive backend (repo: gecko; kube-applier/infrastructure if required)
 
 Keep the existing RBAC Job behavior during this phase.
@@ -826,6 +933,10 @@ and recovery/cleanup validation are complete.
 8. **HyperShift version floor**: verify the PKI operator/Secret behavior across supported
    releases; development validation is not a full support matrix. Retain the OCP 4.15+
    requirement in that matrix.
+9. **Alternative-policy confusion**: OpenShift has a default `system:cluster-admins`
+   binding, but Gecko grants do not currently become guest identities automatically.
+   Broker/synchronization evaluation must not be described as an implemented path or
+   weaken the baseline/customer-issuer identity restrictions without a reviewed decision.
 
 ## Open Questions
 
@@ -849,6 +960,12 @@ The product/security direction above is agreed; the following technical gates re
       safely, and what prevents unsafe grant reintroduction on rollback/version skew?
 - [ ] Who may invoke CRR, through which authorized operational path, and how are its
       completion and subsequent credential delivery verified on GKE?
+- [ ] Alternative only: is the default `cluster-admins` binding present on supported
+      guests, and is the proposed `system:cluster-admins` OIDC mapping accepted? What
+      exact scoped/condition-aware Gecko entitlement should produce guest-admin access?
+- [ ] Alternative only: broker or RBAC synchronization, with what customer-issuer,
+      audience isolation, revocation/cache, ownership, signing/audit, and recovery model?
+      Selection and implementation are not yet agreed.
 
 ## Backlog
 
@@ -856,6 +973,8 @@ The product/security direction above is agreed; the following technical gates re
 |-------|------|--------|
 | Phase 0: computed-subresource, authorization, transport, freshness/error contracts | TBD | Not Started |
 | Phase 0: approve/narrow status readers, apply index safeguards, verify effective audit/retention | TBD | Development review informed prerequisites; decisions and safeguards pending |
+| Alternative evaluation: default admin binding/mapping support and scoped Gecko entitlement | TBD | Upstream default binding identified; guest validation and policy decision pending |
+| Alternative evaluation: broker vs. synchronization, issuer compatibility, isolation/revocation/recovery tests | TBD | Evaluation only; neither mechanism selected |
 | Runtime tests: applier standalone Secret delivery, rotation, freshness, purge, and restart | TBD | Pinned/deployed-tag read source and deployed-tag cleanup source inspected; runtime acceptance pending |
 | Transport `EnsureRead`, typed extraction, `RemoveRead`, and emulator tests | TBD | Not Started |
 | hc-controller credential subscription, advisory readiness, and deletion cleanup | TBD | Not Started |
@@ -867,6 +986,13 @@ The product/security direction above is agreed; the following technical gates re
 
 ## References
 
+- OpenShift default administrator binding:
+  [`openshift-apiserver/pkg/bootstrappolicy/policy.go`](https://github.com/openshift/openshift-apiserver/blob/master/pkg/bootstrappolicy/policy.go)
+  (`GetOpenshiftBootstrapClusterRoleBindings`) and
+  [`constants.go`](https://github.com/openshift/openshift-apiserver/blob/master/pkg/bootstrappolicy/constants.go)
+  (`ClusterAdminGroup`, `ClusterAdminRoleBindingName`): `cluster-admins` binds
+  `system:cluster-admins` to `cluster-admin`. Upstream source is not proof that the
+  binding is unmodified or that a particular OIDC mapping is supported on every guest.
 - HyperShift customer admin credential mechanism (upstream):
   `docs/content/how-to/pki/break-glass-credentials.md` in openshift/hypershift — signer
   classes, rotation, `CertificateSigningRequestApproval`/`CertificateRevocationRequest` APIs.

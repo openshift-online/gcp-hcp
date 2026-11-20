@@ -48,6 +48,35 @@ to configure RBAC or validate customer login.
 | Guest authorization | Customer-owned RoleBindings/ClusterRoleBindings | Not created or migrated automatically by Gecko |
 | Service-account issuer and GCP WIF | Workload tokens and GCP infrastructure access | Unchanged; Cluster `spec.issuerURL` is not the guest login IdP |
 
+### Interaction with Gecko-derived guest administrator access
+
+The bootstrap plan records an
+[alternative using Gecko-derived guest-admin entitlement](gcp-customer-bootstrap-access.md#alternative-gecko-derived-guest-administrator-access).
+OpenShift's upstream default `cluster-admins` binding grants the `cluster-admin` role
+to `system:cluster-admins`; a supported trusted identity bridge could use that existing
+grant rather than requiring a new binding. Exact guest binding/mapping support remains
+to be validated. This is not the `system:masters` authorization bypass.
+
+Gecko entitlement can replace Google Groups membership as the admin decision source,
+but cannot simply be inserted into Google-signed tokens. A broker would introduce a
+new guest token issuer; RBAC synchronization would introduce a guest-writing component.
+Neither mechanism has been selected or added to this plan's implementation scope.
+
+The one-provider constraint means a broker cannot simply coexist as another guest
+provider alongside Google or the customer issuer. Evaluation must decide whether the
+broker replaces direct issuer trust and federates supported upstream IdPs, whether an
+alternative synchronization design is appropriate, or whether to retain the current
+baseline. Federating customer IdPs through a platform issuer would change this plan's
+direct-trust, client-login, availability, and security assumptions and needs a separate
+reviewed contract. Preserve cluster-specific token isolation and condition-aware Gecko
+entitlement checks in any proposed combination.
+
+For now, customer-managed OIDC continues to use issuer-scoped identities and customer
+RBAC, with no automatic mapping into reserved admin groups. Considering a separately
+trusted platform-owned bridge is not permission for arbitrary customer issuer mappings
+into `system:cluster-admins`, and is not evidence that upstream forbids every reserved-
+group mapping. Certificate bootstrap/recovery remains available independently.
+
 ## Current State and Evidence
 
 Source inspection and read-only validation in a development environment established:
@@ -501,12 +530,17 @@ bootstrap delivery path can still delay recovery; this is not an offline fallbac
       and concurrent replacement UX will the CLI/API publish?
 - [ ] What are the measured replacement/reversion convergence and residual-access
       behaviors, and the operational procedure if the platform/bootstrap path is impaired?
+- [ ] Alternative evaluation only: how would Gecko-derived guest-admin entitlement
+      coexist with customer-managed OIDC under the one-provider constraint? Compare
+      broker federation versus approved RBAC synchronization without assuming either is
+      selected; validate scope, audience isolation, revocation, and recovery behavior.
 
 ## Backlog
 
 | Story | Jira | Status |
 |-------|------|--------|
 | API/defaulting/prefix, authorization, and support-matrix contracts | TBD | Not Started |
+| Alternative evaluation: Gecko-derived guest-admin compatibility with direct customer OIDC | TBD | Evaluation only; baseline unchanged |
 | Public issuer egress/SSRF and asynchronous validation design | TBD | Not Started |
 | Cluster private/public authentication types and validation/generation tests | TBD | Not Started |
 | HC manifest rendering, revision-aware observations, and reconciliation tests | TBD | Not Started |
