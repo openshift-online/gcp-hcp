@@ -1,10 +1,11 @@
-# GitOps migration records (GCP-1282–GCP-1286)
+# GitOps migration records (GCP-1282–GCP-1288)
 
-**Status: historical project records, exported 2026-11-18.** This directory
-indexes and preserves the GCP-1282–GCP-1286 records and their source evidence.
-It is not current operating guidance and does not authorize a deployment,
-cutover, rollout, support claim, or repeat run. Each linked record carries the
-details and its own limits.
+**Status: historical project records, exported 2026-11-18, with one
+repository-authored record added 2026-11-20.** This directory indexes and
+preserves the GCP-1282–GCP-1288 records and their source evidence. It is not
+current operating guidance and does not authorize a deployment, cutover,
+rollout, support claim, or repeat run. Each linked record carries the details
+and its own limits.
 
 Project history and validation evidence live in this archive. Reusable
 permission contracts and operating guidance belong in `gcp-hcp-infra`. The
@@ -26,6 +27,7 @@ hashes, and transformations.
 | GCP-1284 | [`gcp-1284/GCP-1284-EVIDENCE.md`](gcp-1284/GCP-1284-EVIDENCE.md) | Sanitized disposable notification validation, 2026-10-27–29. Jira retains the chronology and remains the detailed record. | Historical snapshots, not current health. Trial operator images; not a repeat authorization. Raw stop records remain engineer-retained outside Git. |
 | GCP-1285 | [`gcp-1285/ARGOCD_CONTROLLER_PERMISSIONS.md`](gcp-1285/ARGOCD_CONTROLLER_PERMISSIONS.md), with [`mgt-matrix.yaml`](gcp-1285/argocd-controller-validation/mgt-matrix.yaml), [`reg-matrix.yaml`](gcp-1285/argocd-controller-validation/reg-matrix.yaml), and [`runtime.yaml`](gcp-1285/argocd-controller-validation/runtime.yaml) | Opt-in direct-permission reduction validated on disposable pair `rfl1285m1109`, `northamerica-northeast2`. Permission checks and identity attestations before and after controller recreation. | Not admission-enforced isolation. Named `bind`/`escalate`, wildcard cache reads including Secrets, writes to the controller's own CR/policy, and workload/admission/KCC-IAM paths retain indirect authority. The companion infra cleanup retains the reusable contract in `gcp-hcp-infra`. |
 | GCP-1286 | [`gcp-1286/GITOPS_RELEASE_VALIDATION.md`](gcp-1286/GITOPS_RELEASE_VALIDATION.md), with [plan](gcp-1286/GCP-1286_PLAN.md), [decision request](gcp-1286/GCP-1286_DECISION_REQUEST.md), [runtime request](gcp-1286/GCP-1286_RUNTIME_REQUEST.md), [CSV RBAC review](gcp-1286/GCP-1286_CSV_RBAC_REVIEW.md), [run evidence](gcp-1286/gitops-release-validation/README.md), and [artifact evidence](gcp-1286/gcp-1286-evidence/) | One authorized amd64 run of OpenShift GitOps 1.22.2-7 on disposable pair `rfl1286m1111`, `us-central1`, 2026-11-13, then teardown; artifact and offline checks as recorded. | Actual GKE was 1.36.4, not the proposed 1.35.x; acceptance was retrospective. arm64 artifacts verified only, no arm64 runtime. Support approval pending under GCP-1444. Local-chart exception. Controller cluster-admin-equivalent residual under GCP-1433. No default rollout or cutover permission. |
+| GCP-1288 | [`gcp-1288/GCP-1288_LIFECYCLE_REHEARSAL.md`](gcp-1288/GCP-1288_LIFECYCLE_REHEARSAL.md) | Two bounded disposable dev rehearsals, 2026-11-20: region and MC legacy→operator adoption, one inert sentinel or self-heal probe each, one fresh operator-managed organizational-login window per target that the owner attested as passed, and the mandatory retain-and-converge rollback after each window. Both rollbacks were measured prospectively from the recorded decision (MC 19m 38.6s, region 18m 42.33s); final state is the healthy legacy baseline on GKE 1.36.4. | Login is an owner attestation only — no session payload, subject or issuer was captured — and default-reader behavior was not exercised; historical GCP-1283 on `rflores0922` is not a substitute. The owner accepted a 30-minute rehearsal objective on 2026-11-20, after these measured runs; it is a rehearsal objective only, not a production SLO or tenant RTO. No notification-delivery, tenant-survival, support, cleanup-completion, or rollout claim; cleanup is authorized but not performed. |
 | GCP-1226 | [GKE spike discovery record](../openshift-gitops-gke-spike.md) (unchanged) | Earlier September 2026 discovery/handoff, kept separate. | The MC and region used different trial builds; one identical supported release was not validated across both. |
 
 ## Critical qualifiers
@@ -98,6 +100,13 @@ These qualifiers must survive any summary of this directory.
 - **Sanitized records only.** This move copies the committed records. Raw logs,
   Terraform state, credentials and the engineer-retained GCP-1284 stop records
   are outside its scope.
+- **GCP-1288 is authored in this repository, not relocated.** It was added
+  2026-11-20 for a rehearsal that ran after the 2026-11-18 export. It is
+  therefore not one of the 29 source-mapped files, and
+  [`source-map.json`](source-map.json) is intentionally unchanged: that map
+  describes only the 2026-11-18 relocation of the GCP-1282–GCP-1286 records.
+  Its reusable operating protocol stays in `gcp-hcp-infra`
+  [`docs/ARGOCD_OPERATOR_CONFIGURATION.md`](https://github.com/openshift-online/gcp-hcp-infra/blob/main/docs/ARGOCD_OPERATOR_CONFIGURATION.md).
 - **GCP-1285 matrix coverage correction.** The byte-preserved MC and regional
   matrices omit rendered cert-manager startup-check hooks. See the
   [archive review notes](gcp-1285/README.md) before using it as an inventory or
