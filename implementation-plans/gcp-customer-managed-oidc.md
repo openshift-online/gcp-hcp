@@ -1,165 +1,48 @@
 # Customer-Managed OIDC Authentication
 
-> **Status**: Draft
+> **Status:** Draft — direct customer-issuer trust proposed; compatibility and safe
+> day-two replacement are implementation gates, not completed product capabilities.
 
-**Jira**: TBD
+**Identifier:** `customer-managed-oidc` · **Jira:** TBD
 
-| Field | Value |
-|-------|-------|
-| **Identifier** | `customer-managed-oidc` |
-| **Components** | gecko `platform-api`, `controllers/hc`, transport feedback; `gcp-hcp-ctl`; management-cluster egress controls |
-| **Depends on** | Supported HyperShift External OIDC configuration and day-two reconciliation; [customer bootstrap access](gcp-customer-bootstrap-access.md); public issuer discovery/JWKS reachability safeguards |
-| **Related** | [Customer authentication background](gcp-customer-authentication.md), [Cedar public API authorization](../design-decisions/identity/cedar-public-api-authorization.md), [no direct cross-cluster connectivity](../design-decisions/networking/no-direct-cross-cluster-connectivity.md) |
+**Components:** gecko platform API/HC controller/transport; `gcp-hcp-ctl`; MC egress controls
 
-## Overview
+**Depends on:** supported HyperShift External OIDC and
+[customer bootstrap access](gcp-customer-bootstrap-access.md)
 
-Allow customers to configure an external OIDC identity provider for **guest Kubernetes
-API access**, both when creating a cluster and by replacing the provider afterward.
-Examples include a compatible tenant-specific Okta, Entra ID, or Keycloak issuer.
-Compatibility depends on actual discovery, token, claims, and public-client behavior;
-this plan does not assert that every configuration of those products is supported.
+## Summary and decisions
 
-The existing Google provider remains the default. Customer-managed OIDC is opt-in and
-replaces that guest provider; it does not replace platform authentication or workload
-identity. Customers use bootstrap credentials to create their initial guest RBAC grants
-and an external exec plugin for subsequent OIDC login. Gecko makes no guest API calls
-to configure RBAC or validate customer login.
+Allow customers to configure a guest Kubernetes API OIDC provider at creation and
+replace it afterward. Gecko and its CLI currently hardcode Google guest authentication;
+this plan adds an opt-in configuration path, not a new platform login system.
 
-These are the current direct-trust/manual-binding baseline workflows, not a claim that
-every administrator must create a new binding. The alternative comparison below includes
-a development-verified claim-mapping mechanism; automated Gecko integration is pending.
+| Agreed scope | Boundary |
+|--------------|----------|
+| Google remains the default | Existing clusters and omitted create configuration retain current issuer/audience/mappings |
+| Create and replace | Google-to-custom, custom-to-custom, client/mapping changes and explicit return-to-Google |
+| Existing `cluster.create` / `cluster.update` | Object-aware Cedar/project boundaries; no new authentication-update permission |
+| Public HTTPS, publicly trusted issuer TLS | No custom CAs or private issuer connectivity initially |
+| Configurable claim names, username default `sub` | Enforced issuer-scoped user/group prefixes; no arbitrary customer expressions |
+| External exec-plugin login | No native CLI browser/token cache, automatic plugin installation/configuration or client-secret custody |
+| Explicit recovery, not automatic rollback | Independent platform access and separately authorized bootstrap RBAC repair |
 
-### Agreed scope
+The development-validated HostedCluster schema permits **one OIDC provider**. This
+baseline replaces the guest Google provider, not platform authentication, service-account
+issuer or GCP WIF. Cluster `spec.issuerURL` remains the service-account issuer and must
+not be repurposed. Guest tokens do not become platform credentials.
 
-- Support cluster creation, Google-to-customer migration, customer-to-customer provider
-  replacement, mapping/client changes, and an explicit return to default Google.
-- Use existing `cluster.create` and `cluster.update` authorization with object-aware
-  Cedar conditions. Do **not** introduce a separate authentication-update permission.
-- Initially support only public HTTPS issuers using publicly trusted certificates.
-- Allow claim-name selection, default usernames to `sub`, and enforce safe issuer-scoped
-  identity prefixes. Do not expose arbitrary customer mapping/validation expressions.
-- Use a documented external OIDC exec plugin initially. No native CLI browser login,
-  token refresh/cache implementation, or automatic plugin installation/configuration.
-- Recovery is an explicit customer action through the platform API and bootstrap
-  credential path. There is no automatic rollback or guaranteed dual-provider window.
+Guest RBAC stays customer-managed; Gecko makes no guest API calls to create bindings or
+test login. The [bootstrap plan](gcp-customer-bootstrap-access.md#alternatives-and-prerequisites)
+owns the comparison with Gecko-derived administrator access. Manual binding creation is
+the baseline workflow, not a claim that every administrator needs a new binding.
 
-### Identity boundaries
+## Design and API contract
 
-| Identity system | Authority and purpose | Effect of this feature |
-|-----------------|-----------------------|------------------------|
-| Platform authentication | Existing ESPv2/platform identity and Cedar roles for lifecycle/configuration operations | Unchanged; guest IdP tokens do not become platform credentials |
-| Guest user authentication | Guest API server trusts the selected OIDC issuer/audiences and maps claims to users/groups | Customer-configurable, with one provider in the deployed schema |
-| Guest authorization | Customer-owned RoleBindings/ClusterRoleBindings | Not created or migrated automatically by Gecko |
-| Service-account issuer and GCP WIF | Workload tokens and GCP infrastructure access | Unchanged; Cluster `spec.issuerURL` is not the guest login IdP |
+### Configuration and authority
 
-### Interaction with Gecko-derived guest administrator access
-
-The bootstrap plan records an
-[alternative using Gecko-derived guest-admin entitlement](gcp-customer-bootstrap-access.md#alternative-gecko-derived-guest-administrator-access).
-OpenShift's default `cluster-admins` binding grants the `cluster-admin` role to
-`system:cluster-admins`, without requiring another binding. A controlled development
-test verified adding/removing that group through a platform-owned expression while
-reusing the original Google token and preserving existing groups. This is not the
-`system:masters` authorization bypass. See the
-[verification scope and limitations](gcp-customer-bootstrap-access.md#claim-mapping-verification-in-a-development-environment).
-
-Gecko entitlement can replace Google Groups membership as the admin decision source.
-Google-signed tokens cannot be modified, but they need not be: a platform-generated
-expression can derive groups from existing verified claims and a reconciled eligible
-set. Compare three mechanisms, none selected for implementation here:
-
-| Candidate | Interaction with customer-managed OIDC |
-|-----------|----------------------------------------|
-| Reconciled claim mapping | Uses the configured issuer, so does not inherently consume another provider slot or require token reissuance. Needs authoritative principal association, condition-aware Gecko reconciliation, size handling, and rollout/removal controls. |
-| Token broker | Introduces a guest token issuer and its signing/login lifecycle. Cannot simply be added alongside Google or the customer issuer under the one-provider constraint. |
-| RBAC synchronization | Retains issuer trust but needs an authorized guest-writing component, drift/removal handling, and an explicit connectivity/architecture change. |
-
-The verified mapping mechanism does not implement a Gecko entitlement reconciler or
-prove customer-IdP interoperability. Gecko currently keys grants by normalized email;
-customer issuers may use different subjects, verification semantics, and identity
-namespaces. Do not join identities across issuers solely because email strings match.
-Define a trusted association and per-Cluster entitlement policy before extending this
-mechanism to customer-issued identities. Local email normalization must also preserve
-Gecko's domain/local-part/Unicode semantics rather than blindly lowercasing an address.
-
-The inspected expression limit is 1,024 characters, and direct-OIDC mapping changes
-affect the API-server pod-template hash. Development updates/restoration took several
-minutes of rollout, not instantaneous policy refresh. Membership removal can affect the
-same still-valid token after convergence; cache, connection, outage, and support-matrix
-behavior still need validation. High-churn or large administrator sets may favor another
-approach; do not silently truncate an oversized entitlement set.
-
-Evaluation must decide whether to reconcile mappings under direct issuer trust, use a
-broker that federates supported upstream IdPs, adopt approved RBAC synchronization,
-or retain the baseline. Federating customer IdPs through a platform issuer changes this plan's
-direct-trust, client-login, availability, and security assumptions and needs a separate
-reviewed contract. Preserve target-specific authorization and issuer trust in all cases;
-broker tokens additionally need cluster-specific acceptance/isolation.
-
-For now, customer-managed OIDC continues to use issuer-scoped identities and customer
-RBAC, with no automatic mapping into reserved admin groups. Considering a separately
-trusted platform-owned bridge is not permission for arbitrary customer issuer mappings
-into `system:cluster-admins`, and is not evidence that upstream forbids every reserved-
-group mapping. Certificate bootstrap/recovery remains available independently.
-
-## Current State and Evidence
-
-Source inspection and read-only validation in a development environment established:
-
-- Gecko's `controllers/hc/manifest/manifests.go` hardcodes issuer
-  `https://accounts.google.com`, audience `32555940559.apps.googleusercontent.com`,
-  username claim `email`, and workspace-domain group claim `hd`.
-- The platform Cluster API has no public guest OIDC configuration. Its existing
-  `spec.issuerURL` is for service accounts and must not be repurposed.
-- `gcp-hcp-ctl/pkg/kubeconfig/kubeconfig.go` installs a Google-specific
-  `gcphcpctl auth token --audience ...` exec entry. It cannot log into an arbitrary IdP.
-- The HostedCluster CRD validated in development sets
-  `spec.configuration.authentication.oidcProviders.maxItems=1`. A development hosted
-  cluster used Google OIDC. The generated `auth-config` maps `email`,
-  `hd`, and `sub` to username, groups, and UID respectively.
-- HyperShift exposes guest authentication through
-  `HostedCluster.spec.configuration.authentication`. Its source API includes issuer,
-  audiences, claim mappings, prefix policies, and validation rules, some gated by release
-  or feature gates. Source presence does not establish support on every release.
-
-This is implementation/schema evidence, not a customer-IdP or replacement PoC. Day-two
-support, rollout semantics, claim validation, plugin compatibility, and recovery must be
-validated before enablement. Do not switch an existing live customer cluster to test it.
-The separate controlled development mapping test validated group-expression updates
-under the existing Google issuer, not issuer replacement, arbitrary customer IdPs, or
-automatic propagation of Gecko authorization decisions.
-Keep public validation notes abstract; do not include environment cluster/project names,
-resource UIDs, account details, internal endpoints, or deployment-specific metadata.
-
-## Target Design
-
-### Configuration path
-
-```text
-Customer authenticates to the platform using the existing platform identity
-  -> creates/updates Cluster authentication configuration
-  -> platform validates and authorizes the effective Cluster object
-  -> hc-controller builds the selected HostedCluster OIDC configuration
-  -> Firestore desires -> management-cluster kube-applier -> HostedCluster
-  -> HyperShift reconciles guest API authentication
-
-Customer uses platform authentication -> fetches bootstrap credential
-  -> creates guest RBAC bindings for the effective customer IdP identities
-Customer uses external OIDC exec plugin -> customer IdP token -> guest API -> guest RBAC
-```
-
-The customer never needs management-cluster Kubernetes access. A bootstrap certificate
-authorizes guest operations only; it cannot configure Gecko or the HostedCluster.
-Manual edits to managed HostedCluster authentication are unsupported and may be
-overwritten. No direct Regional-to-Management Cluster or Gecko-to-guest API connection
-is introduced. Public issuer discovery/JWKS requests require approved egress, not an
-exception permitting direct cross-cluster Kubernetes coordination.
-
-### 1. Platform Cluster API
-
-Add typed, public guest authentication fields in `platform-api/api/private/v1/` and
-generate public types, conversions, schemas, and deep copies. Do not hand-edit generated
-files. The following is a **proposed API fragment**, not an existing supported field:
+Add typed fields under `platform-api/api/private/v1/` and generate public types,
+conversions, schemas and deep copies; do not edit generated output. Proposed fragment
+(**not yet an implemented API**):
 
 ```yaml
 spec:
@@ -175,431 +58,254 @@ spec:
       groupsClaim: groups
 ```
 
-Proposed contract:
-
-| Field | Behavior |
+| Field | Contract |
 |-------|----------|
-| `authentication.type` | `Google` or `CustomerOIDC`; omitted configuration on creation/legacy objects retains current Google behavior |
-| `authentication.oidc` | Required only for `CustomerOIDC`; forbidden for explicit `Google` |
-| `name` | Bounded display/provider name, not an identity isolation boundary |
-| `issuerURL` | Exact HTTPS OIDC issuer, including tenant/realm path; no query, fragment, userinfo, or unsupported private destination |
-| `clientID` | Customer-registered public CLI application's client ID; not a secret |
-| `audiences` | Explicit accepted ID-token audiences, defaulting to the client ID when omitted; validate bounds and client/plugin compatibility before permitting broader values |
-| `usernameClaim` | Defaults to `sub`; must resolve to a non-empty supported string claim |
-| `groupsClaim` | Optional supported claim name; omission means no customer group mapping, not an implicit `groups` or `hd` fallback |
+| `authentication.type` | `Google` or `CustomerOIDC`; absent create/legacy configuration retains Google |
+| `authentication.oidc` | Required for `CustomerOIDC`, forbidden for explicit `Google` |
+| `name` | Bounded display/provider name, not an identity boundary |
+| `issuerURL` | Exact tenant/realm HTTPS issuer; no query, fragment, userinfo or prohibited private destination |
+| `clientID`, `audiences` | Registered public CLI client and explicit accepted ID-token audiences; default audiences to client ID, gate broader values on validated compatibility |
+| `usernameClaim` | Defaults to `sub`; supported, non-empty string identity |
+| `groupsClaim` | Optional supported claim; omission means no customer group mapping, not implicit `groups`/`hd` fallback |
 
-Finalize exact Go types, bounds, list semantics, audience defaulting, and API names in
-Phase 0 following `platform-api/API-CONVENTIONS.md`. No arbitrary provider configuration,
-CA bundle/reference, discovery URL override, CEL expression, client secret, access token,
-refresh token, or customer-supplied exec command belongs in this initial contract.
+Use existing create/update authorization with effective-object Cedar conditions; no
+creator-only bypass or authorization exemption. **Applicable `cluster.update` grants
+authority to change guest authentication trust even without `cluster.credential.get`.**
+Review existing grants and document the IdP administrator's power over identities that
+match guest RBAC. This is a trust change, not harmless metadata.
 
-#### Defaulting, patching, and replacement
+API update semantics:
 
-- Existing objects without authentication configuration retain the exact Google issuer,
-  audience, and username/group mapping behavior; do not retroactively prefix Google users.
-- A PATCH that does not mention authentication preserves it. For an existing
-  `CustomerOIDC` configuration, removal/null or omission in a full-object replacement
-  must not silently restore Google. Require an explicit transition to `type: Google`.
-  Test validation before/after defaulting so defaults cannot bypass this requirement.
-- Require a complete valid target configuration for a provider replacement. Do not
-  expose a transient zero-provider state or accept partially invalid desired state.
-- Use resource-version preconditions for replacements; concurrent updates must not
-  silently discard another administrator's configuration. Reject conflicting writes.
-- Changes to issuer, client/audience, or claim mappings are trust/identity changes and
-  must produce a new observed authentication revision. They may require RBAC migration.
-- No automatic guest binding edits, migration, or deletion accompany these transitions.
+- Preserve the exact existing Google defaults, including unprefixed Google identities;
+  do not retroactively change them when adding optional fields.
+- PATCH omission preserves authentication. For existing custom configuration, removal /
+  null or omission in a full-object replacement must not silently reset to Google.
+  Require explicit `type: Google` with the customer block removed; test defaulting order.
+- Accept a complete valid target configuration, not an intermediate zero-provider state.
+  Use resource-version preconditions and reject conflicts rather than losing updates.
+- Issuer, audience/client and claim changes produce a new observed authentication
+  revision. They may change identities; do not automatically edit/delete guest grants.
 
-#### Authorization and audit
-
-Initial configuration is authorized by `cluster.create`; all day-two authentication
-changes use existing `cluster.update`, with the established effective-object Cedar
-evaluation and project boundary. No creator-only bypass or separate permission is added.
-
-**Security consequence:** anyone granted applicable `cluster.update` can change guest
-authentication trust, even if they lack `cluster.credential.get`. Document and review
-existing grants accordingly. Customer IdP administration can also control identities
-that match guest RBAC grants. Do not present configuration updates as harmless metadata.
-
-Record actor, project, Cluster UID, request ID, old/new safe configuration revisions,
-outcome, and explicit return-to-Google operations. Treat URLs/claim names as customer
-data: fixed failure categories, no raw error prose, tokens, or full request-body logging.
-Preserve normal platform authorization deployment requirements; no new exemption or
-allowlist is introduced by this feature.
-
-### 2. Identity Mapping and Validation
-
-For customer-managed providers, generate explicit issuer-scoped prefixes for usernames
-and groups, including when the username claim is `email`. Expose the exact resulting
-prefixes as safe effective metadata so customers can prepare RBAC before replacement.
-The prefix must be deterministic from the exact issuer and a documented mapping domain
-version, independent of display name. Use distinct user/group namespaces; disallow empty
-prefixes and reserved `system:` identities. Finalize encoding/length/collision handling
-in Phase 0; do not depend on unspecified upstream prefix defaults.
-
-An illustrative effective identity is:
+### Reconciliation and status
 
 ```text
-issuer: https://login.example.com/realms/acme
-username claim: sub = alice-123
-effective username: https://login.example.com/realms/acme#user:alice-123
-group claim: groups = [engineering-admins]
-effective group: https://login.example.com/realms/acme#group:engineering-admins
+Customer platform request -> validated/authorized Cluster
+  -> HC controller -> Firestore desires -> MC applier -> HostedCluster authentication
+  -> HyperShift guest authentication reconciliation
+Customer exec plugin -> configured IdP -> guest API -> existing guest RBAC
 ```
 
-The example prefix encoding is illustrative until the contract is finalized. Changing
-the issuer changes its identity namespace. Returning to an earlier issuer can reactivate
-bindings left behind for it; explicitly warn about this during repair/reversion. Changing
-claim names or client applications can also change subjects (including pairwise `sub`)
-and group membership even if the prefix remains the same. Do not assume audience/client
-changes are identity-neutral or automatically migrate existing grants.
+Parameterize the HC manifest input and render only guest authentication changes. Do not
+alter service-account issuer, WIF pools/providers, infrastructure identities or guest
+RBAC. Bootstrap certificates authorize guest operations, not platform/MC configuration;
+manual HostedCluster edits may be overwritten. Keep RC–MC coordination asynchronous;
+no new direct cross-cluster Kubernetes or Gecko-to-guest connection is introduced.
 
-Validation requirements:
+Publish safe desired/predicted and observed effective prefixes/revisions so customers
+can pre-bind future identities. Base conditions on real supported observations:
 
-- Match signed tokens to the exact issuer and configured audiences; require the expected
-  token lifetime/signature checks. Do not accept arbitrary OAuth access tokens or generic
-  JWTs as if they were compatible OIDC ID tokens.
-- Validate tenant-specific issuer semantics; a generic multi-tenant login endpoint or
-  tenant claim alone is not equivalent to accepting the correct issuer.
-- Default to `sub`, not mutable email. For `email` usernames, require enforcement of a
-  boolean verified-email condition in addition to prefixing. Validate upstream behavior
-  and feature gates; if it cannot be safely enforced, reject that mapping on the release.
-- Bound claim-name lengths and identity sizes. Define missing/empty/malformed username
-  and group behavior. Support only explicitly tested group claim shapes, such as string
-  arrays; reject incompatible tokens rather than treating object values as identities.
-- Omitted group mapping must not synthesize admin groups. Group values in tokens do not
-  grant roles without guest RBAC. Do not fetch group-overage/UserInfo/directory data in
-  this release; customers must issue the required supported claims in their tokens.
-- Reject arbitrary mapping/validation expressions and reserved identity mappings.
-  Platform-generated safety rules are allowed only where supported and tested; this is
-  not a public arbitrary-expression feature.
+| Observation | Does not establish |
+|-------------|--------------------|
+| API validation/authorization accepted | Issuer reachable or guest configured |
+| Target HC apply/read revision observed | All guest API replicas use it |
+| Authentication rollout reconciled | Customer can obtain a token or has RBAC |
+| Issuer discovery/trust health observed | MFA/login/guest authorization succeeds |
+| Customer checks normal login and intended operation | A platform-generated verification signal unless separately designed |
 
-### 3. Public Issuer Reachability and SSRF Safeguards
+Do not treat `HostedCluster Available=True` or successful apply as completed replacement.
+Define exact upstream rollout/health signals and any safe MC-side validator/transport
+feedback; mark missing/stale observations unknown. Gecko does not probe guest login.
 
-The hosted API server must retrieve discovery/JWKS data, while the customer's plugin/
-browser must reach the authorization/token endpoints. Neither worker reachability nor
-a successful request from a developer laptop proves management-cluster reachability.
+### CLI behavior
 
-- Require HTTPS with public trust and strict hostname verification. No insecure TLS
-  fallback or custom issuer CA delivery in this release.
-- Reject private, loopback, link-local, metadata-service, management/internal, and other
-  prohibited destinations, including IPv6 forms, DNS aliases, and redirect targets.
-- Validate discovery issuer equality and discovery-provided JWKS URLs, not only the
-  submitted URL. Bound response sizes, timeouts, redirects, and retries for any probe.
-- Account for DNS rebinding and later discovery/JWKS changes. A one-time URL or DNS check
-  is insufficient: define enforceable egress/runtime destination controls for the actual
-  fetching components. If the required isolation cannot be enforced in the shared MC,
-  do not enable arbitrary customer issuers until the design is resolved.
-- Keep customer discovery off the synchronous API admission hot path. Decide whether an
-  asynchronous MC-side validator is required, and how its safe observations return via
-  transport. Never add direct RC-to-MC Kubernetes calls or expose a general URL-fetch API.
-- Deploy infrastructure safeguards through Terraform/Argo CD. Assess allowed external
-  egress and shared-control-plane effects before enabling the feature broadly.
+- Provide typed create input and safe authentication metadata in `cluster get`/JSON;
+  day-two updates use the existing Cluster API, without requiring a new update command.
+- Before **any kubeconfig write**, `cluster login` detects desired/effective custom or
+  pending transition state. Return a fixed actionable external-login message/docs link,
+  not a broken Google entry. Treat return-to-Google conservatively until observed state
+  permits it. Do not execute server-supplied commands or overwrite customer entries.
+- Preserve default Google login and independent `cluster credential`; define old-client
+  version-skew behavior so unrecognized fields cannot reset authentication or corrupt login.
+- Use [int128/kubelogin](https://github.com/int128/kubelogin), invoked as
+  `kubectl oidc-login`, as the **candidate** manual plugin, not the unrelated Azure tool.
+  Pin/test a version before publishing recipes: public-client authorization-code/PKCE,
+  redirect registration, provider-specific scopes, ID-token audience, refresh/cache
+  permissions and exec credential version. Customers register their own client.
+- Instructions must merge a distinct normal context using the observed HTTPS endpoint,
+  preserve unrelated entries/TLS verification, and keep tokens out of arguments/history.
+  The plugin owns local tokens; Gecko neither provisions a client nor stores its secrets.
 
-### 4. Controller Reconciliation and Observability
+## Alternatives and prerequisites
 
-Extend manifest inputs to carry the validated guest authentication selection. Preserve
-the default Google rendering and change only guest authentication fields. Do not modify
-the service-account issuer, WIF pool/provider, infrastructure service accounts, or guest
-RBAC. Deliver the desired HostedCluster via the existing asynchronous transport.
+### Interaction with Gecko-derived guest administrator access
 
-Map customer fields into the supported HyperShift issuer/claim-prefix structures;
-verify the actual release schema and feature gates for username prefixes, group omission,
-verified-email validation, and day-two provider changes. Determine update ordering and
-supported rollout behavior on all supported releases before permitting replacements.
+The bootstrap plan owns the [three-way alternative comparison](gcp-customer-bootstrap-access.md#alternative-gecko-derived-guest-administrator-access)
+and [verification evidence](gcp-customer-bootstrap-access.md#claim-mapping-verification-in-a-development-environment).
+Reconciled mapping can use the configured issuer without consuming another provider
+slot; a broker cannot simply coexist with Google/customer OIDC under the one-provider
+constraint. Broker federation changes this plan's direct-trust/login assumptions, while
+RBAC synchronization introduces a guest writer. None is selected or implemented here.
 
-Expose desired/effective mapping metadata and an observed authentication revision
-through public status. Exact field/condition names are Phase 0 decisions. Distinguish:
+Extending Gecko entitlement to a customer issuer needs an authoritative principal
+association and target-specific, condition-aware policy. Do not join issuers by matching
+email alone or ignore Gecko's Unicode/domain/local-part normalization semantics. Keep
+customer-supplied reserved-group mappings disallowed under this baseline; the verified
+platform-owned mechanism is not a public arbitrary-expression feature.
 
-| State | What it establishes | What it does not establish |
-|-------|---------------------|----------------------------|
-| API accepted | Configuration passed local validation/authorization | Issuer reachable or guest updated |
-| Desired config delivered | Corresponding HostedCluster apply/read observation matches the target revision | All API replicas use it |
-| Authentication reconciled | Supported upstream observations establish the target rollout state | A customer can obtain a usable token or has guest RBAC |
-| Issuer health observed | A defined bounded check or upstream condition establishes discovery/trust health | End-user login, MFA completion, or authorization |
-| Customer verification | Customer uses normal IdP login and checks an intended guest operation | Platform-generated proof unless an explicit verification mechanism is later designed |
+| Gate before enablement | Unresolved decision or prerequisite |
+|------------------------|-------------------------------------|
+| API/identity | Final field/types/bounds, audience/client rules, list/defaulting semantics, prefix encoding/version/collision handling and desired/effective revision metadata |
+| Release support | Actual schemas and feature gates, username prefixes, verified-email enforcement, group omission/shapes and day-two issuer/client/mapping changes; resolve upstream gaps before claiming support |
+| Reconciliation | Exact rollout/health/staleness evidence, safe MC validation placement and return feedback; no invented ready condition |
+| Public issuer safety | Enforce runtime egress/destination restrictions across DNS and discovery changes; assign infrastructure owners, do not substitute a one-time URL check |
+| Client/support matrix | Tested plugin/version/flow/scopes/redirect/cache behavior, create UX, concurrent-update UX, old-client handling and explicit repair/version rollback |
+| Recovery/operations | Available bootstrap feature/security gates, independent permissions, measured replacement/reversion and residual-access behavior, platform/bootstrap outage procedure |
+| Alternative track only | Entitlement/action and identity association; mapping-size/churn, concurrency, stale policy, caches/connections, isolation and recovery; architecture selection remains separate |
 
-Never equate `HostedCluster Available=True` or successful ApplyDesire status with a
-completed authentication replacement. Identify the exact upstream status/rollout signals
-and any additional applier feedback needed. Mark observations stale/unknown when they
-cannot confirm the target revision. Do not invent a ready condition unsupported by data.
-Do not call the guest API from Gecko to perform login or authorization tests.
+Resolve these in Phase 0 rather than treating example types or untested plugin/IdP
+configurations as product support. Public OIDC products such as Okta, Entra ID and
+Keycloak are compatibility candidates, not a blanket supported-provider claim.
 
-### 5. CLI and External Login
+## Security and lifecycle
 
-Use **int128/kubelogin**, invoked as `kubectl oidc-login`, as the candidate external
-exec plugin, not the different Azure tool also named kubelogin. Pin and test a supported
-version, public-client authorization-code/PKCE flow, redirect URIs, scopes, token refresh,
-cache permissions, and credential API version before publishing executable instructions.
-The customer registers the client in their IdP; Gecko does not provision it or store a
-client secret. Confidential-client-only configurations are out of initial scope.
+### Identity and token constraints
 
-An illustrative, manually installed exec-auth entry is:
+Generate explicit deterministic **issuer-scoped** prefixes for customer usernames and
+groups, including email usernames. Separate user/group namespaces, disallow empty and
+reserved `system:` identities, and do not derive isolation from the display name or
+unspecified upstream defaults. For example, a finalized scheme might yield
+`https://login.example.com/realms/acme#user:alice-123`; exact encoding is still a gate.
 
-```yaml
-users:
-- name: acme-oidc
-  user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1beta1
-      command: kubectl
-      args:
-      - oidc-login
-      - get-token
-      - --oidc-issuer-url=https://login.example.com/realms/acme
-      - --oidc-client-id=hcp-kubectl
-      interactiveMode: IfAvailable
-```
+Require exact issuer/audience, signature and lifetime validation, and tenant-specific
+issuer semantics—not arbitrary access tokens/generic JWTs or a generic multi-tenant
+endpoint with an assumed tenant restriction. Bound identity/claim sizes and validate
+missing/empty/malformed values. Prefer `sub` to mutable email; an email mapping must
+enforce boolean verified-email validation or be rejected on that release. Platform-
+generated safety rules must themselves be supported and tested.
 
-This is a proposed kubeconfig fragment, not a complete file or validated provider
-recipe. Bind a separate normal OIDC context to this user and the observed guest API
-endpoint, preserving TLS verification and unrelated entries. Additional scopes and
-redirect registration are provider-specific. Do not copy a whole generated config over
-the user's existing kubeconfig or place tokens in command arguments/shell history.
+Only tested group shapes are allowed; absent mapping must not synthesize admin groups.
+Required membership must be present in the token: directory/UserInfo/group-overage
+enrichment is deferred. Group identity alone creates no RBAC object, but existing
+bindings can already grant permissions, as explained in the bootstrap plan.
 
-Initial CLI changes:
+An issuer change changes the identity namespace; client/claim changes can also alter
+subjects (including pairwise `sub`) or groups. Returning to a previous issuer may revive
+retained bindings. Prefixing does not replace customer identity/grant lifecycle policy.
 
-- `cluster create` must accept the supported typed configuration through a documented
-  input path; finalize file/flag UX in Phase 0. Permit authenticated day-two updates
-  through the existing Cluster API, without requiring a new dedicated CLI update command.
-- `cluster get`/JSON output makes safe desired/effective authentication metadata and
-  rollout state available for manual plugin configuration and RBAC preparation.
-- `cluster login` detects effective/desired customer-managed mode before any kubeconfig
-  write. Give a fixed, actionable unsupported-native-login message and documentation
-  pointer; do not generate Google credentials, auto-install a plugin, execute server-
-  supplied commands, or overwrite customer configuration. Handle pending transitions
-  conservatively, including return-to-Google until the observed configuration permits it.
-- Preserve Google login behavior for default clusters and preserve the independent
-  `cluster credential` bootstrap path. Define safe behavior for old clients that cannot
-  recognize the new mode, and document supported client versions before rollout.
+### Network and data constraints
 
-### 6. Customer Workflows
+- Require publicly trusted HTTPS and hostname verification, with no insecure fallback.
+  KAS must reach discovery/JWKS; the customer client/browser must reach login/token
+  endpoints. Laptop or worker reachability does not prove MC reachability.
+- Block private, loopback, link-local, metadata-service, management/internal and other
+  prohibited destinations, including IPv6, aliases and redirects. Validate discovery
+  issuer equality and its JWKS URLs, not only the submitted issuer URL.
+- Enforce restrictions on the **actual runtime fetchers**, accounting for DNS rebinding
+  and changed discovery/JWKS data. Bound probe responses, timeout, redirects and retries.
+  If isolation cannot be enforced on the shared MC, do not enable arbitrary issuers.
+- Keep discovery off synchronous API admission. Any MC-side validator is asynchronous,
+  bounded and returns safe observations through transport—not a general fetch service.
+  Deploy safeguards through Terraform/Argo CD and assess shared-MC/egress impact.
+- No CA bundle/reference, discovery override, arbitrary mapping/validation CEL, client
+  secret, access/refresh token or supplied exec command enters the initial Cluster API.
+  Confidential-client-only configurations are out of scope.
+- Audit actor, project, Cluster UID, request ID, safe old/new revisions, outcome and
+  explicit returns to Google. URLs/claim names are customer data: use fixed error
+  categories, no raw errors/full request bodies/tokens in logs or traces. Public trust
+  changes get no new authentication/authorization exemption.
 
-#### Create with a customer IdP
+### Customer operations
 
-1. Register a public OIDC CLI application, enable the tested flow, configure redirect
-   URIs/scopes, and issue the desired username/group claims in ID tokens.
-2. Authenticate to the platform as usual and create the Cluster with customer OIDC
-   configuration. Wait for the target authentication revision to reconcile.
-3. Retrieve bootstrap credentials using platform authentication. Learn the exact
-   effective/predicted issuer-scoped identities from the supported metadata contract.
-4. Create guest RBAC for the intended user or group using the separate bootstrap context.
-   A user grant would look like this for the illustrative mapping above:
+1. **Create:** register the tested public client/redirects/scopes and token claims;
+   authenticate to the platform, create with custom OIDC and observe target reconciliation.
+   Use bootstrap access for intended effective user/group bindings, configure the manual
+   plugin/context, and verify both authentication and an intended privileged operation
+   through normal OIDC. Follow the bootstrap plan's local-key cleanup guidance.
+2. **Replace:** save current non-secret configuration/resource version, establish the
+   new provider and future identities, confirm independent recovery, pre-create intended
+   guest bindings and prepare a separate context. Submit a complete conditional update,
+   observe convergence, verify new login/authorization, then let the customer remove
+   obsolete bindings, clients and caches. Do not rely on a dual-provider window or
+   atomic cross-replica switch; mixed replicas/outages can temporarily prevent login.
+3. **Repair/revert:** explicitly correct/restore configuration or choose `type: Google`
+   with the custom block removed, then observe reconciliation again. Platform repair
+   requires `cluster.update`; bootstrap RBAC repair also requires `cluster.credential.get`
+   or another functioning guest admin. Neither permission implies the other.
 
-   ```shell
-   kubectl --context my-project-my-cluster-bootstrap create clusterrolebinding alice-admin \
-     --clusterrole=cluster-admin \
-     --user='https://login.example.com/realms/acme#user:alice-123'
-   ```
+Returning to Google creates no new grant; retained Google/previous-issuer bindings can
+become effective again. Warn about both lockout and revived access. Do not automatically
+create/delete/migrate guest bindings, restore the domain-wide grant or resurrect its Job.
+Guest authority is separate from management-cluster access; no customer MC access is needed.
 
-5. Manually configure the supported plugin and a distinct normal OIDC context, then verify
-   authentication and authorization using that context, not the bootstrap certificate:
+IdP account/group changes may leave issued tokens usable until expiry; replacement has
+replica/in-flight/connection/cache propagation, not instantaneous global revocation.
+Clearing a plugin cache is not server-side revocation. Recovery depends on available
+platform/bootstrap paths and adequate grants; it is not offline recovery. There is no
+automatic rollback to an earlier trust configuration.
 
-   ```shell
-   kubectl --context my-cluster-acme auth whoami
-   kubectl --context my-cluster-acme auth can-i create clusterrolebindings
-   # Expected after the correct binding is observed: yes
-   ```
+**Deferred:** private issuers/custom CAs, platform-operated SAML bridging, multiple guest
+providers, arbitrary expressions, claims enrichment, confidential-client secrets, console
+integration, native CLI token management, automatic plugin configuration/rollback and
+platform-authentication federation. A SAML-only IdP needs a separately supported OIDC bridge.
 
-6. Follow the bootstrap plan's local credential cleanup guidance. Mapping alone creates
-   no RBAC grant; the platform does not verify or create it on the customer's behalf.
+## Implementation phases
 
-#### Replace Google or another customer provider
+1. **Contracts/support gates:** resolve the table above, review existing update grants,
+   prove upstream day-two support and identify observable status; design network isolation,
+   pin/test the plugin and establish recovery prerequisites. Alternative selection is separate.
+2. **API/controller/infrastructure:** add private-source types/validation, generate public
+   artifacts twice and require an unchanged second pass. Parameterize rendering, revision
+   feedback and status; preserve Google/WIF behavior. Implement egress/validator controls;
+   keep feature enablement closed until runtime gates pass.
+3. **CLI/documentation:** add typed create input, safe metadata and the pre-write login
+   guard. Publish manual provider/plugin, pre-binding, replacement, repair, residual-access
+   and cleanup recipes plus supported client versions. No native customer-IdP token client.
+4. **Validation/staged rollout:** run the matrix below on authorized disposable/canary
+   resources with a public test issuer, then progressively enable supported versions.
+   Define feature-disable/old-renderer rollback so existing custom configurations are not
+   silently reset to Google or stranded. Do not test switches on live customer clusters.
 
-1. Obtain the current configuration/resource version and save its non-secret values for
-   an explicit recovery operation. Establish the new IdP/client and determine the exact
-   future prefixed identities before switching.
-2. Confirm independent platform access and bootstrap credential retrieval. The actor
-   performing recovery needs `cluster.update`; guest RBAC repair also needs a bootstrap
-   retrieval grant (`cluster.credential.get`) or another functioning guest administrator.
-   `cluster.update` alone does not guarantee authority to fetch bootstrap credentials.
-3. Using existing guest admin access or bootstrap credentials, pre-create the intended
-   new identity bindings. Prepare a separate normal kubeconfig context/plugin entry.
-4. Submit the complete replacement through the platform Cluster API with a resource-
-   version precondition. Only one provider is configured. Do not promise Google and the
-   customer IdP can coexist or that updates across API replicas are instantaneous.
-5. Observe the target authentication revision and defined rollout signals. Test new
-   login and an intended authorized guest operation from the customer client. Mixed
-   replica state or failed issuer access can temporarily prevent normal access.
-6. After verification, the customer removes obsolete bindings, IdP clients, and local
-   credential caches as appropriate. Existing legacy domain bindings are not removed by
-   Gecko; retaining them can matter if Google is restored later.
+## Acceptance and verification
 
-#### Explicit recovery and return to Google
+**Evidence boundary:** development inspection confirmed the single-provider schema,
+current Google mappings and configuration path. The linked bootstrap verification proved
+group-expression addition/removal under Google, not arbitrary customer IdPs, issuer
+replacement, CLI plugin compatibility, the release matrix or automatic Gecko entitlement
+propagation. Keep published facts abstract: no environment names/IDs, accounts, endpoints,
+deployment-specific metadata or raw credentials. The following tests are still required.
 
-If new login fails, retain platform authentication as the independent repair path.
-Explicitly correct the customer configuration, restore the saved compatible provider,
-or submit `authentication.type: Google` with the customer OIDC block removed. Observe
-reconciliation again; there is no automatic rollback to the previous trust configuration.
+| Area | Acceptance |
+|------|------------|
+| Compatibility | Omitted/legacy configuration preserves Google login exactly; platform identity, service-account issuer, WIF and infrastructure identities unchanged. |
+| Authority | Existing create/update and object conditions enforced; viewers, unauthorized/cross-project callers and guest-only tokens denied. Trust-changing implications documented. |
+| API/generation | Valid typed config accepted; unsupported/private input, secrets/commands/expressions and accidental null/PUT/PATCH/default resets rejected. Conflicts safe; second generation pass clean. |
+| Identity | Exact issuer/audience/signature/lifetime, verified-email and supported claims/shapes; malformed, reserved or wrong-trust identities fail closed. Effective prefixes match guest RBAC. |
+| Network | Discovery/JWKS/probe egress remains safe through aliases, redirects, rebinding and later metadata changes; demonstrate runtime controls, not just admission string checks. |
+| Lifecycle | Create, Google-to-custom, custom-to-custom, client/audience/mapping changes, repair and explicit Google return work across supported versions with no automatic RBAC migration or Job resurrection. |
+| Observability | Desired/effective revisions, delivery/rollout/health and stale observations accurate; apply/Available alone never asserts customer login or authorization. |
+| Client | Default Google preserved; custom/pending/old-client cases do not corrupt/reset config. Manual pinned-plugin login/refresh works with secure caches, correct scopes/redirects and no platform token/secret custody. |
+| Failure/recovery | Invalid/unreachable issuer, IdP/JWKS rotation/refresh failure, mixed replicas, restart/interrupted reconciliation and concurrent edits tested; explicit recovery works with its independent grants. |
+| End to end | Real normal-IdP login and intended guest authorization verified, not success inherited from bootstrap credentials or old domain grants. No Gecko guest API probes/writes. |
+| Data/rollout | Safe change audit and captured-log/trace redaction; supported API/client matrix and disable/rollback procedure preserve existing custom trust. |
 
-Use bootstrap access to repair guest RBAC where needed. Returning to Google does not
-automatically grant any Google identity guest access. Conversely, retained Google or
-previous-provider bindings may become effective again. Warn customers to assess both
-lockout and unintended restored grants before reverting. Do not automatically recreate
-the old domain-wide admin binding or resurrect the legacy RBAC Job.
-
-Replacing/removing a provider is not an instantaneous global revocation promise. Define
-propagation, in-flight request, connection, and cache behavior in supported releases;
-IdP account removal or group changes may also leave issued tokens valid until expiry.
-Plugin cache cleanup alone is not server-side revocation. An outage of the platform or
-bootstrap delivery path can still delay recovery; this is not an offline fallback.
-
-## Implementation Phases
-
-### Phase 0 — contracts and support gates
-
-1. Finalize API defaulting/null/PUT/PATCH semantics, audience/client relationship, safe
-   prefix encoding, claim shapes, public effective metadata, and revision tracking.
-2. Prove supported HyperShift releases can reconcile provider/mapping/client replacement
-   and explicit return-to-Google. Verify relevant feature gates, verified-email behavior,
-   group omission, and exact rollout/issuer-health observations. If day-two support is
-   unavailable, resolve the upstream dependency before claiming this scope is supported.
-3. Design enforceable public discovery/JWKS egress/SSRF controls, asynchronous validation
-   placement, safe transport observations, and customer-facing error states.
-4. Review existing `cluster.update` grants and audit coverage. Validate role conditions
-   against the proposed effective configuration without adding a new permission.
-5. Pin/test the external plugin and public-client flow; decide CLI create input and
-   transition/version-skew handling. Publish tested provider recipes only after validation.
-6. Make the bootstrap feature's availability, independent permissions, security gates,
-   and recovery runbook prerequisites for enabling customer-managed OIDC. Separately
-   compare reconciled mapping, broker, and RBAC synchronization using the verified
-   mechanism evidence; do not silently adopt an entitlement integration in this scope.
-
-### Phase 1 — API, controller, and infrastructure
-
-1. Add private source types/validation and generate public artifacts twice, verifying
-   the second pass has no diff. Cover create/update authorization and default compatibility.
-2. Parameterize HC manifest rendering, enforce the selected one-provider configuration,
-   and add revision-aware safe feedback/status. Preserve workload/WIF fields and Google
-   rendering for existing clusters. Add idempotency/restart/concurrent-update tests.
-3. Implement and validate required egress/probe controls and safe failure reporting.
-   Keep feature enablement closed until the runtime security/support gates pass.
-
-### Phase 2 — CLI and documentation
-
-1. Add typed create input and safe authentication metadata display. Guard Google-only
-   login before kubeconfig mutation; retain the external-plugin/manual setup workflow.
-2. Publish creation, pre-binding, replacement, provider-specific plugin, explicit repair,
-   return-to-Google, residual-token lifetime, and local cleanup instructions.
-3. Add tests for unmodified Google login, custom/pending modes, preserved contexts,
-   safe diagnostics, client version skew, and independent bootstrap access.
-
-### Phase 3 — validation and staged enablement
-
-1. Run focused and owning-module tests, generation/lint checks, and disposable-cluster
-   e2e with a public test issuer. No broad IdP product-support claim from one test issuer.
-2. Exercise creation, Google-to-custom, custom-to-custom, mapping/audience changes,
-   explicit repair, and return-to-Google. Prove real OIDC login and guest RBAC, not
-   success inherited from the bootstrap context or old domain bindings.
-3. Exercise invalid/unreachable issuers, key rotation, refresh failures, admission/egress
-   protections, interrupted reconciliation, mixed replicas, restart, and concurrent edits.
-4. Enable progressively with supported releases/CLI versions and bootstrap recovery
-   already available. Define disable/rollback behavior that does not silently restore
-   Google or strand existing customer-managed clusters on an older renderer.
-
-## Acceptance Criteria
-
-- Omitted authentication preserves existing Google guest behavior and never modifies
-  platform identity, service-account issuer, GCP WIF, or infrastructure identities.
-- `cluster.create`/`cluster.update` and existing object conditions govern configuration;
-  viewers, unauthorized/cross-project callers, and guest-only tokens cannot mutate it.
-- The API accepts complete supported configurations and rejects unsupported/private
-  issuers, unsafe identity mappings, secrets, arbitrary expressions, and accidental
-  resets through null/defaulting/full-object updates. Conflicting updates fail safely.
-- Discovery/JWKS and subsequent requests cannot reach prohibited internal destinations,
-  including through DNS rebinding, redirects, or changed discovery metadata. Tests
-  demonstrate runtime controls, not just admission-time string validation.
-- Correct issuer/audience/signature/lifetime and supported claims authenticate; wrong
-  issuers/audiences, unverified-email mappings, malformed claims, and reserved identities
-  fail closed. Names are issuer-scoped and match documented effective RBAC identities.
-- Creation and day-two replacement work on the support matrix. Reported readiness is
-  tied to the observed target revision and does not claim customer authorization.
-- Customer-created user/group bindings govern access. No platform guest RBAC call, new
-  default admin grant, or automatic migration/removal of existing bindings occurs.
-- Existing Google login is unchanged; custom or pending authentication does not cause
-  `cluster login` to write Google auth or damage an existing kubeconfig. A tested manual
-  plugin flow obtains/refreshes tokens without platform custody of client secrets/tokens.
-- IdP outage, bad replacement, and interrupted rollout are recoverable through explicit
-  platform updates and independently authorized bootstrap RBAC repair. Reversion warns
-  about retained grants; the legacy bootstrap Job is never silently reintroduced.
-- No secret, token, sensitive raw error, or full authentication request body appears in
-  logs/traces. Safe audit events identify changes and outcomes; generation, docs, unit,
-  integration, negative-security, and disposable-cluster e2e checks pass.
-
-## Risks and Deferred Scope
-
-- **Trust administration:** existing `cluster.update` includes guest trust changes; a
-  narrower permission model would require a separate product decision, not this plan.
-- **Single-provider replacement:** rollout can disrupt existing login, and per-replica
-  convergence must not be confused with atomic revocation or a dual-provider window.
-- **Network isolation:** arbitrary issuer metadata introduces SSRF/egress risks on a
-  shared MC; public trusted HTTPS alone does not prevent access to internal destinations.
-- **Identity drift:** issuer/client/claim changes and recycled email/group names can
-  lock users out or revive old grants. Prefixes do not replace customer lifecycle policy.
-- **Recovery dependencies:** customer IdP is independent of platform authentication, but
-  platform/bootstrap outages and missing recovery permissions can still block repair.
-- **Client skew:** older Google-only clients must not silently reset authentication or
-  corrupt login entries; staged rollout and support guidance must cover them.
-- **Deferred:** private issuers/custom CAs, SAML bridges operated by the platform,
-  multiple guest providers, arbitrary expressions, directory/UserInfo enrichment,
-  confidential-client secrets, console integration, native CLI token management, automatic
-  plugin configuration, automatic rollback, and platform-authentication federation.
-
-## Open Questions
-
-- [ ] What exact API field bounds, audience/client rules, prefix encoding, and public
-      desired/effective revision metadata fit supported upstream releases?
-- [ ] Which upstream observations prove authentication rollout and issuer health, and
-      what additional safe transport/MC-side validation feedback is needed?
-- [ ] How will verified-email checks and absent group mappings be enforced on each
-      supported release without exposing arbitrary customer expressions?
-- [ ] Which egress/runtime controls enforce public-only discovery/JWKS across DNS and
-      metadata changes, and who owns the infrastructure changes?
-- [ ] Which int128/kubelogin version, flow, scopes, redirect registration, cache behavior,
-      and IdP configurations pass the initial support matrix?
-- [ ] What exact create-input UX, safe login transition behavior, version-skew policy,
-      and concurrent replacement UX will the CLI/API publish?
-- [ ] What are the measured replacement/reversion convergence and residual-access
-      behaviors, and the operational procedure if the platform/bootstrap path is impaired?
-- [ ] Alternative evaluation only: what authoritative association connects Gecko
-      principals to customer token identities, and what scoped/condition-aware action
-      determines eligibility? Which role/binding/Cluster changes drive reconciliation?
-- [ ] Alternative evaluation only: compare reconciled mapping, broker federation, and
-      RBAC synchronization. Mapping does not inherently need another issuer, while a
-      broker must address the one-provider constraint. Define expression-size/churn,
-      concurrent publication, isolation, outage/cache/connection, removal, and recovery
-      behavior; validate the remaining support matrix before selecting an architecture.
-
-## Backlog
-
-| Story | Jira | Status |
-|-------|------|--------|
-| API/defaulting/prefix, authorization, and support-matrix contracts | TBD | Not Started |
-| Alternative evaluation: reconciled mapping vs. broker vs. RBAC sync, principal association and customer-IdP compatibility | TBD | Google mapping mechanism verified in development; Gecko integration/selection pending; baseline unchanged |
-| Public issuer egress/SSRF and asynchronous validation design | TBD | Not Started |
-| Cluster private/public authentication types and validation/generation tests | TBD | Not Started |
-| HC manifest rendering, revision-aware observations, and reconciliation tests | TBD | Not Started |
-| Infrastructure safeguards and safe authentication-change audit coverage | TBD | Not Started |
-| CLI create input, safe metadata, Google-login guard, and manual-plugin documentation | TBD | Not Started |
-| Disposable-cluster create/replace/repair/revert and negative-security e2e | TBD | Not Started |
-| Supported external-plugin recipes, staged rollout, and recovery/version-skew runbooks | TBD | Not Started |
+Run focused/owning-module suites, generation/lint, integration/security checks and
+authorized e2e; document skipped checks. One test issuer does not establish broad IdP
+product support. The alternative track needs its own selection and integration acceptance.
 
 ## References
 
-- [Customer bootstrap access](gcp-customer-bootstrap-access.md): independent credential
-  retrieval, manual guest RBAC, and recovery prerequisites. Its Google exec-auth examples
-  describe the default mode; customer-managed guest login follows this plan instead.
-- [Customer authentication background](gcp-customer-authentication.md): earlier design
-  context; not a claim that its Identity Platform/IAM-role proposals are deployed.
-- Gecko: `platform-api/api/private/v1/cluster_types.go`,
-  `platform-api/{AGENTS.md,API-CONVENTIONS.md,api/public/README.md}`,
-  `platform-api/pkg/authz/{middleware,context,permissions}.go`,
-  `controllers/hc/{hc_controller.go,manifest/manifests.go}`, and
+- [Customer bootstrap access](gcp-customer-bootstrap-access.md) owns credential export,
+  default admin binding, alternative comparison, mechanism verification and recovery.
+- Gecko: `platform-api/{AGENTS.md,API-CONVENTIONS.md,api/public/README.md}`,
+  `platform-api/api/private/v1/cluster_types.go`, `platform-api/pkg/authz/`,
+  `controllers/hc/{hc_controller.go,manifest/manifests.go}` and
   `controllers/client/transport/firestore/status.go`.
-- CLI: `pkg/{cluster/login.go,kubeconfig/kubeconfig.go,platformapi/client.go}` and
-  `pkg/auth/`; platform token acquisition is not a generic guest OIDC client.
-- HyperShift: `api/hypershift/v1beta1/hostedcluster_types.go` (`ClusterConfiguration`);
-  OpenShift API `config/v1/types_authentication.go` (`AuthenticationSpec`, `OIDCProvider`,
-  `TokenIssuer`, and claim/prefix/validation types). Verify release-specific generated
-  schemas and feature gates, not just the latest source types.
-- [int128/kubelogin](https://github.com/int128/kubelogin): candidate external exec plugin;
-  a supported version and executable recipe remain to be pinned and tested.
+- HyperShift: `api/hypershift/v1beta1/hostedcluster_types.go` (`ClusterConfiguration`),
+  OpenShift API `config/v1/types_authentication.go` (issuer/claims/prefix/validation),
+  and release-specific generated schemas/feature gates; latest source is not a support matrix.
+- CLI: `pkg/{cluster/login.go,kubeconfig/kubeconfig.go,platformapi/client.go,auth/}`;
+  [int128/kubelogin](https://github.com/int128/kubelogin) remains a candidate to pin/test.
+- [Cedar authorization](../design-decisions/identity/cedar-public-api-authorization.md),
+  [network isolation](../design-decisions/networking/no-direct-cross-cluster-connectivity.md),
+  and [earlier authentication design](gcp-customer-authentication.md) for context; the
+  latter's Identity Platform/IAM-role proposals are not evidence of deployed behavior.
