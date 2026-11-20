@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-decoy-deployment-pull-secret
+description: Synthetic fixture with two Deployments — one owning the manager container with no pull-secret reference, and an unrelated decoy Deployment that does reference it — used to test render.sh binding the pull-secret postcondition to the manager's own Deployment. Not a real product chart.
+version: 0.1.0

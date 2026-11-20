@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-valuefrom-image
+description: Synthetic fixture whose operand image env is set via valueFrom instead of a literal, used to test render.sh's unresolved-image-ref rejection. Not a real product chart.
+version: 0.1.0

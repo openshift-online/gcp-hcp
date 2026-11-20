@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-image-override
+description: Reusable synthetic fixture whose manager image is a placeholder substituted at test time (see tests/run-tests.sh's package_chart_with_image), used to exercise additional image-reference grammar cases without adding a new fixture source tree per case. Not a real product chart.
+version: 0.1.0

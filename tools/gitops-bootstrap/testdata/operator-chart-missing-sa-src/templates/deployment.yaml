@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synthetic-operator-controller-manager
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: synthetic-operator
+  template:
+    metadata:
+      labels:
+        app: synthetic-operator
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      imagePullSecrets:
+        {{- range .Values.imagePullSecrets }}
+        - name: {{ .name }}
+        {{- end }}
+      containers:
+        - name: manager
+          image: {{ .Values.image }}
+          env:
+            - name: ENABLE_CONVERSION_WEBHOOK
+              value: {{ .Values.env.ENABLE_CONVERSION_WEBHOOK | quote }}
+            - name: ARGOCD_CLUSTER_CONFIG_NAMESPACES
+              value: {{ .Values.env.ARGOCD_CLUSTER_CONFIG_NAMESPACES | quote }}
+            - name: ARGOCD_IMAGE
+              value: {{ .Values.operandImages.argocd | quote }}
