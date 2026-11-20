@@ -40,10 +40,12 @@ superuser credential material; removing the Job does not remove that trust bound
 **Key Design Decisions:**
 
 - Use the **pre-generated** customer admin certificate (`customer-system-admin-client-cert-key`
-  Secret in the HCP namespace), not the CSR flow. GKE Warden — which guards our management
-  clusters — rejects `CertificateSigningRequest` objects with `system:`-prefixed CNs or
-  `system:masters` Organizations, so the CSR-based minting path is not usable on GKE. The
-  pre-generated path is unaffected (verified on a live PoC cluster).
+  Secret in the HCP namespace), not HyperShift's existing **management-cluster CSR flow**
+  for these privileged certificates. Upstream records GKE Warden rejection of the
+  requested `system:`-prefixed CNs and `system:masters` organization on that path. This
+  does not mean all CSRs, or guest-cluster CSRs, are blocked by GKE. The pre-generated
+  path avoids CSR admission and was validated in a development environment. See
+  [Why not the CSR flow](#why-not-the-csr-flow).
 - The OIDC authentication configuration on the HostedCluster is **unchanged**.
   `claimMappings` produce identity (`<email>` user, workspace-domain group); they carry no
   permissions. Authorization is entirely customer-owned after first access. See
@@ -105,12 +107,48 @@ immediately revoke previously issued certificates.
 
 ### Why not the CSR flow
 
-HyperShift also supports minting these admin certificates through the Kubernetes CSR API
-(`CertificateSigningRequest` + HyperShift `CertificateSigningRequestApproval`). Our
-management clusters run on GKE, and GKE Warden rejects CSR objects carrying `system:`
-CNs or `system:masters` Organizations — this is upstream HyperShift's own test skip
-reason on GCP (`test/integration/control_plane_pki_operator.go`, "GKE Warden blocks
-system: CSRs"). The pre-generated Secret path involves no CSR objects and works on GKE.
+HyperShift's existing CSR flow for these customer admin certificates uses the
+**management-cluster APIs**, even though the resulting certificate authenticates to
+the **guest API**. The certificate's destination does not determine where its signing
+request is stored:
+
+| Resource or operation | Location |
+|-----------------------|----------|
+| Kubernetes `CertificateSigningRequest` | Management cluster, cluster-scoped |
+| HyperShift `CertificateSigningRequestApproval` | Management cluster, HCP namespace |
+| Approval/signing and signed CSR status | Management-cluster CSR, processed by `control-plane-pki-operator` |
+| Authentication using the issued certificate | Guest API, through its configured client-CA trust |
+
+```text
+Management-cluster CSR + HCP-namespaced approval
+  -> PKI operator approves/signs and updates the management-cluster CSR
+  -> requester retrieves the signed certificate
+  -> certificate authenticates to the guest API
+```
+
+This placement is explicit in upstream `test/integration/control_plane_pki_operator.go`:
+`validateCSRFlow` creates and reads the CSR through `mgmt.KubeClient`, and creates its
+approval through `mgmt.HyperShiftClient`. The signing controller watches CSRs through
+the management-cluster informer and writes their certificate status; it does not
+forward the request into the guest cluster.
+
+Because the request goes through GKE management-cluster admission, it encounters GKE
+Warden. Upstream's `RunTestControlPlanePKIOperatorBreakGlassCredentials` records a GCP
+skip because Warden rejects the privileged certificate subjects (`system:`-prefixed
+CNs and `system:masters` organization). Thus the limitation is **this existing
+management-cluster CSR flow for privileged customer admin certificates**, not a blanket
+GKE prohibition on CSRs. Rejection was not freshly tested during development validation;
+the admission restriction remains based on this upstream evidence.
+
+Creating a CSR against the guest API would be a **different signing/approval path**.
+The existing HyperShift customer admin signer does not watch the guest CSR API, so moving
+the object there would not cause this controller to approve or sign it. Submitting and
+approving guest CSRs also requires guest permissions; that path does not independently
+solve first access. Supporting it would require separate design and validation, not a
+change of target endpoint alone.
+
+The chosen pre-generated Secret path creates no CSR object, avoids this admission
+restriction, and was validated in a development environment.
 
 ### Why not OIDC claim mappings alone
 
@@ -834,9 +872,17 @@ The product/security direction above is agreed; the following technical gates re
   classes, rotation, `CertificateSigningRequestApproval`/`CertificateRevocationRequest` APIs.
 - HyperShift `control-plane-pki-operator`: `certrotationcontroller` (pre-generated certs,
   `O=system:masters`), `certificatesigningcontroller`, `certificatesigningrequestapprovalcontroller`.
-- GKE Warden constraint: `test/integration/control_plane_pki_operator.go` in
-  openshift/hypershift ("GKE Warden blocks CSRs with system: prefix in CN and
-  system:masters in Organization. The pre-generated certs work...").
+- Management-cluster CSR placement and GKE Warden constraint:
+  `test/integration/control_plane_pki_operator.go` in openshift/hypershift;
+  `validateCSRFlow` uses `mgmt.KubeClient` for CSR creation/retrieval and
+  `mgmt.HyperShiftClient` for the HCP-namespaced approval.
+  `RunTestControlPlanePKIOperatorBreakGlassCredentials` documents the GCP admission
+  restriction on privileged subjects; this is upstream evidence, not a fresh admission
+  test or a claim about all guest-cluster CSRs.
+- CSR controller wiring: `control-plane-pki-operator/operator.go`,
+  `control-plane-pki-operator/certificatesigningcontroller/certificatesigningcontroller.go`,
+  and `control-plane-pki-operator/certificatesigningrequestapprovalcontroller/certificatesigningrequestapprovalcontroller.go`;
+  the controllers observe and update management-cluster CSRs, not guest CSRs.
 - Development PoC: customer admin kubeconfig over the public route
   authenticates as `system:masters` with no CA data; `auth can-i create
   clusterrolebindings` = yes. Environment identifiers are intentionally omitted.
