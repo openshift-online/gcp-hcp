@@ -15,6 +15,7 @@ import (
 	"github.com/openshift-online/gcp-hcp/experiments/marketplace-signup-service/backend/internal/config"
 	"github.com/openshift-online/gcp-hcp/experiments/marketplace-signup-service/backend/internal/httpapi"
 	"github.com/openshift-online/gcp-hcp/experiments/marketplace-signup-service/backend/internal/identity"
+	"github.com/openshift-online/gcp-hcp/experiments/marketplace-signup-service/backend/internal/notify"
 	"github.com/openshift-online/gcp-hcp/experiments/marketplace-signup-service/backend/internal/workflow"
 )
 
@@ -42,9 +43,20 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
+	// Optional: per-activation email through the Application Integration.
+	// NOTIFY_INTEGRATION empty means no notifications (local development).
+	var notifier httpapi.Notifier
+	if cfg.NotifyIntegration != "" {
+		notifier, err = notify.NewClient(context.Background(), cfg.WorkflowProjectID, cfg.WorkflowRegion, cfg.NotifyIntegration)
+		if err != nil {
+			return err
+		}
+	}
+
 	handler := httpapi.NewHandler(cfg, logger, httpapi.Deps{
 		Verifier:  auth.NewVerifier(cfg.OAuthClientID),
 		Activator: activator,
+		Notifier:  notifier,
 	}, policy)
 
 	srv := &http.Server{

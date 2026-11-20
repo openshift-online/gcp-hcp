@@ -26,6 +26,11 @@ type Config struct {
 	WorkflowRegion    string
 	WorkflowName      string
 
+	// NotifyIntegration is the name of the Application Integration that sends
+	// the per-activation email. It lives in the same project and region as
+	// the workflow. Empty disables notifications entirely.
+	NotifyIntegration string
+
 	// FrontendDir, when set, serves the SPA from disk at the same origin.
 	// Local development only: in deployment the SPA comes from GCS + CDN.
 	FrontendDir string
@@ -48,6 +53,7 @@ func Load(getenv Getenv) (Config, error) {
 		WorkflowProjectID: strings.TrimSpace(getenv("WORKFLOW_PROJECT_ID")),
 		WorkflowRegion:    strings.TrimSpace(getenv("WORKFLOW_REGION")),
 		WorkflowName:      orDefault(strings.TrimSpace(getenv("WORKFLOW_NAME")), "activate-project"),
+		NotifyIntegration: strings.TrimSpace(getenv("NOTIFY_INTEGRATION")),
 		FrontendDir:       strings.TrimSpace(getenv("FRONTEND_DIR")),
 		AllowedOrigin:     strings.TrimRight(strings.TrimSpace(getenv("ALLOWED_ORIGIN")), "/"),
 	}

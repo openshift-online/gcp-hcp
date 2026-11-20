@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/openshift-online/gcp-hcp/experiments/marketplace-signup-service/backend/internal/auth"
 	"github.com/openshift-online/gcp-hcp/experiments/marketplace-signup-service/backend/internal/config"
@@ -40,9 +41,30 @@ func (f *fakeActivator) Activate(context.Context, string, string) (workflow.Resu
 	return f.res, f.err
 }
 
+// fakeNotifier records Notify calls; err is returned to the handler, which
+// must swallow it.
+type fakeNotifier struct {
+	calls []notifyCall
+	err   error
+	done  chan struct{}
+}
+
+type notifyCall struct {
+	signer, project, status string
+}
+
+func (f *fakeNotifier) Notify(_ context.Context, signer, project, status string) error {
+	f.calls = append(f.calls, notifyCall{signer, project, status})
+	if f.done != nil {
+		close(f.done)
+	}
+	return f.err
+}
+
 type pipeline struct {
 	verifier  *fakeVerifier
 	activator *fakeActivator
+	notifier  *fakeNotifier
 	handler   http.Handler
 }
 
@@ -61,10 +83,16 @@ func newPipeline(t *testing.T, tweak func(*pipeline)) *pipeline {
 	if err != nil {
 		t.Fatalf("NewPolicy: %v", err)
 	}
+	// Assign the notifier only when set: a typed-nil *fakeNotifier would make
+	// the Notifier interface non-nil and panic in the handler's goroutine.
+	deps := Deps{Verifier: p.verifier, Activator: p.activator}
+	if p.notifier != nil {
+		deps.Notifier = p.notifier
+	}
 	p.handler = NewHandler(
 		config.Config{OAuthClientID: "test-client"},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Deps{Verifier: p.verifier, Activator: p.activator},
+		deps,
 		policy,
 	).Routes()
 	return p
@@ -103,6 +131,48 @@ func TestHealth(t *testing.T) {
 	newPipeline(t, nil).handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("healthz status = %d, want 200", rec.Code)
+	}
+}
+
+func TestSignupNotifies(t *testing.T) {
+	n := &fakeNotifier{done: make(chan struct{})}
+	p := newPipeline(t, func(pl *pipeline) { pl.notifier = n })
+	rec := post(t, p.handler, validBody)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %q)", rec.Code, rec.Body.String())
+	}
+	select {
+	case <-n.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("notification not attempted")
+	}
+	got := n.calls[0]
+	if got.signer != "alice@redhat.com" || got.project != validProject || got.status != "activated" {
+		t.Fatalf("notification args = %+v", got)
+	}
+}
+
+func TestNotificationFailureDoesNotAffectSignup(t *testing.T) {
+	n := &fakeNotifier{err: errors.New("integration down"), done: make(chan struct{})}
+	p := newPipeline(t, func(pl *pipeline) { pl.notifier = n })
+	rec := post(t, p.handler, validBody)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 despite notification failure (body %q)", rec.Code, rec.Body.String())
+	}
+	select {
+	case <-n.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("notification not attempted")
+	}
+}
+
+func TestNoNotifierConfigured(t *testing.T) {
+	p := newPipeline(t, nil) // notifier is nil
+	rec := post(t, p.handler, validBody)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body %q)", rec.Code, rec.Body.String())
 	}
 }
 

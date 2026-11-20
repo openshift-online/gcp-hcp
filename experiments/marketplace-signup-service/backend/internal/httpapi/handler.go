@@ -55,12 +55,19 @@ type (
 	Activator interface {
 		Activate(ctx context.Context, namespace, subject string) (workflow.Result, error)
 	}
+	// Notifier sends the per-activation email. Fire-and-forget: failures are
+	// logged and never affect the sign-up response.
+	Notifier interface {
+		Notify(ctx context.Context, signer, project, status string) error
+	}
 )
 
 // Deps are the pipeline's collaborators.
 type Deps struct {
 	Verifier  IDTokenVerifier
 	Activator Activator
+	// Notifier is optional: nil disables the activation email.
+	Notifier Notifier
 }
 
 // SignupRequest is the SPA's submission. Identity comes solely from the
@@ -78,15 +85,22 @@ type SignupResponse struct {
 
 // Handler serves the API.
 type Handler struct {
-	cfg    config.Config
-	logger *slog.Logger
-	policy *identity.Policy
-	deps   Deps
+	cfg           config.Config
+	logger        *slog.Logger
+	policy        *identity.Policy
+	deps          Deps
+	notifyTimeout time.Duration
 }
 
 // NewHandler builds the HTTP handler and its hosted-domain policy.
 func NewHandler(cfg config.Config, logger *slog.Logger, deps Deps, policy *identity.Policy) *Handler {
-	return &Handler{cfg: cfg, logger: logger, policy: policy, deps: deps}
+	return &Handler{
+		cfg:           cfg,
+		logger:        logger,
+		policy:        policy,
+		deps:          deps,
+		notifyTimeout: 15 * time.Second,
+	}
 }
 
 // Routes returns the mux for the service.
@@ -187,6 +201,28 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 		"subject", email,
 		"status", result.Status,
 	)
+
+	// Fire-and-forget notification: the activation already succeeded, so a
+	// slow or failed email must never affect the response or be retried by
+	// the client. The request context dies with the response, so detach it.
+	if h.deps.Notifier != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), h.notifyTimeout)
+			defer cancel()
+			if err := h.deps.Notifier.Notify(ctx, email, req.ProjectID, result.Status); err != nil {
+				h.logger.Warn("activation notification failed",
+					"project_id", req.ProjectID,
+					"error", err,
+				)
+				return
+			}
+			h.logger.Info("activation notified",
+				"project_id", req.ProjectID,
+				"status", result.Status,
+			)
+		}()
+	}
+
 	writeJSON(w, http.StatusOK, SignupResponse{Namespace: result.Namespace, Status: result.Status})
 }
 
