@@ -1,5 +1,10 @@
 # Phase 4 public JSONPatch compatibility — local source checkpoint
 
+**Later continuation:** the user subsequently renewed authentication and approved
+an API-only rollout. Follow the [rollout record](phase-4-public-jsonpatch-rollout.md)
+for newer publication/runtime evidence; the source-only boundaries and failed
+authentication observations below describe this earlier checkpoint.
+
 **2026-11-20. Local source/build execution; Phase 4 remains blocked pending separately
 approved rollout and fresh live guard proof.** This continues checkpoint
 `e5b2f24` and the [API guard blocker](phase-4-api-guard-blocker.md). The user
