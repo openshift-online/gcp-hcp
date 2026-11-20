@@ -1,13 +1,7 @@
 // Package notify sends one email per activation by executing the
-// "signup-notify" Application Integration in the region project.
-//
-// Why Application Integration and not an alert policy or an external mail
-// provider: GCP has no general-purpose email API. The Monitoring email
-// channel is credential-free but welded to incident semantics (fixed
-// subject, unavoidable resolved emails); an external provider needs an
-// account and a secret. Application Integration's Send Email task is the
-// one native, credential-free, per-event sender: one execution = one email
-// with a custom subject and body. See the design decision
+// "signup-notify" Application Integration in the region project: one
+// execution = one email, with a custom subject and no credentials in the
+// chain (Google's mailer delivers it). See the design decision
 // (identity/marketplace-signup-interim-bootstrap.md).
 package notify
 
