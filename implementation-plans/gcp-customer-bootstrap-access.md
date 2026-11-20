@@ -11,6 +11,7 @@
 | **Depends on** | HyperShift `control-plane-pki-operator` (OCP 4.15+; prerequisites validated in a development environment); kube-applier-gcp Secret-delivery and cleanup acceptance tests |
 | **Replaces** | RBAC setup Job in gecko `controllers/hc/manifest/manifests.go` (`buildRBACJob`) |
 | **Related** | [gcp-customer-authentication.md](gcp-customer-authentication.md) — resolves its "No Fallback Access" risk item |
+| **Complementary plan** | [Customer-managed OIDC authentication](gcp-customer-managed-oidc.md) — optional guest IdP configuration and replacement; platform/bootstrap authentication remains independent |
 
 ## Overview
 
@@ -47,6 +48,10 @@ superuser credential material; removing the Job does not remove that trust bound
   `claimMappings` produce identity (`<email>` user, workspace-domain group); they carry no
   permissions. Authorization is entirely customer-owned after first access. See
   [Why not OIDC claim mappings alone](#why-not-oidc-claim-mappings-alone).
+  Customer-managed guest issuers are covered separately by
+  [customer-managed OIDC authentication](gcp-customer-managed-oidc.md). That plan reuses
+  this bootstrap/recovery path but replaces the normal guest Google login workflow;
+  its independently configured platform authentication does not change.
 - A computed, non-persisted Cluster subresource serves the credential:
   `GET /apis/gcp.managed.openshift.io/v1/namespaces/{project}/clusters/{name}/credential`.
   There is no credential CRUD resource, collection, list, or watch endpoint.
