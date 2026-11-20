@@ -25,6 +25,10 @@ identity. Customers use bootstrap credentials to create their initial guest RBAC
 and an external exec plugin for subsequent OIDC login. Gecko makes no guest API calls
 to configure RBAC or validate customer login.
 
+These are the current direct-trust/manual-binding baseline workflows, not a claim that
+every administrator must create a new binding. The alternative comparison below includes
+a development-verified claim-mapping mechanism; automated Gecko integration is pending.
+
 ### Agreed scope
 
 - Support cluster creation, Google-to-customer migration, customer-to-customer provider
@@ -52,24 +56,45 @@ to configure RBAC or validate customer login.
 
 The bootstrap plan records an
 [alternative using Gecko-derived guest-admin entitlement](gcp-customer-bootstrap-access.md#alternative-gecko-derived-guest-administrator-access).
-OpenShift's upstream default `cluster-admins` binding grants the `cluster-admin` role
-to `system:cluster-admins`; a supported trusted identity bridge could use that existing
-grant rather than requiring a new binding. Exact guest binding/mapping support remains
-to be validated. This is not the `system:masters` authorization bypass.
+OpenShift's default `cluster-admins` binding grants the `cluster-admin` role to
+`system:cluster-admins`, without requiring another binding. A controlled development
+test verified adding/removing that group through a platform-owned expression while
+reusing the original Google token and preserving existing groups. This is not the
+`system:masters` authorization bypass. See the
+[verification scope and limitations](gcp-customer-bootstrap-access.md#claim-mapping-verification-in-a-development-environment).
 
-Gecko entitlement can replace Google Groups membership as the admin decision source,
-but cannot simply be inserted into Google-signed tokens. A broker would introduce a
-new guest token issuer; RBAC synchronization would introduce a guest-writing component.
-Neither mechanism has been selected or added to this plan's implementation scope.
+Gecko entitlement can replace Google Groups membership as the admin decision source.
+Google-signed tokens cannot be modified, but they need not be: a platform-generated
+expression can derive groups from existing verified claims and a reconciled eligible
+set. Compare three mechanisms, none selected for implementation here:
 
-The one-provider constraint means a broker cannot simply coexist as another guest
-provider alongside Google or the customer issuer. Evaluation must decide whether the
-broker replaces direct issuer trust and federates supported upstream IdPs, whether an
-alternative synchronization design is appropriate, or whether to retain the current
-baseline. Federating customer IdPs through a platform issuer would change this plan's
+| Candidate | Interaction with customer-managed OIDC |
+|-----------|----------------------------------------|
+| Reconciled claim mapping | Uses the configured issuer, so does not inherently consume another provider slot or require token reissuance. Needs authoritative principal association, condition-aware Gecko reconciliation, size handling, and rollout/removal controls. |
+| Token broker | Introduces a guest token issuer and its signing/login lifecycle. Cannot simply be added alongside Google or the customer issuer under the one-provider constraint. |
+| RBAC synchronization | Retains issuer trust but needs an authorized guest-writing component, drift/removal handling, and an explicit connectivity/architecture change. |
+
+The verified mapping mechanism does not implement a Gecko entitlement reconciler or
+prove customer-IdP interoperability. Gecko currently keys grants by normalized email;
+customer issuers may use different subjects, verification semantics, and identity
+namespaces. Do not join identities across issuers solely because email strings match.
+Define a trusted association and per-Cluster entitlement policy before extending this
+mechanism to customer-issued identities. Local email normalization must also preserve
+Gecko's domain/local-part/Unicode semantics rather than blindly lowercasing an address.
+
+The inspected expression limit is 1,024 characters, and direct-OIDC mapping changes
+affect the API-server pod-template hash. Development updates/restoration took several
+minutes of rollout, not instantaneous policy refresh. Membership removal can affect the
+same still-valid token after convergence; cache, connection, outage, and support-matrix
+behavior still need validation. High-churn or large administrator sets may favor another
+approach; do not silently truncate an oversized entitlement set.
+
+Evaluation must decide whether to reconcile mappings under direct issuer trust, use a
+broker that federates supported upstream IdPs, adopt approved RBAC synchronization,
+or retain the baseline. Federating customer IdPs through a platform issuer changes this plan's
 direct-trust, client-login, availability, and security assumptions and needs a separate
-reviewed contract. Preserve cluster-specific token isolation and condition-aware Gecko
-entitlement checks in any proposed combination.
+reviewed contract. Preserve target-specific authorization and issuer trust in all cases;
+broker tokens additionally need cluster-specific acceptance/isolation.
 
 For now, customer-managed OIDC continues to use issuer-scoped identities and customer
 RBAC, with no automatic mapping into reserved admin groups. Considering a separately
@@ -100,6 +125,9 @@ Source inspection and read-only validation in a development environment establis
 This is implementation/schema evidence, not a customer-IdP or replacement PoC. Day-two
 support, rollout semantics, claim validation, plugin compatibility, and recovery must be
 validated before enablement. Do not switch an existing live customer cluster to test it.
+The separate controlled development mapping test validated group-expression updates
+under the existing Google issuer, not issuer replacement, arbitrary customer IdPs, or
+automatic propagation of Gecko authorization decisions.
 Keep public validation notes abstract; do not include environment cluster/project names,
 resource UIDs, account details, internal endpoints, or deployment-specific metadata.
 
@@ -432,7 +460,9 @@ bootstrap delivery path can still delay recovery; this is not an offline fallbac
 5. Pin/test the external plugin and public-client flow; decide CLI create input and
    transition/version-skew handling. Publish tested provider recipes only after validation.
 6. Make the bootstrap feature's availability, independent permissions, security gates,
-   and recovery runbook prerequisites for enabling customer-managed OIDC.
+   and recovery runbook prerequisites for enabling customer-managed OIDC. Separately
+   compare reconciled mapping, broker, and RBAC synchronization using the verified
+   mechanism evidence; do not silently adopt an entitlement integration in this scope.
 
 ### Phase 1 — API, controller, and infrastructure
 
@@ -530,17 +560,21 @@ bootstrap delivery path can still delay recovery; this is not an offline fallbac
       and concurrent replacement UX will the CLI/API publish?
 - [ ] What are the measured replacement/reversion convergence and residual-access
       behaviors, and the operational procedure if the platform/bootstrap path is impaired?
-- [ ] Alternative evaluation only: how would Gecko-derived guest-admin entitlement
-      coexist with customer-managed OIDC under the one-provider constraint? Compare
-      broker federation versus approved RBAC synchronization without assuming either is
-      selected; validate scope, audience isolation, revocation, and recovery behavior.
+- [ ] Alternative evaluation only: what authoritative association connects Gecko
+      principals to customer token identities, and what scoped/condition-aware action
+      determines eligibility? Which role/binding/Cluster changes drive reconciliation?
+- [ ] Alternative evaluation only: compare reconciled mapping, broker federation, and
+      RBAC synchronization. Mapping does not inherently need another issuer, while a
+      broker must address the one-provider constraint. Define expression-size/churn,
+      concurrent publication, isolation, outage/cache/connection, removal, and recovery
+      behavior; validate the remaining support matrix before selecting an architecture.
 
 ## Backlog
 
 | Story | Jira | Status |
 |-------|------|--------|
 | API/defaulting/prefix, authorization, and support-matrix contracts | TBD | Not Started |
-| Alternative evaluation: Gecko-derived guest-admin compatibility with direct customer OIDC | TBD | Evaluation only; baseline unchanged |
+| Alternative evaluation: reconciled mapping vs. broker vs. RBAC sync, principal association and customer-IdP compatibility | TBD | Google mapping mechanism verified in development; Gecko integration/selection pending; baseline unchanged |
 | Public issuer egress/SSRF and asynchronous validation design | TBD | Not Started |
 | Cluster private/public authentication types and validation/generation tests | TBD | Not Started |
 | HC manifest rendering, revision-aware observations, and reconciliation tests | TBD | Not Started |
