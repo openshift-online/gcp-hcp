@@ -64,7 +64,7 @@ func (f *fakeNotifier) Notify(_ context.Context, signer, project, status string)
 type pipeline struct {
 	verifier  *fakeVerifier
 	activator *fakeActivator
-	notifier  *fakeNotifier
+	notifier  Notifier // *fakeNotifier or *panickingNotifier
 	handler   http.Handler
 }
 
@@ -160,6 +160,30 @@ func TestNotificationFailureDoesNotAffectSignup(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 despite notification failure (body %q)", rec.Code, rec.Body.String())
+	}
+	select {
+	case <-n.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("notification not attempted")
+	}
+}
+
+// panickingNotifier exercises the goroutine's recover: a panic in the
+// notifier must not crash the process or fail the request.
+type panickingNotifier struct{ done chan struct{} }
+
+func (p *panickingNotifier) Notify(context.Context, string, string, string) error {
+	close(p.done)
+	panic("notifier bug")
+}
+
+func TestNotificationPanicIsContained(t *testing.T) {
+	n := &panickingNotifier{done: make(chan struct{})}
+	p := newPipeline(t, func(pl *pipeline) { pl.notifier = n })
+	rec := post(t, p.handler, validBody)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 despite notifier panic (body %q)", rec.Code, rec.Body.String())
 	}
 	select {
 	case <-n.done:
@@ -308,8 +332,6 @@ func TestMessagesCoverAllCodes(t *testing.T) {
 
 func newCORSPipeline(t *testing.T) http.Handler {
 	t.Helper()
-	p := newPipeline(t, nil)
-	_ = p
 	policy, err := identity.NewPolicy([]string{"redhat.com"})
 	if err != nil {
 		t.Fatalf("NewPolicy: %v", err)

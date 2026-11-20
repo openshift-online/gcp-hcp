@@ -85,22 +85,15 @@ type SignupResponse struct {
 
 // Handler serves the API.
 type Handler struct {
-	cfg           config.Config
-	logger        *slog.Logger
-	policy        *identity.Policy
-	deps          Deps
-	notifyTimeout time.Duration
+	cfg    config.Config
+	logger *slog.Logger
+	policy *identity.Policy
+	deps   Deps
 }
 
 // NewHandler builds the HTTP handler and its hosted-domain policy.
 func NewHandler(cfg config.Config, logger *slog.Logger, deps Deps, policy *identity.Policy) *Handler {
-	return &Handler{
-		cfg:           cfg,
-		logger:        logger,
-		policy:        policy,
-		deps:          deps,
-		notifyTimeout: 15 * time.Second,
-	}
+	return &Handler{cfg: cfg, logger: logger, policy: policy, deps: deps}
 }
 
 // Routes returns the mux for the service.
@@ -204,12 +197,21 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 
 	// Fire-and-forget notification: the activation already succeeded, so a
 	// slow or failed email must never affect the response or be retried by
-	// the client. The request context dies with the response, so detach it.
+	// the client. The request context dies with the response, so detach it
+	// (the notifier's client bounds the call itself). A panic here would
+	// escape net/http's per-request recover and kill the process, so
+	// contain it the same way the http.Server would have.
 	if h.deps.Notifier != nil {
 		go func() {
-			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), h.notifyTimeout)
-			defer cancel()
-			if err := h.deps.Notifier.Notify(ctx, email, req.ProjectID, result.Status); err != nil {
+			defer func() {
+				if r := recover(); r != nil {
+					h.logger.Error("activation notification panicked",
+						"project_id", req.ProjectID,
+						"panic", r,
+					)
+				}
+			}()
+			if err := h.deps.Notifier.Notify(context.WithoutCancel(r.Context()), email, req.ProjectID, result.Status); err != nil {
 				h.logger.Warn("activation notification failed",
 					"project_id", req.ProjectID,
 					"error", err,

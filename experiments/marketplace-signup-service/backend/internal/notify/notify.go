@@ -70,8 +70,8 @@ func NewClient(ctx context.Context, projectID, region, integration string) (*Cli
 }
 
 // Notify executes the integration with the activation facts. The recipient
-// list lives in the integration definition, not in this call, so the backend
-// cannot redirect mail.
+// is fixed in the integration definition — Signer, Project, and Status are
+// the only inputs the caller controls — so the backend cannot redirect mail.
 func (c *Client) Notify(ctx context.Context, signer, project, status string) error {
 	ctx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()

@@ -51,6 +51,11 @@ func run(logger *slog.Logger) error {
 		if err != nil {
 			return err
 		}
+		logger.Info("activation notifications enabled",
+			"integration", cfg.NotifyIntegration,
+			"project", cfg.WorkflowProjectID,
+			"region", cfg.WorkflowRegion,
+		)
 	}
 
 	handler := httpapi.NewHandler(cfg, logger, httpapi.Deps{
