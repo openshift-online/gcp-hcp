@@ -1,5 +1,11 @@
 # Phase 4 selected pair — 4.22.21 to exact 5.0.0, same-project coexistence
 
+**Later continuation:** [reviewed code-only preparation](phase-4-42221-code-checkpoint.md)
+now implements/tests the comparison bridge and inactive examples. The user
+explicitly removed a standalone CPO inspection/credential task from the critical
+path. Anonymous-read limitations below are historical observations, not an extra
+blocking prerequisite. Use normal configured pulls/HyperShift validation later.
+
 **2026-11-20. The user explicitly selected 4.22.21 as the fresh installation's
 starting version, retaining exact 5.0.0 as target and identical IAM content.**
 This supersedes the source-version decision in the
