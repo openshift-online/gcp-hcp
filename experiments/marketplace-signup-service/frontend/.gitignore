@@ -1,0 +1,6 @@
+# Per-environment public config, generated at deploy time.
+config.js
+
+# Local build artifacts
+node_modules/
+dist/

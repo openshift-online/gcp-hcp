@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- This page handles sign-in tokens: keep it out of frames and limit
+       scripts/connections to itself, Google Identity Services, and the API. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com; connect-src 'self' https://*.gcp-hcp.devshift.net https://accounts.google.com; frame-src https://accounts.google.com; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'">
+  <title>GCP HCP sign-up</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Filled in at deploy time by deploy.sh. Public values only: the OAuth
+       client is a public client (no secret). Kept as data attributes rather
+       than an inline script so the page's CSP needs no 'unsafe-inline'. -->
+  <meta name="signup-config"
+        data-client-id=""
+        data-api-base=""
+        data-hosted-domain-hint="redhat.com">
+  <script>
+    // Set when the Google Identity Services script fails to load (blocked by an
+    // extension, a proxy, or an offline network). The app shows a visible
+    // explanation instead of an empty button slot.
+    window.__gsiLoadFailed = false;
+  </script>
+  <script src="https://accounts.google.com/gsi/client" async defer
+          onerror="window.__gsiLoadFailed = true; window.dispatchEvent(new Event('gsi-failed'))"></script>
+</head>
+<body>
+  <main class="card">
+    <h1>GCP HCP project sign-up</h1>
+    <p class="lede">
+      Sign in with your Red Hat Google account and enter the GCP project you want
+      to administer. You will receive the initial <code>service-admin</code> role
+      for that project's namespace.
+    </p>
+
+    <p class="notice" id="policy-notice">
+      Only Red Hat Google Workspace accounts are accepted.
+    </p>
+
+    <div id="gsi-button" class="button-slot"></div>
+    <p id="gsi-fallback" class="status error" hidden>
+      The Google sign-in button could not be displayed. This is usually a
+      browser extension or proxy blocking <code>accounts.google.com</code>.
+      Disable it for this page and reload.
+    </p>
+
+    <form id="signup-form" hidden>
+      <p class="signed-in">
+        Signed in as <strong id="signed-in-email">…</strong>
+        <button type="button" id="switch-account" class="link-button" hidden>Use a different account</button>
+      </p>
+
+      <label for="project-id">GCP project ID</label>
+      <input
+        id="project-id"
+        name="project-id"
+        type="text"
+        inputmode="latin"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="my-project-123"
+        required
+        aria-describedby="project-id-help">
+      <p id="project-id-help" class="help">
+        The project ID, not the project number or name — 6–30 characters, lowercase
+        letters, digits, and hyphens.
+      </p>
+
+      <button type="submit" id="submit-button">Create namespace administrator</button>
+    </form>
+
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+
+    <section id="result" class="result" hidden aria-live="polite">
+      <h2 id="result-title" class="result-title"></h2>
+      <p id="result-detail" class="result-detail"></p>
+      <p class="result-next-label" id="result-next-label">Next steps</p>
+      <ul id="result-steps" class="result-steps"></ul>
+      <pre id="result-example" class="result-example" hidden><code id="result-example-code"></code></pre>
+      <p id="result-links" class="result-links"></p>
+    </section>
+
+    <noscript>
+      <p class="status error">This page requires JavaScript.</p>
+    </noscript>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
