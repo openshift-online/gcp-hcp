@@ -346,19 +346,54 @@ Not proven, and not to be inferred:
   only.
 - Tenant control-plane survival (zero HostedClusters/NodePools) and GKE 1.35.8
   parity.
-- Operator retirement, complete garbage collection, cleanup completion, or a
-  persistent/global rollout. The fixtures and their supporting resources remain
-  present: three projects, the rehearsal folder, records in the shared DNS zone,
-  the 14 shared-project grants, the temporary read-only deploy key and the
-  Terraform state object. Cleanup was authorized before the runs and no further
-  planned fixture use remains, but it has **not** been performed by this change;
-  the recorded scoped order removes the exact grants and the fixture deploy key
-  as well as the cloud resources. No teardown, purge or secure-erasure claim is
-  made, and a project delete request is not a permanent purge.
+- Operator retirement, complete garbage collection, cleanup completion or a
+  persistent/global rollout. The fixtures were torn down under the recorded
+  authorization, but a project or folder delete request is a scheduled,
+  recoverable deletion, not a purge, and no complete-absence, permanent-erasure
+  or billing-stop claim is made. See the cleanup status below.
 - Any change to GCP-1289 rollout, GCP-1287 optional components (no distribution
   project before Preview), or the standalone GitOps Promoter v0.49 placement,
   APIs, gates, dashboards, TLS, credentials and single-writer arrangement; the
   operator Promoter and Hydrator remain off.
+
+## Cleanup status and retained credentials
+
+The authorized teardown ran on 2026-11-20–21 in the recorded order. The 14
+exact recorded IAM bindings were removed before the fixture teardown; the three
+fixture projects and their folder were then issued `DELETE_REQUESTED`, which is
+a scheduled, recoverable deletion and not a purge; and exactly nine shared DNS
+records were removed. The fixture Terraform state prefix was cleared afterwards:
+178 live and non-current object generations were deleted by explicit name, every
+call returned success, and a fresh listing showed none remaining. Those copies
+sit in the provider's seven-day soft-delete window and stay recoverable until
+2026-11-28; no retention or soft-delete setting was changed, and no
+secure-erasure claim is made. Locally, the generated plan, state, credential,
+kubeconfig and cache files were removed (84 files, plus the Terraform working
+directory and lock file, with a captured exit code of 0), while diagnostic logs,
+derived summaries and per-phase receipts were kept to preserve context.
+
+Two absences are **not** independently proven: the Endpoints service answers
+with an API-disabled 403 on the surviving quota project rather than a not-found,
+and the GKE clusters can no longer be described once their projects are
+deleting. The delete requests were acknowledged; an acknowledged request is not
+a verified-absence receipt.
+
+By explicit owner direction, the fixture's registered read-only deploy key and
+its original local keypair are **retained** unchanged for possible follow-up and
+were not revoked, deleted, re-registered, widened or re-probed. This is a
+recorded exception to the standing advice that temporary credentials should be
+removed after disposable work; it does not weaken that default for other runs.
+No fixture permission, service API or resource was re-enabled or recreated for
+the follow-up.
+
+Sanitized cleanup manifests (SHA-256 over each file list); detailed ledgers
+remain team-retained outside this repository:
+
+| Cleanup stage | Manifest |
+| --- | --- |
+| Authorized teardown (grants, DNS, scheduled deletes) | `00fe07e96470dbd72035b74d3d0052d2b7e1a7c846bb670f5ba6602a25a1fcc5` (4 files) |
+| Remaining state and local artifacts | `a497e5d74e7a120f2954a069ccb98f3a53507d8aed1a71189b0a5dcccaf6b90f` (7 files) |
+| Bounded Endpoints absence re-check | `f2f797027e95207d967951951bfc46b8e3ef5b661b8e9edea6c066ff827139fd` (2 files) |
 
 ## Evidence pointers and hash semantics
 
