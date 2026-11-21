@@ -5,8 +5,9 @@
   "automerge": false,
   "addLabels": ["ok-to-test", "area/dependency"],
   "prConcurrentLimit": 10,
+  "semanticCommits": "enabled",
   "gomod": {
-    "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+    "postUpdateOptions": ["gomodTidyAll", "gomodUpdateImportPaths"],
     "packageRules": [
       {
         "matchPackageNames": ["golang.org/x/**"],
