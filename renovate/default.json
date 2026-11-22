@@ -32,6 +32,19 @@
         "matchManagers": ["gomod"],
         "matchUpdateTypes": ["major"],
         "enabled": false
+      },
+      {
+        "matchPackageNames": [
+          "github.com/openshift-online/kube-applier-gcp",
+          "github.com/openshift-online/kube-applier-gcp/**",
+          "github.com/openshift-online/gecko",
+          "github.com/openshift-online/gecko/**",
+          "github.com/openshift-online/gcp-hcp-ctl",
+          "github.com/openshift-online/gcp-hcp-ctl/**",
+          "github.com/openshift-online/socketcd",
+          "github.com/openshift-online/socketcd/**"
+        ],
+        "minimumReleaseAge": null
       }
     ]
   },
