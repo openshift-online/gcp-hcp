@@ -6,7 +6,7 @@
 
 ## Decision
 
-Provide an interim, minimal sign-up service intended for selected internal Red Hat product teams. A participant signs in with a Red Hat Google Workspace identity and submits a GCP project ID to trigger the existing `activate-project` Cloud Workflow. The service validates identity but does not verify project ownership. It is retired when the GCP Marketplace Integration via the Entitlement Gateway provides the customer's identity and target GCP project ID.
+Provide an interim, minimal sign-up service intended for selected internal Red Hat teams participating in the Private Preview. A participant signs in with a Red Hat Google Workspace identity and submits a GCP project ID to trigger the existing `activate-project` Cloud Workflow. The service validates identity but does not verify project ownership. It is retired when the GCP Marketplace Integration via the Entitlement Gateway provides the customer's identity and target GCP project ID.
 
 ## Context
 
@@ -18,7 +18,7 @@ Provide an interim, minimal sign-up service intended for selected internal Red H
   - The service is stateless: the sign-in ID token is sent with the single sign-up request and never persisted — there is no session store and no database
   - Every successful activation must attempt a team notification containing the signer, project, and outcome, without adding mail credentials or an external mail provider
 - **Assumptions**:
-  - Private Preview participants are selected internal Red Hat product teams
+  - Private Preview participants are selected internal Red Hat teams
   - The GCP Marketplace Integration via the Entitlement Gateway will eventually provide the customer's identity and target GCP project ID, making this service redundant
 
 ## Alternatives Considered
@@ -39,7 +39,7 @@ Provide an interim, minimal sign-up service intended for selected internal Red H
 
 ### Positive
 
-* Selected product teams can initiate the initial `service-admin` grant without GCP HCP operator toil.
+* Participating teams can initiate the initial `service-admin` grant without GCP HCP operator toil.
 * The submitting team member becomes the initial `service-admin`; subsequent delegation uses normal role management.
 * The service reuses `activate-project`, is stateless, and holds no application credentials.
 * Each successful activation attempts a best-effort team notification.
