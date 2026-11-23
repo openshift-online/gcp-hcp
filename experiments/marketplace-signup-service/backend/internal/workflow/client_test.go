@@ -198,3 +198,107 @@ func TestActivateTimesOut(t *testing.T) {
 		t.Fatalf("error = %v, want ErrTransient", err)
 	}
 }
+
+func TestClassifyFailureOuterStringPayload(t *testing.T) {
+	// Real Executions API wraps the workflow's JSON in an outer JSON string.
+	outer409, _ := json.Marshal(map[string]any{"code": 409.0, "message": "exists"})
+	wrapped409, _ := json.Marshal(string(outer409))
+	if err := classifyFailure(&executionError{Payload: wrapped409, Context: "failed"}); !errors.Is(err, ErrAlreadyClaimed) {
+		t.Fatalf("wrapped 409: got %v, want ErrAlreadyClaimed", err)
+	}
+	outer403, _ := json.Marshal(map[string]any{"code": 403.0, "message": "reserved"})
+	wrapped403, _ := json.Marshal(string(outer403))
+	if err := classifyFailure(&executionError{Payload: wrapped403, Context: "failed"}); !errors.Is(err, ErrReservedName) {
+		t.Fatalf("wrapped 403: got %v, want ErrReservedName", err)
+	}
+	// String payload wrapped as outer string should still classify as input validation
+	wrappedStr, _ := json.Marshal("Invalid project_namespace: expected a valid GCP project ID")
+	// Need double wrapping: inner string already JSON, outer wraps it
+	outerStr, _ := json.Marshal(string(wrappedStr))
+	// The actual wire format for string payloads is a single outer string
+	// containing the message; test the direct wrapped string case
+	directWrapped, _ := json.Marshal("Invalid project_namespace: bad")
+	if err := classifyFailure(&executionError{Payload: directWrapped, Context: "failed"}); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("wrapped input validation: got %v, want ErrInvalidInput", err)
+	}
+	_ = outerStr
+}
+
+func TestActivatePollRetriesTransientThenSucceeds(t *testing.T) {
+	// First GET after create returns 502, second returns SUCCEEDED
+	var gets int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			if _, err := w.Write([]byte(`{"name":"projects/p/locations/r/workflows/w/executions/e1","state":"ACTIVE"}`)); err != nil {
+				t.Errorf("write create: %v", err)
+			}
+			return
+		}
+		if r.Method == http.MethodGet {
+			gets++
+			if gets == 1 {
+				w.WriteHeader(http.StatusBadGateway)
+				if _, err := w.Write([]byte(`{"error":"bad gateway"}`)); err != nil {
+					t.Errorf("write 502: %v", err)
+				}
+				return
+			}
+			body, _ := json.Marshal(map[string]any{
+				"name": "e1", "state": "SUCCEEDED",
+				"result": `{"status":"activated","namespace":"my-project-123"}`,
+			})
+			if _, err := w.Write(body); err != nil {
+				t.Errorf("write success: %v", err)
+			}
+			return
+		}
+		t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+	}))
+	t.Cleanup(srv.Close)
+	c := &Client{
+		ProjectID: "p", Region: "r", WorkflowName: "w",
+		HTTP: srv.Client(), BaseURL: srv.URL,
+		Timeout: 5 * time.Second, PollInterval: time.Millisecond,
+	}
+	res, err := c.Activate(context.Background(), "my-project-123", "alice@redhat.com")
+	if err != nil {
+		t.Fatalf("Activate: %v", err)
+	}
+	if res.Status != "activated" {
+		t.Fatalf("status=%q", res.Status)
+	}
+	if gets != 2 {
+		t.Fatalf("gets=%d, want 2 (retry exercised)", gets)
+	}
+}
+
+func TestActivatePollDeniedIsTransientNotMisconfigured(t *testing.T) {
+	// POST accepted, GET denied — should be transient (outcome unknown), not misconfigured
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			if _, err := w.Write([]byte(`{"name":"projects/p/locations/r/workflows/w/executions/e1","state":"ACTIVE"}`)); err != nil {
+				t.Errorf("write create: %v", err)
+			}
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+		if _, err := w.Write([]byte(`{"error":"forbidden"}`)); err != nil {
+			t.Errorf("write 403: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &Client{
+		ProjectID: "p", Region: "r", WorkflowName: "w",
+		HTTP: srv.Client(), BaseURL: srv.URL,
+		Timeout: time.Second, PollInterval: time.Millisecond,
+	}
+	_, err := c.Activate(context.Background(), "my-project-123", "alice@redhat.com")
+	if !errors.Is(err, ErrTransient) {
+		t.Fatalf("got %v, want ErrTransient", err)
+	}
+	if errors.Is(err, ErrMisconfigured) {
+		t.Fatalf("must not be ErrMisconfigured (create was accepted, poll was denied)")
+	}
+}

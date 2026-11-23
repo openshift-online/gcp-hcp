@@ -164,9 +164,9 @@
     },
     transient: {
       title: "Temporary failure",
-      detail: "The platform could not complete the activation. No binding was created, so retrying is safe.",
+      detail: "The platform could not confirm the activation. A binding may already exist. Retrying is safe because a repeated sign-up reports success.",
       steps: [
-        "Wait a few minutes and submit again.",
+        "Wait a few minutes and submit again with the same account.",
         "If it keeps failing, contact the platform team with the project ID and the time of the attempt.",
       ],
     },
@@ -244,7 +244,7 @@
   async function submit(event) {
     event.preventDefault();
 
-    const projectId = projectInput.value.trim().toLowerCase();
+    const projectId = projectInput.value.trim();
     if (!PROJECT_ID_PATTERN.test(projectId)) {
       projectInput.setAttribute("aria-invalid", "true");
       fail("Enter a valid project ID: 6–30 characters, lowercase letters, digits, hyphens, starting with a letter.");
@@ -255,6 +255,7 @@
     clearResult();
     submitButton.disabled = true;
     setStatus("Activating the namespace…");
+    const submittingToken = idToken;
 
     try {
       const res = await fetch((cfg.apiBase || "") + "/api/v1/signup", {
@@ -262,14 +263,27 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: projectId,
-          id_token: idToken,
+          id_token: submittingToken,
         }),
       });
 
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
-        const namespace = (body && body.namespace) || projectId;
-        showSuccess(namespace, body && body.status === "already_active");
+        // Require a valid backend response; do not treat HTML 200 as success.
+        const status = body && body.status;
+        const namespace = body && body.namespace;
+        const validStatus = status === "activated" || status === "already_active";
+        const validNamespace = typeof namespace === "string" && PROJECT_ID_PATTERN.test(namespace);
+        if (!validStatus || !validNamespace) {
+          fail("The platform could not confirm the activation. The response was not in the expected format. Check the project in the console or retry with the same account.");
+          return;
+        }
+        // Do not apply A's result to B after an account switch.
+        if (submittingToken !== idToken) {
+          setStatus("");
+          return;
+        }
+        showSuccess(namespace, status === "already_active");
         form.reset();
         return;
       }

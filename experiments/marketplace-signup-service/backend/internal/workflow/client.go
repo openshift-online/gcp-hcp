@@ -122,9 +122,21 @@ func (c *Client) Activate(ctx context.Context, namespace, subject string) (Resul
 		var execution execution
 		if err := c.do(ctx, http.MethodGet, c.BaseURL+"/v1/"+created.Name, nil, &execution); err != nil {
 			if isAuthorizationFailure(err) {
-				return Result{}, fmt.Errorf("%w: poll execution: %v", ErrMisconfigured, err)
+				// POST was accepted (execution exists), so this is not a
+				// misconfiguration of the create call — the outcome is simply
+				// unreadable. Report as transient/unknown, not unavailable.
+				return Result{}, fmt.Errorf("%w: poll denied, outcome unknown (execution %s): %v", ErrTransient, created.Name, err)
 			}
-			return Result{}, fmt.Errorf("%w: poll execution: %v", ErrTransient, err)
+			// Transient poll failure (e.g., 502/503 from Workflows). Retry
+			// against the same execution until the overall timeout expires;
+			// do not resubmit the POST. The accepted execution may still
+			// create the binding.
+			select {
+			case <-ctx.Done():
+				return Result{}, fmt.Errorf("%w: poll failed and deadline exceeded for %s: %v", ErrTransient, created.Name, err)
+			case <-time.After(c.PollInterval):
+				continue
+			}
 		}
 		switch execution.State {
 		case "SUCCEEDED":
@@ -175,18 +187,32 @@ func resultFromExecution(namespace, rawResult string) (Result, error) {
 
 // classifyFailure inspects the execution error payload. The workflow raises
 // either an object with a numeric code (reserved namespace, subject conflict)
-// or a plain string (input validation, infrastructure failures).
+// or a plain string (input validation, infrastructure failures). The
+// Executions REST API returns payload as a JSON string containing JSON, so
+// both the raw payload and an outer-string-decoded form are tried.
 func classifyFailure(execErr *executionError) error {
 	if execErr == nil || len(execErr.Payload) == 0 {
 		return fmt.Errorf("%w: execution failed without an error payload", ErrTransient)
 	}
+	if err := classifyPayload(execErr.Payload, execErr.Context); err != nil {
+		return err
+	}
+	// Executions API wire format: outer JSON string wrapping the workflow's JSON.
+	var outer string
+	if err := json.Unmarshal(execErr.Payload, &outer); err == nil {
+		if err := classifyPayload([]byte(outer), execErr.Context); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("%w: execution failed: %s", ErrTransient, execErr.Context)
+}
 
-	// Object form: {"code":403,"message":"..."}
+func classifyPayload(raw []byte, fallbackCtx string) error {
 	var obj struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 	}
-	if err := json.Unmarshal(execErr.Payload, &obj); err == nil {
+	if err := json.Unmarshal(raw, &obj); err == nil {
 		switch obj.Code {
 		case 403:
 			return fmt.Errorf("%w: %s", ErrReservedName, obj.Message)
@@ -197,13 +223,11 @@ func classifyFailure(execErr *executionError) error {
 			return fmt.Errorf("%w: %s", ErrInvalidInput, obj.Message)
 		}
 	}
-
-	// String form.
 	var msg string
-	if err := json.Unmarshal(execErr.Payload, &msg); err == nil && isInputValidation(msg) {
+	if err := json.Unmarshal(raw, &msg); err == nil && isInputValidation(msg) {
 		return fmt.Errorf("%w: %s", ErrInvalidInput, msg)
 	}
-	return fmt.Errorf("%w: execution failed: %s", ErrTransient, execErr.Context)
+	return nil
 }
 
 // statusError is an HTTP failure from the Workflows API.

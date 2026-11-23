@@ -160,18 +160,20 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 	// 1. Validate the ID token: signature, issuer, expiry, audience.
 	verified, err := h.deps.Verifier.Verify(verifyCtx, req.IDToken)
 	if err != nil {
-		h.reject(w, http.StatusUnauthorized, CodeUnauthorized, req.ProjectID, "id token invalid", err)
+		h.reject(w, http.StatusUnauthorized, CodeUnauthorized, req.ProjectID, "", "", "id token invalid", err)
 		return
 	}
 
-	// 2. Enforce the Red Hat hosted-domain policy on the signed claims.
-	if err := h.policy.Authorize(verified.HostedDomain, verified.Email); err != nil {
-		h.reject(w, http.StatusUnauthorized, CodeUnauthorized, req.ProjectID, "identity not allowed", err)
-		return
-	}
+	// 2. Normalize first so domain checks run on NFC form (policy compares
+	// email domain to hd).
 	email, err := identity.NormalizeEmail(verified.Email)
 	if err != nil {
-		h.reject(w, http.StatusUnauthorized, CodeUnauthorized, req.ProjectID, "email unusable", err)
+		h.reject(w, http.StatusUnauthorized, CodeUnauthorized, req.ProjectID, "", "", "email unusable", err)
+		return
+	}
+	// 3. Enforce the Red Hat hosted-domain policy on the signed claims.
+	if err := h.policy.Authorize(verified.HostedDomain, email); err != nil {
+		h.reject(w, http.StatusUnauthorized, CodeUnauthorized, req.ProjectID, email, req.ProjectID, "identity not allowed", err)
 		return
 	}
 
@@ -184,7 +186,7 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 	// 4. Activate the namespace through the existing workflow.
 	result, err := h.deps.Activator.Activate(r.Context(), req.ProjectID, email)
 	if err != nil {
-		h.writeActivationError(w, req.ProjectID, err)
+		h.writeActivationError(w, req.ProjectID, email, req.ProjectID, err)
 		return
 	}
 
@@ -228,32 +230,37 @@ func (h *Handler) signup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, SignupResponse{Namespace: result.Namespace, Status: result.Status})
 }
 
-func (h *Handler) writeActivationError(w http.ResponseWriter, projectID string, err error) {
+func (h *Handler) writeActivationError(w http.ResponseWriter, projectID, subject, namespace string, err error) {
 	switch {
 	case errors.Is(err, workflow.ErrAlreadyClaimed):
-		h.reject(w, http.StatusConflict, CodeAlreadyClaimed, projectID, "already claimed", err)
+		h.reject(w, http.StatusConflict, CodeAlreadyClaimed, projectID, subject, namespace, "already claimed", err)
 	case errors.Is(err, workflow.ErrReservedName):
-		h.reject(w, http.StatusBadRequest, CodeReservedName, projectID, "reserved namespace", err)
+		h.reject(w, http.StatusBadRequest, CodeReservedName, projectID, subject, namespace, "reserved namespace", err)
 	case errors.Is(err, workflow.ErrInvalidInput):
-		h.reject(w, http.StatusBadRequest, CodeInvalidRequest, projectID, "workflow rejected arguments", err)
+		h.reject(w, http.StatusBadRequest, CodeInvalidRequest, projectID, subject, namespace, "workflow rejected arguments", err)
 	case errors.Is(err, workflow.ErrMisconfigured):
 		// The backend cannot invoke the workflow at all: an operator problem,
 		// not something the user can retry away.
 		h.logger.Error("signup unavailable: workflow invocation not authorized",
-			"project_id", projectID, "error", err)
+			"project_id", projectID, "namespace", namespace, "subject", subject, "error", err)
 		writeError(w, http.StatusInternalServerError, CodeUnavailable, messages[CodeUnavailable])
 	default:
-		h.reject(w, http.StatusServiceUnavailable, CodeTransient, projectID, "activation failed", err)
+		h.reject(w, http.StatusServiceUnavailable, CodeTransient, projectID, subject, namespace, "activation failed", err)
 	}
 }
 
 // reject logs the reason (never tokens) and returns the stable error code.
-func (h *Handler) reject(w http.ResponseWriter, status int, code, projectID, reason string, err error) {
-	h.logger.Warn("signup rejected",
-		"project_id", projectID,
-		"reason", reason,
-		"error", err,
-	)
+// Subject and namespace are included for audit (spec: all outcomes carry
+// project_id, namespace, subject).
+func (h *Handler) reject(w http.ResponseWriter, status int, code, projectID, subject, namespace, reason string, err error) {
+	args := []any{"project_id", projectID, "reason", reason, "error", err}
+	if subject != "" {
+		args = append(args, "subject", subject)
+	}
+	if namespace != "" {
+		args = append(args, "namespace", namespace)
+	}
+	h.logger.Warn("signup rejected", args...)
 	writeError(w, status, code, messages[code])
 }
 

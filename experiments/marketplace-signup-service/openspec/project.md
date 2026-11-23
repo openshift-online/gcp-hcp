@@ -1,7 +1,7 @@
 # Marketplace Sign-Up Service (Interim)
 
 Interim self-service bootstrap for GCP-HCP: lets a Red Hat user sign in with
-their Google Workspace identity, prove owner-class control of a GCP project, and
+their Google Workspace identity and a GCP project ID, and
 receive the initial `service-admin` RoleBinding in their namespace — standing in
 for the future Google Cloud Marketplace controller until the marketplace
 integration (CIAM identity federation, EGW entitlement correlation) is available.

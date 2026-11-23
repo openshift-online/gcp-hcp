@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -388,5 +389,51 @@ func TestCORSHeadersOnActualRequest(t *testing.T) {
 
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://signup.example.test" {
 		t.Fatalf("allow-origin = %q", got)
+	}
+}
+
+func TestSignupRejectedIncludesAuditFields(t *testing.T) {
+	var buf bytes.Buffer
+	policy, _ := identity.NewPolicy([]string{"redhat.com"})
+	h := NewHandler(
+		config.Config{OAuthClientID: "test-client"},
+		slog.New(slog.NewTextHandler(&buf, nil)),
+		Deps{
+			Verifier: &fakeVerifier{id: auth.Identity{Email: "alice@redhat.com", EmailVerified: true, HostedDomain: "redhat.com"}},
+			Activator: &fakeActivator{err: workflow.ErrAlreadyClaimed},
+		},
+		policy,
+	).Routes()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/signup", strings.NewReader(validBody))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	logged := buf.String()
+	for _, want := range []string{"alice@redhat.com", "my-project-123", "already claimed"} {
+		if !strings.Contains(logged, want) {
+			t.Fatalf("rejected log missing %q: %q", want, logged)
+		}
+	}
+}
+
+func TestSignupNormalizeBeforeAuthorize(t *testing.T) {
+	// NFC normalization: decomposed e + combining accent should normalize and pass.
+	decomposed := "alice\u0065\u0301@redhat.com" // e + ́ -> é in NFC
+	policy, _ := identity.NewPolicy([]string{"redhat.com"})
+	h := NewHandler(
+		config.Config{OAuthClientID: "test-client"},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Deps{
+			Verifier: &fakeVerifier{id: auth.Identity{Email: decomposed, EmailVerified: true, HostedDomain: "redhat.com"}},
+			Activator: &fakeActivator{res: workflow.Result{Status: "activated", Namespace: validProject}},
+		},
+		policy,
+	).Routes()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/signup", strings.NewReader(validBody))
+	req.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200; decomposed email should be normalized before authorize (body %q)", rec.Code, rec.Body.String())
 	}
 }
