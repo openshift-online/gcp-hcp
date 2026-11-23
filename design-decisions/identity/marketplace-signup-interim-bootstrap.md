@@ -23,9 +23,8 @@ Provide an interim, minimal sign-up service intended for selected internal Red H
 
 ## Alternatives Considered
 
-1. **Wait for the GCP Marketplace Integration (status quo)**: No bootstrap path until entitlement data is available. Blocks all Private Preview onboarding.
-2. **Operator-assisted activation**: A GCP HCP operator invokes `activate-project` on behalf of each participant. This works but adds onboarding toil and makes the team the queue for every activation.
-3. **Interim sign-up service (chosen)**: A small SPA + API that authenticates a Red Hat Google identity and invokes `activate-project` with the submitted project ID and authenticated email.
+1. **Operator-assisted activation**: A GCP HCP operator invokes `activate-project` on behalf of each participant. This works but adds onboarding toil and makes the team the queue for every activation.
+2. **Interim sign-up service (chosen)**: A small SPA + API that authenticates a Red Hat Google identity and invokes `activate-project` with the submitted project ID and authenticated email.
 
 ## Decision Rationale
 
@@ -33,7 +32,7 @@ Provide an interim, minimal sign-up service intended for selected internal Red H
 
 * **Evidence**: The service is implemented and live in the `cveiga` dev environment, with successful end-to-end activations (new activations and already-active outcomes) performed with real Red Hat identities. Backend behavior — ID token validation (JWKS signature, issuer, audience, expiry, `email_verified`), `hd` policy enforcement, NFC email normalization, workflow invocation with outcome mapping, and structured audit logging — is covered by tests. See the experiment and OpenSpec change linked under References.
 
-* **Comparison**: Waiting blocks Private Preview onboarding. Operator-assisted activation works but makes every onboarding dependent on the GCP HCP team. The interim service keeps the same activation semantics while allowing participants to initiate activation directly.
+* **Comparison**: Operator-assisted activation works but makes every onboarding dependent on the GCP HCP team. The interim service keeps the same activation semantics while allowing participants to initiate activation directly.
 
 ## Consequences
 
