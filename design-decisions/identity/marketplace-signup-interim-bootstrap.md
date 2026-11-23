@@ -10,7 +10,7 @@ Provide an interim, minimal sign-up service where a subscribing customer signs i
 
 ## Context
 
-- **Problem Statement**: Customers who purchase the offering through GCP Marketplace (Private Preview) need the initial `service-admin` RoleBinding in their project's namespace before anyone can act on their behalf. The marketplace integration that would deliver the subscribing customer's Google email is not yet available, and the Pub/Sub events exposed by the entitlement/EGW flow do not carry it. Without an identity source, there is no way to establish the first administrator.
+- **Problem Statement**: Customers who purchase the offering through GCP Marketplace (Private Preview) need the initial `service-admin` RoleBinding in their project's namespace before anyone can act on their behalf. The marketplace integration that would deliver the subscribing customer's Google email and target GCP project ID is not yet available, and the Pub/Sub events exposed by the entitlement/EGW flow do not carry them. Without that data, there is no way to establish the first administrator.
 - **Constraints**:
   - Only Red Hat Google Workspace identities (`@redhat.com`, verified via the signed `hd` claim together with email-domain agreement) may pass the gate — not arbitrary Google credentials
   - The service must be reachable from the public internet (customers are external to the platform network) but is not advertised; the URL is shared directly with Private Preview participants
@@ -71,7 +71,7 @@ Provide an interim, minimal sign-up service where a subscribing customer signs i
 
 ## Sunset Condition
 
-The service is retired when the GCP Marketplace Pub/Sub integration (or a successor CIAM source) supplies the subscribing customer's identity for activation events. At that point sign-in-based bootstrap and its ownership gap are both replaced by the marketplace's entitlement data; the service, its OAuth client, and its Terraform identity should be deleted in the same change.
+The service is retired when the GCP Marketplace Pub/Sub integration (or a successor CIAM source) supplies the subscribing customer's identity and target GCP project ID for activation events. At that point sign-in-based bootstrap and its ownership gap are both replaced by the marketplace's entitlement data; the service, its OAuth client, and its Terraform identity should be deleted in the same change.
 
 The decision is tracked by [GCP-1509](https://redhat.atlassian.net/browse/GCP-1509) (interim sign-up experiment spike) under epic [GCP-1032](https://redhat.atlassian.net/browse/GCP-1032) and should be re-evaluated at each Private Preview milestone — an interim decision with no revisit trigger tends to become permanent. Follow-up: [GCP-1503](https://redhat.atlassian.net/browse/GCP-1503) (operator RoleBinding revocation path).
 
