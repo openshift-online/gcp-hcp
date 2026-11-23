@@ -73,7 +73,7 @@ Provide an interim, minimal sign-up service where a subscribing customer signs i
 
 The service is retired when the GCP Marketplace Pub/Sub integration (or a successor CIAM source) supplies the subscribing customer's identity for activation events. At that point sign-in-based bootstrap and its ownership gap are both replaced by the marketplace's entitlement data; the service, its OAuth client, and its Terraform identity should be deleted in the same change.
 
-The decision is tracked by GCP-1377 and should be re-evaluated at each Private Preview milestone — an interim decision with no revisit trigger tends to become permanent.
+The decision is tracked by GCP-1503 (operator correction path) under epic GCP-1032 and should be re-evaluated at each Private Preview milestone — an interim decision with no revisit trigger tends to become permanent.
 
 If stronger ownership proof is needed before then, the recorded exit options are: (a) user-grant-based proof (customer grants the service's service account a role in their project), (b) an OAuth client owned by the `redhat.com` organization, or (c) Workspace allowlisting to unblock scope-based verification.
 
