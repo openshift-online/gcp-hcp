@@ -20,12 +20,13 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY index.html app.js styles.css /etc/signup/
 COPY --chmod=0755 40-signup-config.sh /docker-entrypoint.d/40-signup-config.sh
 
-RUN mkdir -p /usr/share/nginx/html /var/cache/nginx /var/log/nginx /run && \
-    chown -R 1001:0 /usr/share/nginx /var/cache/nginx /var/log/nginx /run /etc/nginx && \
-    chmod -R g+rwX /usr/share/nginx /var/cache/nginx /var/log/nginx /run
+RUN rm -rf /var/log/nginx && ln -s /tmp /var/log/nginx && \
+    rm -rf /var/lib/nginx && mkdir -p /tmp/nginx-lib && ln -s /tmp/nginx-lib /var/lib/nginx && \
+    mkdir -p /usr/share/nginx/html /var/cache/nginx /run && \
+    chown -R 1001:0 /usr/share/nginx /var/cache/nginx /run /etc/nginx /tmp && \
+    chmod -R g+rwX /usr/share/nginx /var/cache/nginx /run /tmp
 
 USER 1001
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD curl -f http://localhost:8080/index.html || exit 1
 ENTRYPOINT ["/docker-entrypoint.d/40-signup-config.sh"]
-CMD ["nginx", "-g", "daemon off;"]
