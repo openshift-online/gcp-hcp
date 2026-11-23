@@ -23,6 +23,11 @@ THE SYSTEM SHALL gate namespace activation on the validated Google ID token and 
 - **WHEN** the ID token's `hd` is missing or outside the allowlist
 - **THEN** the request is rejected before any activation
 
+#### Scenario: Email domain does not match hosted domain
+
+- **WHEN** the verified email's domain differs from `hd` (e.g., `alice@gmail.com` with `hd=redhat.com`)
+- **THEN** the request is rejected before any activation
+
 #### Scenario: No user credentials are used
 
 - **WHEN** a sign-up is processed
