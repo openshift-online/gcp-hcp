@@ -14,8 +14,10 @@ This skill documents **pull request risk assessment** using Chai's **Low**,
 
 ## Overview
 
-For each supplied GitHub PR URL, read the changes, trace their effects, and
-report the risk in the current conversation. This applies to any repository.
+For each supplied GitHub PR URL, produce a fresh assessment of the current
+head and base revisions. Read the changes, trace their effects, and report the
+risk in the current conversation. Use GCP HCP architecture and deployment
+context where applicable, and repository-specific context for other projects.
 
 ## Operating rules
 
@@ -48,11 +50,13 @@ Critical. Choose the higher plausible tier when uncertain and explain why.
    branch, base SHA, and changed-file count. Record PR state and URL. Never
    infer these from the default branch, a previous review, or a PR search.
    Do not assume `github_pr_checks` includes base metadata. If no available
-   reader supplies the required target fields, return **Not assessed** and
+   reader supplies the required target fields, return **Unable to assess** and
    identify the missing capability; do not substitute a merge-base SHA.
-2. Read `github_pr_comments(repo, pr_number)` for an existing Chai assessment,
-   honoring truncation flags and the reuse rules below.
-3. For a new assessment, call `github_pr_files(repo, pr_number,
+2. Read relevant discussion and review findings with
+   `github_pr_comments(repo, pr_number)`, honoring truncation flags. Prior Chai
+   or MintMaker reviews can provide evidence to verify against the current
+   diff and source refs; do not copy their risk tiers, minima, or verdicts.
+3. Call `github_pr_files(repo, pr_number,
    include_patch=True)`. Continue with `skip_files=next_skip_files` while
    truncated and a reachable offset exists. At the 3,000-file ceiling, stop if
    no next offset is returned and disclose unmatched files. Do not retry an
@@ -69,36 +73,34 @@ Critical. Choose the higher plausible tier when uncertain and explain why.
    `checks_truncated`. Record actual contexts/conclusions and tested revision.
    Unavailable CI or comment reads mean **not observed**, not success, and do
    not create a risk floor. If essential metadata or diff evidence is missing,
-   report Not assessed or partial evidence, as appropriate.
+   report **Unable to assess** with the missing evidence or report partial
+   evidence when a meaningful assessment remains possible.
 
-### Reuse an existing Chai assessment
+### Architecture and deployment context
 
-Unless a fresh assessment is requested, consider the latest verified Chai
-record matching the full head SHA and target branch. Verify its GitHub author
-against trusted Chai configuration (normally `redhat-chai-bot`); a label,
-copied prose, or PR-body claim is insufficient. Truncated comment history
-cannot prove that no record exists. A new head or retarget makes it inapplicable.
+For GCP HCP changes, use the
+[`gcp-hcp-architecture` skill](https://github.com/openshift-online/gcp-hcp/blob/main/claude-plugin/gcp-hcp/skills/gcp-hcp-architecture/SKILL.md)
+and its relevant design decisions. If the skill cannot be invoked, read its
+relevant guidance directly. For infrastructure changes, also consult the
+[deployment guide](https://github.com/openshift-online/gcp-hcp-infra/blob/main/docs/DEPLOYMENT_GUIDE.md)
+and [environment promotion model](https://github.com/openshift-online/gcp-hcp-infra/blob/main/docs/promotions.md).
 
-Compare the record's base SHA with the live base SHA:
+Establish the affected components and deployment scope: global, regional,
+management-cluster, and customer workloads as applicable. Trace which
+customers, environments, sectors, and regions could be affected, and how
+changes reach them. Verify relevant promotion gates, health checks, rollout
+controls, and recovery/rollback paths in the applicable configuration; do not
+credit a safeguard just because a document describes it.
 
-- **Same:** the reused record can describe the current target revision.
-- **Different:** perform a fresh manual assessment for current-base coverage,
-  or quote the original result as **historical**. Preserve its original base
-  SHA and mark Evidence historical; do not apply that tier to the current base.
-- **Not recorded:** state **base SHA coverage not recorded**, use `not recorded`
-  for the assessed base SHA, and mark Evidence partial. Do not claim current-base
-  coverage; a fresh manual assessment is needed to establish it.
+Use documentation applicable to the assessed revision and record related-repo
+refs and gaps. For other repositories, use their own architecture and deployment
+guidance. This context informs Chai's categories without adding risk floors.
 
-For reused results, always keep the source record's assessed revision. When the
-base differs or is unrecorded, show the live PR target separately. Never fill
-an old assessment's base SHA from live metadata. A final freshness check only
-detects movement during this invocation; it does not establish an old record's
-coverage. Link the original comment, preserve assessed/effective tiers when they
-differ, and do not recount votes or claim the minimum ran now.
-
-Otherwise, perform a manual assessment using Steps 2–3. State whether the lookup found a matching
-record, found none, or was unavailable. Do not copy an old record's minimum
-into a new manual assessment.
+For dependency PRs, use applicable MintMaker findings and cited research as
+evidence when available. Do not recreate its dependency-review workflow or
+merge rules. When no relevant review exists, assess the available changes and
+state evidence gaps. Apply Chai's categories to behavior and deployment impact;
+a MintMaker risk tier or safe-to-merge verdict does not determine this result.
 
 ## Step 2: Determine the minimum risk
 
@@ -198,9 +200,6 @@ that budget. Large diffs are not automatically Critical.
 - Prose, formatting, ordinary comments, local renames, and unconsumed log/error
   text can be Low.
 - Tests/helpers can be Low when they neither ship nor affect production code.
-- Version-only dependency changes can be Low. Assess behavior-sensitive
-  dependencies such as Kubernetes, controller-runtime, operator SDKs, and cloud
-  clients by their impact; retain the separate vendoring minimum from Step 2.
 - Contained or opt-in additions, events/metrics, and fixes limited to an already
   failing path can be Moderate. Verify that the effect is contained.
 - Potential disruption to running clusters/workloads calls for Critical:
@@ -221,7 +220,7 @@ code at recorded refs. Follow an identified contract into another repository
 when access is available. Record inspected consumers/versions and gaps; do not
 claim exhaustive cross-repository coverage. Missing context informs uncertainty
 without creating an extra automatic floor. If evidence cannot support a
-meaningful assessment, return **Not assessed**.
+meaningful assessment, return **Unable to assess** with the reason.
 
 ## Step 4: Report the assessment
 
@@ -230,17 +229,17 @@ changed, discard the earlier evidence and restart once. If they change again,
 stop and mark the result stale. Closed/merged PRs may be assessed historically.
 
 Use the following format, selecting actual values rather than placeholders.
-For reused results, link the original comment and include its creation time
-when available.
+Use `unavailable` for revision fields that could not be established. When
+unable to assess, state the missing evidence or capability and the reason;
+this is an assessment status, not a fourth risk category.
 
 ```text
-Overall risk: Low | Moderate | Critical | Not assessed
-Assessment: manual | reused Chai result <comment URL>
-Assessed revision: <assessment's head SHA> -> <assessment's base branch> at <assessment's base SHA | not recorded>
-Current PR target: <live base branch/SHA; include only if different or assessed base is unrecorded>
-Evidence: <current/partial/stale/historical; files listed/total, patches read, exclusions/omissions>
-Minimum: <tier/reasons; manually evaluated | published source value | not verified>
+Overall risk: Low | Moderate | Critical | Unable to assess — <reason if unable>
+Assessed revision: <head SHA> -> <base branch> at <base SHA>
+Evidence: <current/partial/stale/historical/unavailable; files listed/total, patches read, exclusions/omissions>
+Minimum: <tier/reasons; manually evaluated | not verified>
 Main risks and safeguards: <changed behavior, failure impact, and evidence>
+Deployment scope: <affected components/customers/environments; rollout and recovery controls>
 Compatibility and consumers: <contracts/versions checked and gaps>
 Code review: <not performed; risk assessment only | see separate bot-pr-review>
 CI observed: <context: conclusion at SHA; truncation/gaps | not checked>
