@@ -20,7 +20,9 @@ func TestNotifyPostsExecuteRequest(t *testing.T) {
 			t.Errorf("decode request: %v", err)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"executionId":"test"}`))
+		if _, err := w.Write([]byte(`{"executionId":"test"}`)); err != nil {
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -58,6 +60,10 @@ func TestNotifyPostsExecuteRequest(t *testing.T) {
 func TestNotifySurfacesHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":{"code":403}}`, http.StatusForbidden)
+		if _, err := w.Write([]byte{}); err != nil {
+			// http.Error already wrote; this is just to keep the handler honest if extended
+			t.Errorf("write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
