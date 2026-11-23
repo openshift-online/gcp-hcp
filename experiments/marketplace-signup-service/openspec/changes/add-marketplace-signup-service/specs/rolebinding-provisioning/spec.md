@@ -69,4 +69,9 @@ THE SYSTEM SHALL record each activation outcome (email, project ID, namespace, r
 #### Scenario: Audit trail for an activation
 
 - **WHEN** a RoleBinding is created for `Alice@example.com` in `acme-corp-platform`
-- **THEN** the backend's structured logs contain the email, project ID, namespace, and outcome, and a workflow execution record exists for the invocation
+- **THEN** the backend's structured logs contain the normalized subject, project ID, namespace, and outcome, and a workflow execution record exists for the invocation
+
+#### Scenario: Audit trail for a failed activation
+
+- **WHEN** activation fails for `Bob@example.com` in `acme-corp-platform` (already claimed, reserved, or transient)
+- **THEN** the backend's structured logs contain the normalized subject, project ID, namespace, and failure outcome, and no ID token is logged
