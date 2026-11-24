@@ -38,6 +38,7 @@ This repository is also a Claude Code plugin that provides skills for agents wor
 - **ai-sdlc-pilot-update** — biweekly Agentic SDLC pilot reporting for GCP-579
 - **fix-implementation-plan-drifts** — reconcile implementation plans with the codebase and repository state
 - **bot-pr-review** — first-pass code review plus repository-specific merge-readiness checks for GCP HCP team repositories
+- **bot-pr-risk-assessment** — on-demand read-only PR risk assessment using Chai's category rubric and context, with explicit compatibility, evidence, and scope reporting
 - **gcp-hcp-feature-support-assessment** — evidence-based support, scope, and effort assessment across GCP HCP product layers and dependencies
 
 ### Installation
