@@ -75,24 +75,26 @@ valid untouched-main baseline; this result is from the separate clean main
 worktree. There were no baseline test failures in the clean run. Postgres
 integration tests skip without a reachable `POSTGRES_TEST_URL` (or local
 `postgres://localhost/orlop_test`); Spanner `TestMain` exits without
-`SPANNER_EMULATOR_HOST`. Neither backend has been transaction-tested in this
-environment: Docker, `psql` and `pg_ctl` are not installed. The passing default
-test suite is **not** evidence that selector LIST/watch or concurrent Postgres
-writes work against real storage. Before production, run the new regression
-tests against both supported backends and record the results or track an owning
-storage blocker.
+`SPANNER_EMULATOR_HOST`; neither env var is set in CI. At baseline this
+environment had no Docker, `psql` or `pg_ctl`, so the default suite alone was
+not evidence of backend behavior. The new regression suites were subsequently
+executed here against `postgres:15-alpine` (podman) and the Spanner emulator
+container on the GCP-1505 integration branches and pass in full (see the
+matrix below); production backend acceptance under real load is still
+outstanding.
 
 ### Storage acceptance matrix
 
 | Backend | Assertion writes | Selector LIST | Selector-filtered watch | Evidence in this worktree |
 | --- | --- | --- | --- | --- |
 | Memory | Guarded by stored resourceVersion | Supported | Supported | Focused tests run locally. Development only; not durable production storage. |
-| Postgres | Conditional `UPDATE` against expected revision; concurrent stale writer must conflict | Expected | Expected | Regression tests added but integration tests skip without Postgres. Not yet verified for enabled production assertions. |
-| Spanner | Existing transactional revision check | Quoted-key JSONPath fix needed for real selector requests | Client-side filtering of subscribed events | Regression tests added but emulator integration tests skip without `SPANNER_EMULATOR_HOST`. Not yet verified for selector-dependent production paths. |
+| Postgres | Conditional bigint-typed `UPDATE` against the expected revision; the concurrent stale writer conflicts | Verified | Verified | Full `storage/postgres` suite run against `postgres:15-alpine` via podman on 2026-11-24, after review hardening: CAS, selector LIST/watch and all other tests pass. CI still skips without `POSTGRES_TEST_URL`. |
+| Spanner | Existing transactional revision check | Verified via the quoted-key JSONPath fix | Verified (client-side filtering of subscribed events) | Full `storage/spanner` suite run against the Spanner emulator container on 2026-11-24: selector LIST/watch and all other tests pass. CI still skips without `SPANNER_EMULATOR_HOST`. |
 
-Supported production assertion writers and selector-dependent query paths
-remain conditional on executing these tests against the target backends. The
-catalog and controller query paths must be included, not just point CRUD.
+Local emulator/container runs prove the regression tests themselves, not
+production readiness: deployed Postgres/Spanner still need acceptance under
+real load, including the catalog and controller query paths, not just point
+CRUD, before assertion writes are enabled.
 
 ## Review boundaries
 
@@ -106,5 +108,5 @@ Required follow-ups: GCP-1506 owns platform-scoped catalog authorization,
 per-boundary immutable packaging and versionsync/dispatch; GCP-1507 owns CLI
 integration and requirements publishers. Pending-intent and original-Version
 aging decisions remain open per the implementation plan. Do not enable new
-assertions or claim backend concurrency safety solely from the default test
-suite.
+assertions on the strength of the default (env-gated) CI suite alone; the
+recorded local backend runs above are the current best evidence.
