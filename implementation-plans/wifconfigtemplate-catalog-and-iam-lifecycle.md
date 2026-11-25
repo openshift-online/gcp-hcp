@@ -371,6 +371,24 @@ marker in the same write where applicable. Failed/conflicting persistence means
 zero Apply. Status-only/irrelevant generation changes must not invalidate an
 already committed exact target.
 
+**Revocation ordering.** The authorization point for new work is the predicate
+evaluation in the preparation boundary: the same reconcile pass that persists
+the Pending receipt must re-observe the template's verified state as its last
+read before the guarded write and abort — no receipt, no Apply — on observed
+revocation. The receipt write guards the intent's UID and resourceVersion only;
+the receipt and the template are separate objects and the storage model has no
+cross-resource compare-and-swap, so a revocation landing between that final
+observation and the committed write loses the race. Committed work proceeds to
+Apply and remains restart-safe redeliverable, consistent with revocation never
+cancelling committed work. The residual window is bounded to one reconcile, not
+eliminated: its hard closure is operational — before flipping shared
+verification, the revoking operator must check accepted/preparing/active
+intents and critical overrides — and the POC's single-writer window must not be
+treated as the production boundary. Do not add a second readiness flag, a
+cross-resource lock or a revocation-side fence to narrow this further in this
+protocol version; a hard transactional boundary is an explicit future protocol
+change with its own acceptance.
+
 Keep Pending distinct from last Dispatched. After restart, revocation or upstream
 aging, the same committed intent may be redelivered because transport may have
 partially succeeded. This is not permission for a different target or rollback.
@@ -725,7 +743,10 @@ not product configuration to copy into shared defaults.
 - Initial Cluster/NodePool, automatic/customer/critical-override, cached resolution,
   preparing/pending/submitted delivery and wrong-parent/target paths; persist before
   Apply and zero Apply on failed persistence. Restart/same-target partial delivery,
-  no force-unlock, unrelated generation changes and template revocation races.
+  no force-unlock, unrelated generation changes and template revocation races with
+  required outcomes: a revocation observed before the receipt write aborts new work
+  without persisting, and a revocation after the commit does not cancel delivery or
+  block same-target redelivery.
 
 ### CLI and failure automation
 

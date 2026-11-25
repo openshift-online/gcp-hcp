@@ -95,7 +95,7 @@ Contract invariants enforced by this decision:
   stale-etag rejection, coexistence and owned cleanup; see the
   [implementation plan](../../implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md)
   and the [integration inventory](../../experiments/wifconfigtemplate-integration-inventory/README.md).
-  Work packages 1–3 are integrated in Gecko: generic API/storage correctness
+  Work packages 1–3 are partly integrated in Gecko: generic API/storage correctness
   merged in [gecko#690](https://github.com/openshift-online/gecko/pull/690),
   and the catalog/application API in
   [gecko#692](https://github.com/openshift-online/gecko/pull/692) (open, in
@@ -177,7 +177,8 @@ Contract invariants enforced by this decision:
 ## References
 
 * Implementation: [WIFConfigTemplate catalog and IAM lifecycle](../../implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md)
-  (work packages 4–11 remain) and the dependent
+  (the WP3 catalog/application API in [gecko#692](https://github.com/openshift-online/gecko/pull/692)
+  remains in review; work packages 4–11 remain) and the dependent
   [resource-name-prefix conditions](../../implementation-plans/wifconfigtemplate-resource-name-prefix-conditions.md).
 * Related decisions: [workload identity implementation](workload-identity-implementation.md),
   [platform-scoped Cedar authorization](platform-scoped-cedar-authorization.md),
