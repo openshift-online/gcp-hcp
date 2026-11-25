@@ -46,6 +46,19 @@ Specify a topic to narrow results. Read the linked files from the gcp-hcp reposi
 | **incidents** | — | — | [incidents/](https://github.com/openshift-online/gcp-hcp/tree/main/incidents) — read all post-mortems for past failure patterns and lessons learned |
 | **slo** | — | — | [slo/](https://github.com/openshift-online/gcp-hcp/tree/main/slo) — read all SLO definitions for performance and quality targets |
 
+### Incremental component IAM implementation
+
+| Topic | Implementation plans |
+|-------|----------------------|
+| **identity** | [Explicit permissions and IAM lifecycle — Plan 1](https://github.com/openshift-online/gcp-hcp/blob/main/implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md); [resource-name-prefix conditions — dependent Plan 2](https://github.com/openshift-online/gcp-hcp/blob/main/implementation-plans/wifconfigtemplate-resource-name-prefix-conditions.md) |
+| **automation** | [Catalog, CLI and owned lifecycle — Plan 1](https://github.com/openshift-online/gcp-hcp/blob/main/implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md); [condition-aware delivery and rollout — Plan 2](https://github.com/openshift-online/gcp-hcp/blob/main/implementation-plans/wifconfigtemplate-resource-name-prefix-conditions.md) |
+| **operators** / **storage** / **networking** | [Plan 2 component naming, artifact and capability dependencies](https://github.com/openshift-online/gcp-hcp/blob/main/implementation-plans/wifconfigtemplate-resource-name-prefix-conditions.md#2-component-development-dependencies) |
+| **testing** | [Plan 1 acceptance](https://github.com/openshift-online/gcp-hcp/blob/main/implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md#validation-and-acceptance); [Plan 2 scoped validation](https://github.com/openshift-online/gcp-hcp/blob/main/implementation-plans/wifconfigtemplate-resource-name-prefix-conditions.md#validation-matrix) |
+
+Plan 1 can ship without new prefix/naming support. Plan 2 depends on Plan 1 and
+compatible component artifacts; project-wide explicit permissions alone do not
+establish per-installation resource isolation.
+
 ## Architectural Invariants
 
 These constraints apply across all topics. Violations should be flagged in code review.
