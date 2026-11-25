@@ -5,6 +5,45 @@ It compares the published POC tips with repository mains on 2026-11-24 and
 records baseline checks before the GCP-1505 implementation. POC evidence and
 the intended API contract are described in the [implementation plan](../../implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md).
 
+## Integration outcome
+
+Recorded 2026-11-25; the tables below remain the 2026-11-24 point-in-time
+evidence.
+
+- **WP1 (this inventory):** retained here as the reusable-commit map and backend
+  test-disposition record.
+- **WP2 (generic API/storage correctness):** merged to Gecko `main` in
+  [gecko#690](https://github.com/openshift-online/gecko/pull/690) — integer
+  fidelity beyond 2^53, guarded RFC 6902 JSONPatch on the stored public
+  projection, real Postgres revision CAS, and selector LIST/watch on every
+  supported backend.
+- **WP3 (catalog and application API):** [gecko#692](https://github.com/openshift-online/gecko/pull/692)
+  (open, in review) — typed WIFConfigTemplate v1 API, Version pins, bounded
+  append-only Cluster
+  applications, read-only Cluster/NodePool requirements projection, private
+  receipt types and the opt-in Helm baseline, with `iamApplications.enabled=false`
+  and catalog publication disabled by default.
+
+Integration changes relative to the POC inventory above:
+
+- The executable baseline gained the seventh component (`ingress-op`): 147
+  permission entries (114 distinct), 16 IAM resources / 17 scoped grants.
+- The digest protocol canonicalizes the encoding (every object key sorted
+  alphabetically) so the digest is independent of Go struct declaration order;
+  the integrated golden digest is
+  `sha256:71d9aaf90729b0365610a16bd46d7cb4d4582e1e69b79f114f968086017d1af4`.
+- Review hardening in the same integration: server-side apply now runs the
+  type's CustomValidator before storage writes (closing the apply-path gap);
+  delete-validation decode failures log resource identity; custom roles reject
+  service-account impersonation and credential-minting permissions; guest
+  subject namespace/name segments are bounded to the Kubernetes 63-character
+  limit; naming bound fields use `maximum*` JSON keys; reference name/uid
+  carry `minLength: 1` and list items are required and atomic.
+- Remaining work is tracked in [GCP-1506](https://redhat.atlassian.net/browse/GCP-1506)
+  (WP4/5/9/10: authorization, packaging, discovery/dispatch, dependency
+  alignment) and [GCP-1507](https://redhat.atlassian.net/browse/GCP-1507)
+  (WP6/7/8: CLI lifecycle, requirements publishers, runtime compatibility).
+
 ## Baselines and drift
 
 | Repository | Current main at review | POC base → tip | Drift since POC base | Integration disposition |
@@ -39,7 +78,8 @@ overwrite current interfaces and recovery logic.
 
 The POC does **not** fix Postgres revision compare-and-swap or prove Spanner
 selector queries. GCP-1505 adds a separate Postgres conditional update and
-tests for selector LIST and watch. New assertion writes remain disabled by
+tests for selector LIST and watch (delivered in
+[gecko#690](https://github.com/openshift-online/gecko/pull/690)). New assertion writes remain disabled by
 default until compatible consumers are deployed. Public catalog authorization
 is not production-ready until the platform-scoped Cedar work in GCP-1506.
 
