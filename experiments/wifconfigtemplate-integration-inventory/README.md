@@ -37,13 +37,20 @@ Integration changes relative to the POC:
 - The digest protocol canonicalizes the encoding (every object key sorted
   alphabetically) so the digest is independent of Go struct declaration order;
   the integrated golden digest is
-  `sha256:71d9aaf90729b0365610a16bd46d7cb4d4582e1e69b79f114f968086017d1af4`.
+  `sha256:63975f7b264368634bc10a4bff7474142492e833257578a42c912d57336f2971`.
+  The earlier seven-component review digest was
+  `sha256:71d9aaf90729b0365610a16bd46d7cb4d4582e1e69b79f114f968086017d1af4`;
+  before first publication, expanding the new `*Ref`/`*Refs` fields to
+  `*Reference`/`*References` changed only the JSON keys, not permissions, subjects
+  or grant topology. Golden vectors in Gecko API and Helm tests use the new digest.
   The prior six-component POC digest was
   `sha256:c0b4c3dbdd48d1925bf7c172ac0385639d00092f083b5cac11865e83c3acea71`.
 - Review hardening in the same integration: server-side apply now runs the
-  type's CustomValidator before storage writes (closing the apply-path gap);
-  delete-validation decode failures log resource identity; custom roles reject
-  service-account impersonation and credential-minting permissions; guest
+  type's CustomValidator before storage writes (closing the apply-path gap),
+  converting typed storage-version old objects to the serving version for update
+  validation; delete-validation decode failures log resource identity; custom roles reject
+  service-account impersonation and credential-minting permissions, including
+  `iam.serviceAccounts.getOpenIdToken`; guest
   subject namespace/name segments are bounded to the Kubernetes 63-character
   limit; naming bound fields use `maximum*` JSON keys; reference name/uid
   carry `minLength: 1` and list items are required and atomic.

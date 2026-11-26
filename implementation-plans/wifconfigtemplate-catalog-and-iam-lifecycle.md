@@ -160,9 +160,17 @@ list reordering, struct reordering and verification changes do not alter the
 digest. Adding a spec field cannot silently change its digest participation.
 
 Reviewed executable baseline digest (integrated, seven-component):
-`sha256:71d9aaf90729b0365610a16bd46d7cb4d4582e1e69b79f114f968086017d1af4`,
+`sha256:63975f7b264368634bc10a4bff7474142492e833257578a42c912d57336f2971`,
 pinned in Gecko API and Helm tests. The historical POC digest is retained in the
 [inventory](../experiments/wifconfigtemplate-integration-inventory/README.md#integration-outcome).
+
+Before first publication, the new reference fields were expanded from `*Ref`/`*Refs`
+to `*Reference`/`*References`, including executable IAM keys. This reviewed digest
+re-pin changes no permissions, subjects or grant topology and does not authorize
+rewriting any published contract. Role bindings use `serviceAccountReference` and
+`roleReference`; federation and worker grants use `serviceAccountReferences` and
+`memberServiceAccountReferences`. Requirements and private receipts use
+`templateReference`.
 
 ### 2. Component IAM baseline and its assurance limits
 
@@ -208,7 +216,7 @@ second copied permission catalog in this document or the CLI.
 
 ### 3. Version resolution and availability
 
-Versionsync owns `Version.spec.wifConfigTemplateRef` and current `Available`.
+Versionsync owns `Version.spec.wifConfigTemplateReference` and current `Available`.
 It preserves pins when updating payload/channel metadata and does not hide a
 discovered release because IAM cannot yet be resolved.
 
