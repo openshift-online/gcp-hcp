@@ -29,9 +29,11 @@ Contract invariants enforced by this decision:
   grant in `spec.iam.serviceAccountRoleBindings`.
 - Cluster and NodePool `status.iamRequirements` are read-only projections, not
   dispatch receipts, cloud attestation or client-writable fields.
-- Public catalog reads fail closed until explicit platform-scoped Cedar grants
-  exist; public routes offer get/list only, and writes use the delegated private
-  API and platform RBAC.
+- Public catalog get/list uses the same authenticated-read exemption as
+  Version/Channel ([GCP-1266](https://redhat.atlassian.net/browse/GCP-1266)) until
+  [GCP-1406](https://redhat.atlassian.net/browse/GCP-1406) replaces catalog exemptions
+  with platform-scoped Cedar grants. Authentication remains mandatory; public
+  writes are unavailable and writes use the delegated private API and platform RBAC.
 
 ## Context
 
@@ -115,8 +117,8 @@ Contract invariants enforced by this decision:
   needs IAM-admin authority to operate the lifecycle.
 * Immutable retained history supports audit and permission-retention planning
   even after verification revocation or upstream Version aging.
-* The catalog fails closed: no authenticated-read exemption; access requires
-  explicit platform-scoped Cedar grants.
+* Catalog reads follow the same access model as Version/Channel: authenticated
+  reads initially, followed by explicit Cedar grants without a read-access regression.
 
 ### Negative
 
@@ -127,7 +129,10 @@ Contract invariants enforced by this decision:
   RFC 8785; every new spec field needs an explicit protocol and immutability
   decision, and golden re-pins require security review.
 * Sequenced delivery burden: enabling application writes requires compatible
-  API replicas, typed consumers, catalog authorization and the CLI lifecycle.
+  API replicas, typed consumers, authenticated catalog access and the CLI lifecycle.
+  Cedar migration is a separate GCP-1406 rollout, not a GCP-1506 prerequisite.
+* Interim read access bypasses Cedar checks and conditions for authenticated
+  callers; GCP-1406 must deliver verified seed grants before removing exemptions.
 * Storage correctness is a hard dependency: revision CAS and selector
   LIST/watch must hold on every supported backend before assertion writes are
   enabled.
@@ -142,8 +147,10 @@ Contract invariants enforced by this decision:
   project-bound and may not grant `actAs`, token or key minting, or signing
   permissions — the exact worker service-account grant is the only impersonation
   path.
-* Complete mediation: catalog reads are authorized like other platform-scoped
-  resources (no exemption); template writes are private-RBAC/GitOps only.
+* Access boundaries: authentication is mandatory. The interim catalog get/list
+  exemption bypasses Cedar authorization, not authentication; GCP-1406 replaces it
+  with grants under the platform-scoped Cedar design. Template writes remain
+  private-RBAC/GitOps only throughout the transition.
 * Open design: the digest algorithm, canonical encoding and participation
   rules are documented in Gecko's `WIFCONFIGTEMPLATE.md` and pinned by golden
   vectors.
@@ -181,4 +188,5 @@ Contract invariants enforced by this decision:
   [GCP-1505](https://redhat.atlassian.net/browse/GCP-1505) (WP1–3),
   [GCP-1506](https://redhat.atlassian.net/browse/GCP-1506) (WP4/5/9/10),
   [GCP-1507](https://redhat.atlassian.net/browse/GCP-1507) (WP6/7/8),
-  [GCP-1508](https://redhat.atlassian.net/browse/GCP-1508) (WP11).
+  [GCP-1508](https://redhat.atlassian.net/browse/GCP-1508) (WP11),
+  [GCP-1406](https://redhat.atlassian.net/browse/GCP-1406) (catalog Cedar migration).

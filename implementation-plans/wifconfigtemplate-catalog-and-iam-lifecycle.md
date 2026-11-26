@@ -23,12 +23,12 @@ compatibility and any runtime fixes explicitly identified during integration.
 
 ### Delivery status and tracking
 
-Integration status recorded **2026-11-25**:
+Integration status recorded **2026-11-25**; authorization scope updated **2026-11-26**:
 
 | Story | Work packages | Status / evidence |
 |---|---|---|
 | [GCP-1505](https://redhat.atlassian.net/browse/GCP-1505) | WP1–3: inventory, API/storage, catalog/application API | [Inventory](../experiments/wifconfigtemplate-integration-inventory/README.md) retained; generic correctness merged in [gecko#690](https://github.com/openshift-online/gecko/pull/690); catalog API in review in [gecko#692](https://github.com/openshift-online/gecko/pull/692) |
-| [GCP-1506](https://redhat.atlassian.net/browse/GCP-1506) | WP4/5/9/10: authorization, packaging, discovery/dispatch, dependencies | Planned |
+| [GCP-1506](https://redhat.atlassian.net/browse/GCP-1506) | WP4/5/9/10: authenticated catalog reads (exemption; Cedar in GCP-1406), packaging, discovery/dispatch, dependencies | Planned |
 | [GCP-1507](https://redhat.atlassian.net/browse/GCP-1507) | WP6–8: CLI lifecycle, requirements publishers, runtime compatibility | Planned |
 | [GCP-1508](https://redhat.atlassian.net/browse/GCP-1508) | WP11: operations, IAM review and representative E2E | Planned |
 
@@ -46,8 +46,9 @@ evidence are in the inventory.
 ### Design references
 
 - [Workload Identity](../design-decisions/identity/workload-identity-implementation.md).
-- [Platform-scoped Cedar authorization](../design-decisions/identity/platform-scoped-cedar-authorization.md),
-  which supersedes authenticated catalog-read exemptions in older documentation.
+- [Platform-scoped Cedar authorization](../design-decisions/identity/platform-scoped-cedar-authorization.md)
+  is the target architecture; [GCP-1406](https://redhat.atlassian.net/browse/GCP-1406)
+  replaces the interim authenticated-read exemptions, rather than blocking GCP-1506.
 - [OIDC issuer discovery](gcp-oidc-discovery-for-wif.md) and
   [OIDC CDN infrastructure](gcp-621-oidc-cdn-infrastructure.md).
 - [Upgrade controllers](hosted-cluster-upgrade-controllers.md) and
@@ -573,15 +574,25 @@ still mentions the removed experiment-path source; correct that provenance comme
 during WP4 integration without changing the immutable published contract contents
 or rewriting the archived POC commit.
 
-Production authorization must follow the newer platform-scoped Cedar ADR. The POC
-template source still contains an authenticated-read exemption. Replace/reconcile
-it with explicit generated get/list permissions, platform role/binding grants,
-trusted authentication, scope separation and per-item conditions/list filtering.
-Keep all public template writes unavailable; delegated private RBAC restricts writes
-to platform/GitOps. Do not extend namespace-role scope by accident. Update ESPv2/
-Endpoints collection **and** item GET routes; server-only support initially returned
-frontend 404 until routing was added. Authentication, Cedar and Kubernetes RBAC
-are separate boundaries and each needs tests.
+**Interim access — GCP-1506.** Add the Orlop
+`authorization-exempt-verbs: get,list` marker to WIFConfigTemplate, matching
+Version/Channel ([GCP-1266](https://redhat.atlassian.net/browse/GCP-1266)).
+Authentication remains mandatory; authenticated get/list requires no Cedar grant
+and bypasses Cedar conditions. Update the fail-closed API tests and
+`WIFCONFIGTEMPLATE.md` to reflect this deliberate interim state.
+
+**Cedar migration — GCP-1406.** Own generated permissions, platform roles/bindings
+and exemption removal under the platform-scoped Cedar ADR. The `authenticated-user`
+seed role must include `wifconfigtemplate.get` and `wifconfigtemplate.list` alongside
+the other catalog permissions. Ship verified seed grants and remove all catalog
+exemptions in the same coordinated rollout, gated on effective read-access checks.
+GCP-1406 owns Cedar scope-isolation and conditional/list-filtering tests; it is
+follow-up work, not a prerequisite for GCP-1506.
+
+Public template writes stay unavailable; delegated private RBAC restricts writes
+to platform/GitOps. GCP-1506 tests authentication, the read exemption and private
+write restrictions separately. Update ESPv2/Endpoints collection **and** item GET
+routes; server-only support initially returned frontend 404 until routing was added.
 
 Safe delivery order:
 
@@ -661,7 +672,7 @@ runtime behavior, not new resource-prefix inputs or component renaming.
 | 1 — Rebase/integration inventory | Gecko/CLI current main versus published tips; Gecko `orlop`, `platform-api`, `controllers`; CLI public API dependencies | Map reusable commits and changed current APIs, especially authorization and upgrade request entrypoints. Split generic fixes from feature changes. Document baseline failures; no blind branch merge or history rewriting. |
 | 2 — API/storage correctness | Gecko `orlop/pkg/apiserver/{conversion,handlers,schema}`, storage backends | Integer/CEL fidelity, public JSONPatch stored/result authorization, complete hidden-state preservation and real revision CAS. Reproduce selector LIST/watch on every supported backend and track any remaining Spanner JSONPath failure in owning storage work. Backend matrix explicitly states supported assertion writers and query paths. |
 | 3 — Catalog and application API | Gecko `platform-api/api/private/v1/wifconfigtemplate*`, `version_types.go`, Cluster IAM types/validation, generated public files | Typed v1 schema, compatible canonical digest, immutable retained contracts/pins, one verified flag and bounded append-only records. Generate twice, stable second pass; no omission bypass. |
-| 4 — Authorization/routing/catalog packaging | Gecko type markers/role grants/chart templates; infra Endpoints and Argo | Reconcile platform Cedar ADR, authenticated GET/list route support and no public writes. Opt-in unverified per-boundary immutable manifests, minimal RBAC and pruning protection. |
+| 4 — Authenticated reads/routing/catalog packaging | Gecko type markers/chart templates; infra Endpoints and Argo | Authenticated get/list via the interim exemption; collection/item routes, no public writes and private-RBAC write restrictions. Opt-in unverified per-boundary immutable manifests, minimal RBAC and pruning protection. Cedar grants/exemption removal belong to GCP-1406. |
 | 5 — Discovery and dispatch | Gecko `controllers/versionsync`, `util/catalog`, resolution, `hc`, `nodepool`, `controlplaneupgrade`, `nodepoolupgrade` | Single availability owner/predicate, correct floor/prerelease behavior, independent refresh, preserved pins, receipt-before-Apply and target-safe restart/redelivery. All actual upgrade entrypoints audited. |
 | 6 — CLI creation and cloud adapter | CLI `pkg/platformapi`, `wifconfigtemplate`, `infra/iam/application`, `gcp/iam`, `gcp/networking`, `cluster/provision.go` | One planner/executor, no embedded fallback, SDK fixes, stable pinned intent, read-only preview and cloud-before-record behavior across standalone/integrated/config-file paths. |
 | 7 — Requirements/update/recovery | Gecko requirements types/projection and publishers; CLI `update_*`, `retention.go`, journal/teardown code | Conservative UID/gen/freshness-bound retention, role-only additive CAS writes, linked crash-safe state and explicit record failure. Resolve or document pending-intent and Version-aging product constraints without weaker gates. |
@@ -675,6 +686,8 @@ compatible before first enabled assertions; WP6/7 depend on published API shape;
 WP8/9 are required where the selected release/runtime needs them; WP10 is required
 for a supported standalone CLI; WP11 closes production readiness. Packaging and
 observability can be developed in parallel without enabling live gates.
+GCP-1406 separately migrates catalog reads to Cedar grants; its delivery is not a
+prerequisite for the interim authenticated-read access in WP4.
 
 ### Epic acceptance ownership
 
@@ -698,6 +711,13 @@ not product configuration to copy into shared defaults.
 
 ### API and reconciliation automation
 
+- **GCP-1506 catalog access:** anonymous reads denied; authenticated get/list works
+  without Cedar grants through both collection and item routes. Public template
+  writes remain unavailable; private writes remain RBAC-restricted.
+- **GCP-1406 migration (follow-up):** with exemptions removed, reads default-deny
+  without grants and succeed for an ordinary authenticated identity with the seed
+  binding. Verify WIFConfigTemplate access alongside other catalogs, scope isolation
+  and conditional list filtering; access regression blocks the migration rollout.
 - Exact/floor/numeric ordering, shuffled input, malformed names, raw prerelease base,
   no cross-minor fallback, highest-unverified and newly added-boundary behavior.
 - Missing/False/Unknown/stale availability, failed/partial snapshots, first-reference
@@ -769,7 +789,7 @@ the corresponding production use:
 
 | Item | Required disposition before corresponding production use |
 |---|---|
-| Catalog authorization drift | Integrate platform-scope Cedar permissions/bindings rather than retain POC exemptions |
+| Catalog authorization transition | GCP-1506 deliberately supplies the authenticated-read exemption. GCP-1406 owns Cedar grants and coordinated exemption removal with effective-access verification; it does not block interim catalog access. |
 | Single-baseline chart | Support immutable distinct boundary content before publishing different permission requirements |
 | Pending-intent requirements | Document safe withdraw/apply/resubmit or implement conservative unchanged-intent recovery; do not claim POC proved it |
 | Original Version aging | Stable realm identity or supported reference retention; no weakening of teardown realm proof |

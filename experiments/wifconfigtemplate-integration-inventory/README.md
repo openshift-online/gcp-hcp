@@ -55,10 +55,17 @@ Integration changes relative to the POC:
   limit; naming bound fields use `maximum*` JSON keys; reference name/uid
   carry `minLength: 1` and list items are required and atomic.
 - Remaining work is tracked in [GCP-1506](https://redhat.atlassian.net/browse/GCP-1506)
-  (WP4/5/9/10: authorization, packaging, discovery/dispatch, dependency
+  (WP4/5/9/10: authenticated catalog reads, packaging, discovery/dispatch, dependency
   alignment), [GCP-1507](https://redhat.atlassian.net/browse/GCP-1507)
   (WP6/7/8: CLI lifecycle, requirements publishers, runtime compatibility), and
   [GCP-1508](https://redhat.atlassian.net/browse/GCP-1508) (WP11: operations and validation).
+
+**Authorization scope update (2026-11-26):** GCP-1506 will add the authenticated
+get/list exemption to WIFConfigTemplate, matching Version/Channel. Cedar grants
+and coordinated exemption removal are owned by
+[GCP-1406](https://redhat.atlassian.net/browse/GCP-1406). The gecko#692 foundation
+remains fail-closed pending that interim read-access change; this update does not
+rewrite its historical behavior or the archived tables below.
 
 ## Baselines and drift
 
@@ -96,8 +103,8 @@ The POC does **not** fix Postgres revision compare-and-swap or prove Spanner
 selector queries. GCP-1505 adds a separate Postgres conditional update and
 tests for selector LIST and watch (delivered in
 [gecko#690](https://github.com/openshift-online/gecko/pull/690)). New assertion writes remain disabled by
-default until compatible consumers are deployed. Public catalog authorization
-is not production-ready until the platform-scoped Cedar work in GCP-1506.
+default until compatible consumers are deployed. Catalog read-access delivery and
+the later Cedar migration follow the dated authorization scope update above.
 
 ## gcp-hcp-ctl POC commit inventory
 
@@ -164,9 +171,10 @@ quoted-key JSONPath fix and the backend regression evidence recorded above.
    opt-in baseline Helm asset. No controller publisher or new dispatch gating.
 3. This cross-repository inventory in `gcp-hcp/experiments/`.
 
-Required follow-ups: GCP-1506 owns platform-scoped catalog authorization,
-per-boundary immutable packaging and versionsync/dispatch; GCP-1507 owns CLI
-integration and requirements publishers. Pending-intent and original-Version
+Required follow-ups: GCP-1506 owns interim authenticated catalog reads,
+per-boundary immutable packaging and versionsync/dispatch; GCP-1406 owns Cedar
+grants and exemption removal; GCP-1507 owns CLI integration and requirements
+publishers. Pending-intent and original-Version
 aging decisions remain open per the implementation plan. Do not enable new
 assertions on the strength of the default (env-gated) CI suite alone; the
 recorded local backend runs above are the current best evidence.
