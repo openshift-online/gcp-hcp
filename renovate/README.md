@@ -12,8 +12,11 @@ Opt in from a repository's root `renovate.json`:
 The preset enables the dependency dashboard, adds `ok-to-test` and
 `area/dependency`, limits concurrent PRs to 10, groups related Go modules,
 and runs Go module tidy and import-path updates. Automerge and dashboard
-vulnerability summaries are disabled; vulnerability alerts remain enabled by
-MintMaker. It does not onboard this repository to Renovate.
+vulnerability summaries are disabled. Dependabot-alert vulnerability PRs are
+disabled (`vulnerabilityAlerts`): the Konflux/PAC GitHub App MintMaker runs
+as cannot read Dependabot alerts, so Renovate's fetch returns 403 where they
+are enabled. `osvVulnerabilityAlerts` still opens fix PRs from the offline
+OSV database. It does not onboard this repository to Renovate.
 
 Go module updates use these focused groups:
 

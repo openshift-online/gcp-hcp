@@ -1,7 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "vulnerabilityAlerts is disabled because the Konflux/PAC GitHub App MintMaker runs as lacks the Dependabot-alerts read permission, so Renovate's fetch returns 403 on repositories where Dependabot alerts are enabled. osvVulnerabilityAlerts is unaffected: it uses the offline OSV database and still opens fix PRs.",
   "dependencyDashboard": true,
   "dependencyDashboardOSVVulnerabilitySummary": "none",
+  "vulnerabilityAlerts": {
+    "enabled": false
+  },
   "automerge": false,
   "addLabels": ["ok-to-test", "area/dependency"],
   "prConcurrentLimit": 10,
