@@ -8,44 +8,40 @@ Control Planes. Gecko publishes required contracts and controls dispatch; the CL
 applies and verifies IAM in the customer project. Neither Gecko nor a management
 cluster receives authority to administer customer IAM.
 
-**Status:** production integration plan informed by a completed POC, not a claim
-that the implementation is merged, generally available or production-hardened.
-The POC proved a fresh installation, a specific missing-target-assertion block,
-real control-plane and worker upgrades, coexistence and owned cleanup. Production
-authorization integration, module alignment, observability and broader validation
-remain work below.
+**Delivery stage:** Plan 1 of 2, required for **Private Preview** under
+[GCP-944](https://redhat.atlassian.net/browse/GCP-944). This is a production
+integration plan informed by a completed POC, not a declaration of readiness.
+It limits allowed operations using custom roles and exact identity bindings;
+project-level grants remain where required, without per-installation resource isolation.
 
-**Integration status (2026-11-25):** work packages 1–3 are delivered or in
-review. The
-rebase/integration inventory (WP1) is retained at
-[experiments/wifconfigtemplate-integration-inventory](../experiments/wifconfigtemplate-integration-inventory/README.md).
-The generic API/storage correctness (WP2) merged via
-[gecko#690](https://github.com/openshift-online/gecko/pull/690): integer
-fidelity, guarded RFC 6902 JSONPatch, real Postgres revision CAS and selector
-LIST/watch on every supported backend. The catalog and application API (WP3) is
-[gecko#692](https://github.com/openshift-online/gecko/pull/692) (review): typed
-catalog, Version pins, bounded append-only Cluster applications, read-only
-requirements projection and the opt-in Helm baseline. Integration also added the
-seventh component (`ingress-op`) and canonicalized the digest encoding; the
-baseline figures and digest below are updated accordingly. WP4–11 remain
-planned work: [GCP-1506](https://redhat.atlassian.net/browse/GCP-1506) owns
-WP4/5/9/10 and [GCP-1507](https://redhat.atlassian.net/browse/GCP-1507) owns
-WP6/7/8; WP11 ownership is assigned during refinement.
-
-**Delivery stage:** Plan 1 of 2. This plan limits component operations using
-explicit custom-role permissions and exact identity bindings. Project-level
-component bindings remain where required; it does **not** condition their access
-on resource-name prefixes. It can ship independently of component naming changes.
-
-**Dependent follow-up:** [Resource-name-prefix IAM conditions](wifconfigtemplate-resource-name-prefix-conditions.md).
-That plan adds per-resource conditions only after this lifecycle foundation and
-the necessary component naming/capability work are available. Do not delay Plan 1
-for those dependencies or interpret "explicit permissions" as resource isolation.
+**Later follow-up:** [Plan 2: resource-name-prefix conditions](wifconfigtemplate-resource-name-prefix-conditions.md)
+is Public Preview work under [GCP-895](https://redhat.atlassian.net/browse/GCP-895).
+Plan 1 does not depend on its naming or condition-capability changes.
 
 **Repositories:** Gecko, gcp-hcp-ctl, gcp-hcp-infra; HyperShift for worker identity
 compatibility and any runtime fixes explicitly identified during integration.
-Tracking epic/child issues must be assigned during refinement; this document does
-not invent issue keys or assert backlog items have been created.
+
+### Delivery status and tracking
+
+Integration status recorded **2026-11-25**:
+
+| Story | Work packages | Status / evidence |
+|---|---|---|
+| [GCP-1505](https://redhat.atlassian.net/browse/GCP-1505) | WP1–3: inventory, API/storage, catalog/application API | [Inventory](../experiments/wifconfigtemplate-integration-inventory/README.md) retained; generic correctness merged in [gecko#690](https://github.com/openshift-online/gecko/pull/690); catalog API in review in [gecko#692](https://github.com/openshift-online/gecko/pull/692) |
+| [GCP-1506](https://redhat.atlassian.net/browse/GCP-1506) | WP4/5/9/10: authorization, packaging, discovery/dispatch, dependencies | Planned |
+| [GCP-1507](https://redhat.atlassian.net/browse/GCP-1507) | WP6–8: CLI lifecycle, requirements publishers, runtime compatibility | Planned |
+| [GCP-1508](https://redhat.atlassian.net/browse/GCP-1508) | WP11: operations, IAM review and representative E2E | Planned |
+
+Integration added `ingress-op` as a seventh component and canonicalized the digest
+encoding. The current baseline is specified in §§1–2; historical changes and test
+evidence are in the inventory.
+
+### Reading guide
+
+- **Requirements:** scope, design constraints and implementation details below.
+- **Delivery and acceptance:** work packages, validation and completion criteria.
+- **Open decisions:** the risks table identifies dispositions required before use.
+- **Historical evidence:** the inventory contains POC sources, observations and limits.
 
 ### Design references
 
@@ -69,51 +65,11 @@ infrastructure reconciler or authority to edit platform Terraform resources.
 
 ## POC source and evidence boundary
 
-The implementation experiment is preserved in dedicated source branches, not in
-the session notes formerly collected under `experiments/iam-bootstrap/`:
-
-| Source | Published branch | Reviewed reference tip |
-|---|---|---|
-| [Gecko](https://github.com/apahim/gecko/tree/poc/wifconfigtemplate) | `origin/poc/wifconfigtemplate` | `6c28cf4348a8ab4f524b91ece1cdbe29f1389c44` |
-| [gcp-hcp-ctl](https://github.com/apahim/gcp-hcp-ctl/tree/poc/wifconfigtemplate) | `origin/poc/wifconfigtemplate` | `ba211636d48d6cedf11e6090536ef7c5f985800f` |
-
-Use immutable source links for implementation review:
-
-- [Gecko contract and dispatch protocol](https://github.com/apahim/gecko/blob/6c28cf4348a8ab4f524b91ece1cdbe29f1389c44/platform-api/WIFCONFIGTEMPLATE.md).
-- [Executable baseline](https://github.com/apahim/gecko/blob/6c28cf4348a8ab4f524b91ece1cdbe29f1389c44/helm/charts/platform-api-server/files/wifconfigtemplate-project.yaml).
-- [CLI protocol and recovery](https://github.com/apahim/gcp-hcp-ctl/blob/ba211636d48d6cedf11e6090536ef7c5f985800f/docs/WIFCONFIGTEMPLATE.md).
-- [Owned firewall-aware cleanup](https://github.com/apahim/gcp-hcp-ctl/blob/ba211636d48d6cedf11e6090536ef7c5f985800f/pkg/infra/network/cleanup.go).
-
-POC source comments sometimes describe the earlier phase in which a file landed.
-They are not the final implementation status. The published source is reusable
-implementation input; integrate it in reviewable changes against current main,
-not by assuming the entire historical branch is production-ready.
-The CLI tip retains both `a727640` (linked updater) and `c3daed0` (same-project/
-zero-delta tests) as verified ancestors, followed by the final cleanup fix.
-
-The WP1 rebase/integration inventory that mapped these sources against the
-current Gecko and CLI mains, including the verified backend test dispositions,
-is retained at
-[experiments/wifconfigtemplate-integration-inventory](../experiments/wifconfigtemplate-integration-inventory/README.md).
-
-### What was actually established
-
-| Area | Observed result | Limit of that evidence |
-|---|---|---|
-| API/catalog | Persisted template/Version references, immutable content, verification toggles, authenticated discovery, restart/pin persistence and fail-closed dispatch | Personal dev using Spanner; not all database/backends or production authorization paths |
-| Fresh setup | Template-driven 5.0.2 install and separate 4.22.21 install, cloud readback, TLS/OIDC login, healthy guest/control plane and one Ready worker | Not a complete six-component functional/optional-feature matrix |
-| Role update | Separate unbound-role additive update, real stale-etag rejection, field-mask preservation and separate-process readback after deliberately discarded success | Simulated response loss, not an actual network outage/power-loss test |
-| Target gating | 4.22.21 → exact 5.0.0 remained unaccepted with `WIFConfigUpdateRequired` while the target Version was Available and the guest stayed on source | Customer path; automatic and other race cases primarily have offline/integration coverage |
-| IAM application | Zero role-permission delta, unchanged six role etags, exactly one distinct target assertion despite equal executable digest | Not a live permission-expanding release transition |
-| Upgrade | Guest CVO completed exact 5.0.0, then one worker completed 5.0.0; RHCOS 9 → 10 replacement stayed within one-worker surge | Does not authorize unsupported edges, aliases or OS overrides |
-| Coexistence/cleanup | Original 5.0.2 installation remained healthy; secondary hosted resources/VMs removed normally; reviewed CLI cleanup removed secondary IAM/network and restored policy memberships | Same-project lifecycle separation, not hard cross-cluster GCP authorization isolation |
-
-The POC ended on 2026-11-20 with both template verification and assertion writes
-closed. The secondary installation was removed; expected role/pool tombstones
-were retained. One original validation installation and platform infrastructure
-were intentionally retained. These are historical observations, not fresh health
-or authorization to delete retained resources. Operational identities/journals
-belong in restricted local handoff material, not as reusable production inputs.
+The [inventory](../experiments/wifconfigtemplate-integration-inventory/README.md#poc-sources)
+contains immutable Gecko/CLI source references, the commit integration map,
+[observed results and limits](../experiments/wifconfigtemplate-integration-inventory/README.md#poc-results-and-limits),
+and backend test evidence. These are inputs for reviewed integration, not a
+production-ready branch merge or authorization to replay historical cloud operations.
 
 ## Scope and non-goals
 
@@ -161,6 +117,11 @@ using this particular CLI; the CLI is not a server-side trust root.
 
 ## Architecture and implementation details
 
+The lifecycle has two distinct records: the customer appends an IAM **application
+assertion** after cloud verification; the controller persists a private **dispatch
+receipt** before sending an installation or upgrade. Public requirements are an
+asynchronous view of controller state, not a third authorization record.
+
 ### 1. Typed catalog and immutable identity
 
 Use private API types as the generation source for public types, schemas,
@@ -200,8 +161,8 @@ digest. Adding a spec field cannot silently change its digest participation.
 
 Reviewed executable baseline digest (integrated, seven-component):
 `sha256:71d9aaf90729b0365610a16bd46d7cb4d4582e1e69b79f114f968086017d1af4`,
-pinned in Gecko API and Helm tests. The six-component POC baseline was
-`sha256:c0b4c3dbdd48d1925bf7c172ac0385639d00092f083b5cac11865e83c3acea71`.
+pinned in Gecko API and Helm tests. The historical POC digest is retained in the
+[inventory](../experiments/wifconfigtemplate-integration-inventory/README.md#integration-outcome).
 
 ### 2. Component IAM baseline and its assurance limits
 
@@ -209,9 +170,6 @@ Preserve the executable baseline: seven component SAs, seven custom roles, seven
 unconditional project bindings, eight exact guest-subject WIF memberships and two
 exact-worker-SA actAs memberships: **16 IAM resources / 17 scoped grants**.
 There are 147 per-role permission entries representing 114 distinct permissions.
-(The POC baseline had six components, 142 entries and 14 resources / 15 grants;
-integration added `ingress-op`, whose five DNS permissions were already present
-in `hcpControlPlaneProject`, so the distinct-permission count is unchanged.)
 
 | Component | Guest service account subject(s) | Role capability |
 |---|---|---|
@@ -239,32 +197,11 @@ Workers sharing a default SA also share that identity. Do not claim inherited/or
 privileges have been exhaustively audited merely because no direct worker project
 binding was added.
 
-Earlier permission research informs review, not universal sufficiency/minimality:
-
-- CCM's reviewed baseline follows 48 declared permissions plus three operation
-  reads. A matched internal-LB request succeeded with regional backend-service use
-  without generic backend/network use; that result is request-shape-specific.
-  An empty instance group was an invalid LB fixture, not an IAM denial. Do not add
-  permissions to repair fixture errors or call the incomplete matrix a full pass.
-- PSC requests tested generic **and** PSC-specific create/delete/setLabels rights;
-  Get used generic get. Internal address use required `compute.addresses.use` in
-  that request, not an inference that `useInternal` is universally interchangeable.
-- Compute's Service Directory side effects required namespace-create,
-  service-create and service-delete for the tested path. Empty/shared namespace
-  cleanup ownership is separate; do not add namespace-delete because an error
-  lists a group of candidate permissions.
-- A cross-project PSC endpoint can be authorized yet have REJECTED connection
-  policy. Distinguish producer acceptance from IAM; do not infer a need for
-  producer-project IAM grants from a rejected connection alone.
-- The DNS ten-permission candidate covered selected public/private record workflows.
-  Existing-zone Get, absent-zone lookup and List have different checks; an absent
-  404 alone is not positive proof of Get authorization. Those API probes did not
-  prove guest WIF, resolver/delegation behavior or universal role minimality.
-- CredentialsRequest lists were incomplete or described different controllers;
-  CSI broad-role unions, CAPG versus Machine API, registry bucket-update/tags and
-  configuration-dependent discovery must be assessed against the actual payload.
-  Keep Resource Manager tags and prefix-scoped alternatives separate from this
-  supported baseline until explicitly implemented and validated.
+The [permission research record](../experiments/wifconfigtemplate-integration-inventory/README.md#permission-research-and-assurance-limits)
+documents request-specific CCM, PSC, DNS and Service Directory findings. It does
+not establish universal sufficiency or minimality. WP11 reviews the delivered
+model against supported operations and effective grants, including inherited
+access and worker-SA privileges, and records excess access, limits and dispositions.
 
 Keep exact permissions in the owning chart's version-controlled contract, not a
 second copied permission catalog in this document or the CLI.
@@ -297,11 +234,10 @@ discovered release because IAM cannot yet be resolved.
   membership. No implicit alternative default. Discovery minimum, install default
   and automatic fleet authorization are separate controls.
 
-Lowering a discovery floor can add many Versions and irrevocable references. In
-the POC, adding the 4.22 floor produced 39 Versions (36 4.22 and three 4.23), not
-one source Version. The 4.23 entries correctly lacked a matching template. Restoring
-the old floor would age/delete Versions even though retained templates remain.
-Preview the complete source snapshot and consumer impact before such changes.
+Lowering a discovery floor can add many Versions and irrevocable references;
+restoring it can age/delete Versions while templates remain. Preview the complete
+source snapshot and consumer impact before either change. The inventory retains
+the [observed discovery-floor expansion](../experiments/wifconfigtemplate-integration-inventory/README.md#discovery-floor-observation).
 
 ### 4. Cluster application history and read-only requirements
 
@@ -381,11 +317,12 @@ cross-resource compare-and-swap, so a revocation landing between that final
 observation and the committed write loses the race. Committed work proceeds to
 Apply and remains restart-safe redeliverable, consistent with revocation never
 cancelling committed work. The residual window is bounded to one reconcile, not
-eliminated: its hard closure is operational — before flipping shared
-verification, the revoking operator must check accepted/preparing/active
-intents and critical overrides — and the POC's single-writer window must not be
-treated as the production boundary. Do not add a second readiness flag, a
-cross-resource lock or a revocation-side fence to narrow this further in this
+eliminated. Before flipping shared verification, the operator inspects current
+Cluster/NodePool requirements and upgrade conditions as described in §12. This
+inspection supports impact assessment, not hard closure: uncommitted preparation
+may start after the read, status may lag, and committed work is not cancelled.
+The POC's single-writer window must not be treated as the production boundary.
+Do not add a second readiness flag, cross-resource lock or revocation-side fence in this
 protocol version; a hard transactional boundary is an explicit future protocol
 change with its own acceptance.
 
@@ -409,13 +346,11 @@ use the same exact-target safety boundary; worker upgrades remain customer-trigg
 Do not convert catalog membership into a per-cluster upgrade-edge API: actual
 HC/CVO advertisement is required for the chosen live control-plane target.
 
-**Maintenance is not an execution hold for customer requests.** Existing assertions
-can release retained clusters when shared verification opens. The assertion-write
-gate does not freeze already recorded coverage, and setting verified false does
-not recall a committed rollout. Protect other consumers before shared eligibility
-changes; check accepted/preparing/active intents and critical overrides. An
-operational single-writer window plus automatic exclusions was an accepted POC
-limitation, not a hard production authorization boundary.
+**Maintenance is not an execution hold for customer requests.** Opening shared
+verification can release retained requests with existing assertions, even when
+new assertion writes are disabled. Before changing eligibility, assess affected
+consumers and critical overrides using the §12 inspection workflow. The POC's
+single-writer window and automatic exclusions are not production holds.
 
 ### 6. Public PATCH, integer fidelity and persistence safety
 
@@ -435,27 +370,19 @@ Port the generic Orlop fixes as shared correctness work, not CLI-only workaround
   Reject attempts to mutate/remove server-managed identity/revision. Failed `test`
   is a fixed sanitized 409; malformed/non-object results use bounded sanitized
   400 categories, without compared values or raw decoder/provider errors.
-- Snapshot tests are not enough: storage Update must atomically enforce the fetched
-  revision. POC memory/Spanner support this; **Postgres lacked revision CAS**.
-  Delivered in [gecko#690](https://github.com/openshift-online/gecko/pull/690):
-  Postgres now conditionally updates against the expected revision and the
-  concurrent stale writer conflicts, covered by transaction tests. Do not claim
-  cross-backend concurrent-write safety from the live negative test-op checks,
-  which were not a real concurrent Spanner race.
+- Storage Update must atomically enforce the fetched revision on every supported
+  backend. Test a real concurrent stale writer; snapshot or failed JSONPatch `test`
+  checks alone do not prove storage concurrency safety.
 - POC bounded JSONPatch copy amplification to 3 MiB and rejected negative indices.
   Define request-body/operation-count limits and regression-test existing PUT/merge
   private-field/identity preservation during integration; the POC did not repair
   every legacy update edge case.
 
-The early Spanner inventory also recorded **HTTP 500 label-selector LIST failures
-from invalid JSONPath handling**. Those paths were not repaired or retested by the
-POC; [gecko#690](https://github.com/openshift-online/gecko/pull/690) subsequently
-reproduced and verified selector LIST and selector-filtered watch on every
-supported backend (see the [storage acceptance
-matrix](../experiments/wifconfigtemplate-integration-inventory/README.md#storage-acceptance-matrix)).
-A supported backend includes the list/selector/watch paths actually used by
-controllers, the CLI and the catalog, not just point CRUD; production acceptance
-under real load remains outstanding per that matrix.
+The [storage acceptance matrix](../experiments/wifconfigtemplate-integration-inventory/README.md#storage-acceptance-matrix)
+records delivered Postgres CAS and selector LIST/watch fixes, including historical
+Spanner JSONPath failures and the limits of local evidence. Production acceptance
+must exercise the controller, CLI and catalog query paths under real load, not
+just point CRUD.
 
 ### 7. CLI planning, creation and owned IAM mutation
 
@@ -680,6 +607,26 @@ specific access; retain only required status writes and API/DNS connectivity.
 
 ### 12. Observability and operational support
 
+**Publishers — WP7/GCP-1507.** Reuse Cluster/NodePool `status.iamRequirements`
+and controller-owned conditions. Project exact committed Pending/Dispatched targets,
+template references, identity/generation and completeness/freshness according to §4.
+Projection is asynchronous: only private receipt persistence gates Apply, not a
+public status write. Preserve uncertain delivery as committed Pending work; missing
+or stale observations must not imply an all-clear. No second intent store or
+eligibility flag is required.
+
+**Operator workflow — WP11/GCP-1508.** Before verification changes, the runbook must:
+
+1. Inventory affected Clusters/NodePools and check identity/generation and freshness.
+2. Inspect requirements and upgrade conditions, distinguishing running requirements,
+   committed delivery and unaccepted requests; report incomplete views explicitly.
+3. Explain that committed work may proceed after revocation. Status is not an atomic
+   fleet snapshot, an execution hold or a way to close the §5 read-to-commit race.
+
+Use public projections rather than private-receipt inspection as the supported
+workflow. Reuse condition semantics; installation `IAMPermissionsReady` describes
+running-target readiness, not permission to cancel or pause dispatch.
+
 POC condition/log samples are not production alerting. Add bounded-label metrics
 for availability/missing status, transitions, refresh/source failures, last successful
 reconciliation and blocked prerequisites. Remove series when catalog objects age out;
@@ -713,13 +660,25 @@ runtime behavior, not new resource-prefix inputs or component renaming.
 | 8 — Worker/runtime/cleanup compatibility | Gecko worker manifest; HyperShift NodePool worker-SA schema; CLI `infra/network/cleanup.go`, update-aware destroy | Exact default-SA propagation and actual schema acceptance; preserve component custom-SA validation. Upstream the narrowly fixed firewall lifecycle handling, strict owned teardown and tombstone behavior. Specify last-pool drain support. |
 | 9 — Comparison/upgrade semantics | Gecko `platform-api/pkg/ocpversion`, validation, resolution/coordinator consumers | Isolate comparison-only bridge from raw catalog/WIF identity; real advertised edge and CP-then-worker tests. Omit duplicate work if current main already supplies equivalent tested behavior. |
 | 10 — Dependency/release alignment | Gecko public API/Orlop modules and CLI `go.mod`/CI | Publish compatible modules and pin reproducible public dependencies. Clean standalone build/test with no machine-local workfile/replacements; source publication is not this acceptance gate. |
-| 11 — Operations and representative E2E | Gecko metrics/conditions; infra GMP/alerting/Argo; owning runtime tests | Least-privilege coordinator deployment, sustained alert firing/clear/freshness, complete functional/mixed-version/failure/restart/owned-cleanup validation and rollout/forward-recovery runbooks. Verify the actual controller/CLI/catalog selector LIST/watch paths on supported backends; require owning-storage remediation if the historical JSONPath failure persists. |
+| 11 — Operations and representative E2E | Gecko metrics/conditions; infra GMP/alerting/Argo; owning runtime tests | Least-privilege coordinator deployment, alert firing/clear/freshness, functional/mixed-version/failure/restart/owned-cleanup validation, operator inspection and rollout/recovery runbooks. Review effective IAM grants (§2), recording excess access, limits and dispositions. Verify actual controller/CLI/catalog query paths on supported backends. |
 
 Dependencies: WP2/3 precede typed dispatch/requirements producers; WP4/5 must be
 compatible before first enabled assertions; WP6/7 depend on published API shape;
 WP8/9 are required where the selected release/runtime needs them; WP10 is required
 for a supported standalone CLI; WP11 closes production readiness. Packaging and
 observability can be developed in parallel without enabling live gates.
+
+### Epic acceptance ownership
+
+| GCP-944 criterion | Delivery owner |
+|---|---|
+| Custom roles for component operations | GCP-1505 baseline; GCP-1507 application; GCP-1508 runtime validation |
+| Customer-owned IAM authority and verification | GCP-1507 |
+| Installation/upgrade coverage gates and actionable blocking | GCP-1506 dispatch; GCP-1508 E2E |
+| Additive updates retain running permissions | GCP-1507; GCP-1508 recovery validation |
+| Focused IAM review, effective grants and finding dispositions | GCP-1508 |
+| Permission model documented for customer review | GCP-1507 customer documentation; GCP-1508 validates published guidance |
+| Production-readiness dispositions | GCP-1505–1508, according to the risks table |
 
 The worker-email fix was CRD/schema-only in the POC. Integration must deliberately
 carry that behavior in the normal HyperShift source/CRD distribution, preserve
@@ -747,6 +706,12 @@ not product configuration to copy into shared defaults.
   required outcomes: a revocation observed before the receipt write aborts new work
   without persisting, and a revocation after the commit does not cancel delivery or
   block same-target redelivery.
+- Pause/fail dispatch after receipt persistence but before Apply; verify eventual
+  requirements projection from that receipt without making public status a dispatch
+  prerequisite. Cover uncertain Apply, restart/redelivery and eventual observation;
+  missing/stale views never imply no pending work or redefine §4 Complete semantics.
+  Revocation between the final verified read and receipt commit permits committed
+  delivery, as specified in §5.
 
 ### CLI and failure automation
 
@@ -790,15 +755,17 @@ permissions and ownership-safe cleanup scope.
 
 ## Risks, decisions and completion criteria
 
+Resolved backend implementation findings and their test limits are recorded in
+the inventory's storage matrix. The following dispositions remain required before
+the corresponding production use:
+
 | Item | Required disposition before corresponding production use |
 |---|---|
-| Postgres revision CAS | Delivered in [gecko#690](https://github.com/openshift-online/gecko/pull/690): conditional bigint-typed `UPDATE` with transaction tests and concurrent stale-writer conflict proof |
-| Spanner selector JSONPath failure | Resolved and verified in [gecko#690](https://github.com/openshift-online/gecko/pull/690): selector LIST and selector-filtered watch reproduced on every supported backend; see the [storage acceptance matrix](../experiments/wifconfigtemplate-integration-inventory/README.md#storage-acceptance-matrix) |
 | Catalog authorization drift | Integrate platform-scope Cedar permissions/bindings rather than retain POC exemptions |
 | Single-baseline chart | Support immutable distinct boundary content before publishing different permission requirements |
 | Pending-intent requirements | Document safe withdraw/apply/resubmit or implement conservative unchanged-intent recovery; do not claim POC proved it |
 | Original Version aging | Stable realm identity or supported reference retention; no weakening of teardown realm proof |
-| Shared eligibility | Define fleet rollout/protection policy; closed write gate and maintenance exclusions are not universal holds |
+| Shared eligibility | Define fleet rollout/protection policy and validate the §12 inspection workflow (WP7 publishers; WP11 runbooks/tests). Visibility, closed write gates and maintenance exclusions are not execution holds |
 | Worker/account semantics | Upstream schema acceptance, exact SA propagation and bounded replacement supported; no default-SA creation/deletion |
 | Cleanup handoffs | Narrow absent-firewall recovery delivered in POC; present adopted-rule mismatch and standalone last-pool PDB behavior remain explicit |
 | Role support/security boundaries | Review TESTING permissions, optional feature coverage and broad project-role/shared-SA exposure; naming isolation separate |
@@ -814,15 +781,7 @@ Published POC branches and AI-review approvals alone do not satisfy those gates.
 
 ## Relationship to resource-name-prefix conditions
 
-Plan 2 owns resource-name conditions, component naming inputs/capabilities,
-authoritative prefix reservations and any new condition-aware contract semantics.
-The Plan 1 v1 contract must continue rejecting unsupported scopes rather than
-partially rendering or ignoring them. Its role-only update protocol deliberately
-cannot move arbitrary project grants to conditioned grant topologies.
-
-Delivering Plan 1 does not authorize removal of unconditional grants from existing
-installations. A future Plan 1 → Plan 2 transition needs explicit policy/role
-retirement, mixed-runtime compatibility and separate acceptance. Keeping both
-unconditional and conditioned grants does not enforce the condition because
-independent IAM grants are additive. See Plan 2 for that dependency and transition
-design; there is no hidden auto-pruning step in this plan.
+Plan 1 v1 rejects unsupported scopes and grant-topology changes. Naming,
+condition-aware contracts and any explicitly approved retirement of unconditional
+grants belong to [Plan 2's transition gate](wifconfigtemplate-resource-name-prefix-conditions.md#6-existing-installation-transition-is-a-separate-gate).
+Plan 1 does not authorize that transition or automatic pruning.

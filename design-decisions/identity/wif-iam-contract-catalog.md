@@ -18,8 +18,10 @@ Contract invariants enforced by this decision:
 
 - The executable content and schema version are immutable after creation;
   template deletion is initially rejected, retaining historical contracts.
-- `spec.verified` is the single mutable eligibility assertion; setting it false
-  blocks new use without revoking running access.
+- `spec.verified` is the single mutable eligibility assertion; observing it false
+  blocks new authorization without revoking running access or cancelling committed
+  work. The accepted read-to-commit revocation race is specified in the
+  [dispatch protocol](../../implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md#5-new-dispatch-protocol-and-upgrade-interaction).
 - Cluster `templateApplications` are append-only, immutable and bounded (1–128);
   new appends require an intact verified contract.
 - Custom roles may not grant service-account impersonation or credential-minting
@@ -37,7 +39,7 @@ Contract invariants enforced by this decision:
   in customer projects. The prior model rendered IAM client-side from
   permission knowledge embedded in the CLI, relied on broad predefined project
   roles, could not pin which contract an installation actually received, and
-  therefore could not gate upgrades on IAM coverage or detect permission drift.
+  therefore could not gate upgrades on recorded IAM coverage.
   Nothing tied a running installation to the reviewed permission set of its
   release boundary.
 - **Constraints**:
@@ -84,34 +86,28 @@ Contract invariants enforced by this decision:
 
 * **Justification**: A typed, digest-pinned catalog makes per-release contracts
   reviewable platform data. The canonical digest lets the CLI, controllers and
-  auditors verify executable content independently without trusting storage.
+  auditors verify executable content against its pinned reference.
   Append-only assertions provide exact coverage gating for upgrades without
   narrowing running permissions. Keeping cloud verification in the
   customer-operated CLI preserves the authority boundary: a Cluster application
   is an authenticated customer assertion, never proof that cloud IAM exists.
-* **Evidence**: A completed POC proved template-driven fresh installs, a
-  specific missing-target assertion block, real control-plane and worker
-  upgrades gated by `WIFConfigUpdateRequired`, additive role updates with
-  stale-etag rejection, coexistence and owned cleanup; see the
-  [implementation plan](../../implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md)
-  and the [integration inventory](../../experiments/wifconfigtemplate-integration-inventory/README.md).
-  Work packages 1–3 are partly integrated in Gecko: generic API/storage correctness
-  merged in [gecko#690](https://github.com/openshift-online/gecko/pull/690),
-  and the catalog/application API in
-  [gecko#692](https://github.com/openshift-online/gecko/pull/692) (open, in
-  review), with the golden digest pinned in API and Helm tests and backend
-  CAS/selector behavior recorded in the inventory's storage acceptance matrix.
+* **Evidence**: The POC demonstrated fresh installs, IAM-gated control-plane and
+  worker upgrades, additive role updates, coexistence and owned cleanup. The
+  [inventory](../../experiments/wifconfigtemplate-integration-inventory/README.md#poc-results-and-limits)
+  records the tested paths and their limits; it is not production-readiness proof.
+  Delivery status is maintained in the
+  [implementation plan](../../implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md#delivery-status-and-tracking).
 * **Comparison**: The alternatives fail respectively on pinning and audit
   (1), validation and canonicalization (2), authority and lifecycle control
-  (3), and least privilege (4). Only an in-platform typed catalog simultaneously
-  provides admission validation, immutable retention, exact per-release pinning
-  and customer-owned application.
+  (3), and least privilege (4). The typed catalog combines admission validation,
+  immutable retention, exact per-release pinning and customer-owned application
+  within the existing platform API.
 
 ## Consequences
 
 ### Positive
 
-* Exact least-privilege baselines per release boundary, independently
+* Reviewed per-component baselines per release boundary, independently
   verifiable via the digest by any party holding the contract.
 * Upgrades can require exact target coverage (`WIFConfigUpdateRequired`)
   without revoking permissions that running installations already depend on.
@@ -131,9 +127,7 @@ Contract invariants enforced by this decision:
   RFC 8785; every new spec field needs an explicit protocol and immutability
   decision, and golden re-pins require security review.
 * Sequenced delivery burden: enabling application writes requires compatible
-  API replicas, typed consumers, platform-scoped Cedar authorization
-  ([GCP-1506](https://redhat.atlassian.net/browse/GCP-1506)) and the CLI
-  lifecycle ([GCP-1507](https://redhat.atlassian.net/browse/GCP-1507)).
+  API replicas, typed consumers, catalog authorization and the CLI lifecycle.
 * Storage correctness is a hard dependency: revision CAS and selector
   LIST/watch must hold on every supported backend before assertion writes are
   enabled.
@@ -177,8 +171,7 @@ Contract invariants enforced by this decision:
 ## References
 
 * Implementation: [WIFConfigTemplate catalog and IAM lifecycle](../../implementation-plans/wifconfigtemplate-catalog-and-iam-lifecycle.md)
-  (the WP3 catalog/application API in [gecko#692](https://github.com/openshift-online/gecko/pull/692)
-  remains in review; work packages 4–11 remain) and the dependent
+  and the dependent
   [resource-name-prefix conditions](../../implementation-plans/wifconfigtemplate-resource-name-prefix-conditions.md).
 * Related decisions: [workload identity implementation](workload-identity-implementation.md),
   [platform-scoped Cedar authorization](platform-scoped-cedar-authorization.md),
@@ -187,4 +180,5 @@ Contract invariants enforced by this decision:
 * Tracking: [GCP-944](https://redhat.atlassian.net/browse/GCP-944) (epic),
   [GCP-1505](https://redhat.atlassian.net/browse/GCP-1505) (WP1–3),
   [GCP-1506](https://redhat.atlassian.net/browse/GCP-1506) (WP4/5/9/10),
-  [GCP-1507](https://redhat.atlassian.net/browse/GCP-1507) (WP6/7/8).
+  [GCP-1507](https://redhat.atlassian.net/browse/GCP-1507) (WP6/7/8),
+  [GCP-1508](https://redhat.atlassian.net/browse/GCP-1508) (WP11).

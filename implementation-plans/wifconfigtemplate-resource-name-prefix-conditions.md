@@ -9,12 +9,12 @@ establishes contract publication, cloud verification, exact assertions, dispatch
 gates and safe cleanup. **This dependent plan changes resource scope**, not merely
 the list of allowed operations.
 
-**Status:** proposed follow-up implementation. Prefix-conditioned contracts and
-the required component naming integrations were **not** proved by the final
-project-wide-role installation/upgrade POC. Earlier source-only prototypes and
-selected API probes are research inputs, not shipped or release-payload-matched
-capabilities. Do not present the two published Plan 1 POC branches as containing
-a completed implementation of every component dependency below.
+**Delivery stage:** proposed **Public Preview** follow-up under
+[GCP-895](https://redhat.atlassian.net/browse/GCP-895), separate from Plan 1's
+Private Preview requirements. Prefix-conditioned contracts and component naming
+integrations were not established by the project-wide-role POC. Prototype sources,
+test claims and their limits are recorded in the
+[research inventory](../experiments/wifconfigtemplate-integration-inventory/README.md#prefix-prototype-and-research-anchors).
 
 **Prerequisites:** Plan 1's supported catalog/lifecycle/API/dependency release;
 reviewed per-resource naming and condition capability matrices; and compatible
@@ -28,8 +28,7 @@ depend on this plan.
 - [GCP-1446 — consistent cluster-prefixed resource naming](https://redhat.atlassian.net/browse/GCP-1446)
   tracks the **naming** foundation independently of IAM. Its scope excludes IAM
   catalogs/grants, Resource Manager tags and migration of existing/imported resources.
-  Reference its deliverables as dependencies; do not silently expand that epic to
-  own all the IAM work in this plan. Assign separate IAM follow-up tracking in refinement.
+  Naming is a dependency; IAM delivery belongs to GCP-895, not this naming-only epic.
 - [Workload Identity](../design-decisions/identity/workload-identity-implementation.md),
   [naming conventions](../design-decisions/governance/naming-conventions.md),
   [upgrade controllers](hosted-cluster-upgrade-controllers.md),
@@ -151,59 +150,16 @@ or every upstream API already support the required behavior.
 
 ### Prototype source availability and research anchors
 
-The early prefix prototype is **not retained as a complete recoverable source
-snapshot in the published POC branches or the locations checked during consolidation**.
-The referenced HyperShift/CSO prototype worktrees were absent; the CCM/CSI checkouts
-found were clean at their old bases, without the reported changes. A partial
-HyperShift tracked-file diff was preserved in the private context archive, but
-does not contain the originally untracked new files and cannot rebuild the prototype.
-Do not treat narrative test claims or that diff as cherry-pick-ready implementation.
-P2 starts from the design and current upstream source; recover/reimplement tests
-and changes deliberately rather than assuming the earlier code is available.
+The [inventory](../experiments/wifconfigtemplate-integration-inventory/README.md#prefix-prototype-and-research-anchors)
+retains inspected source versions, provisional naming inputs and reported tests.
+No complete recoverable prototype was retained; reconstruct changes and tests
+against current upstream source and selected release artifacts. In particular:
 
-Historical source anchors, not new release selections:
+- Distinguish worker/CCM and PSC endpoint subnets in the API and cleanup identity.
+- Recalculate type-specific name budgets with complete UIDs; preserve existing names.
+- Validate sidecar flags, snapshot-derived images and registry allocation behavior.
 
-| Component/input | Earlier inspected base or identifier |
-|---|---|
-| HyperShift | `1d3c34c749` |
-| CCM cloud-provider-gcp | `3e67bea588c9eac2978d14726db729ee420cd557` |
-| cluster-storage-operator | `1b546af` |
-| csi-operator | `f5d54d11ed1ba2ee3cefb75a4b2c18b30c6df378` |
-| Traced CAPI / CAPG | v1.14.3 / v1.13.1 |
-| Proposed CPO capability label | `io.openshift.hypershift.control-plane-operator-supports-gcp-resource-naming` |
-| Proposed CSO → GCP CSI env input | `GCP_RESOURCE_NAME_PREFIX` |
-
-These anchors preserve what was inspected, not evidence that those current images
-support the proposed ABI. Research starting points must be revalidated against
-selected release payloads:
-
-- Earlier source traces found CAPI MachineNaming → infrastructure clone name →
-  CAPG instance name; an unset Compute boot-disk name defaulted to the instance
-  name. This is not proof that the runtime images in a new payload have the same
-  behavior, especially if CAPG begins assigning an explicit disk name.
-- The prototype distinguished **PSC endpoint subnet** from **worker/CCM subnet**.
-  Do not reuse the current `gcp.subnet` field for both without an explicit API
-  design. Both network shapes must be present in validation/cleanup identity checks.
-- Proposed PSC names included `<infraID>-psc-endpoint` / `<infraID>-psc-ip`.
-  The existing `<infraID>-internal-cluster` worker firewall did not require renaming;
-  lifecycle adoption still required checks. No need to rename already-compatible
-  resources merely for naming uniformity.
-- Proposed CSI flags were `--volume-name-prefix=<infraID>-pvc` and
-  `--snapshot-name-prefix=<infraID>-snapshot`; full UIDs were retained. They can
-  affect newly allocated PV object names as well as cloud names. Validate sidecar
-  versions and snapshot-to-image paths; do not assume flags rename existing disks.
-  The earlier 12-character-prefix proposal budgeted 53-character disk names and
-  58-character snapshot names with full UIDs. Recalculate against the final naming
-  contract rather than truncate or treat those prototype bounds as universal.
-- Registry naming support was not established as a component change. Establish
-  whether existing naming suffices before adding a new operator input.
-
-Earlier notes report unit/mock tests and one HyperShift envtest version (Kubernetes
-1.34.1: 13 create and six update naming cases), with no HCP naming envtest suite.
-Those results are not independently reproducible from a complete retained prototype
-and were not live prefix-IAM, traffic, release-image or mixed-fleet upgrade proof.
-Use the recorded designs to reconstruct coverage; do not imply test/source retention
-or depend on unpublished local paths.
+The recorded prototype results are not live prefix-IAM or mixed-fleet validation.
 
 ## 3. IAM condition capability matrix
 
@@ -223,27 +179,15 @@ mask a nonfunctional conditional one.
 | CPO | Named firewall and generic/PSC forwarding operations, potentially addresses after producer/support validation | DNS/Service Directory, shared network/subnet and operation support; do not infer a condition for services that lack the same name attributes |
 | CSI | Instance attach/detach/get and supported named disk/snapshot/image operations | Project discovery/list/polling, parent-resource create checks and restore/import paths |
 | Registry | Supported bucket/object operations on the allocated bucket namespace | Bucket creation and project listing; object-list checks may be bucket-scoped rather than per-object-name |
+| Ingress | DNS record lifecycle where the service supports the required condition attributes | Zone-scoped checks and shared-zone access; record-name isolation is not assumed |
 | CAPG/nodepool | Worker instance/boot-disk lifecycle, metadata/labels/service-account/network-tag operations | Shared subnet use and zone operation polling |
 
-Earlier research split these into 15 logical roles by scope/nature while preserving
-the same component permission unions as the project-wide alternative.
-That split is a starting point, not the final role count or verified condition set.
 Every binding grants the whole role: permissions needing different scope semantics
 must not remain in a shared role if the split creates unintended cross-products.
-More specifically, the proposed role-per-(scope × nature) split was CCM four roles
-(resource mutations, instance use, read-only, support), CPO three (DNS, resource
-mutations, support), and two each for cloud-network, CSI, registry and nodepool.
-The CCM support role held **30 project-wide exceptions**, not just harmless reads;
-the registry isolated `storage.buckets.list` in a discovery role. Keep these facts
-visible when refining exceptions instead of describing all support access as scoped.
-
-Provisional selector inputs were instance `{infraID}-`, CSI disk `{infraID}-pvc-`,
-snapshot and snapshot-derived image `{infraID}-snapshot-`, nodepool boot disk
-`{infraID}-`, and bucket `{infraID}-`. They are input candidates requiring the
-producer/IAM matrix, not verified conditions. The earlier prototype described
-`ErrRoleSplitRequired` for simultaneous permission and grant changes on a shared
-role; reconstruct that safety test rather than relax Plan 1's stricter topology
-refusal or assume the unpublished helper is available.
+The inventory retains the [provisional role split and selectors](../experiments/wifconfigtemplate-integration-inventory/README.md#provisional-role-split-and-selectors),
+including project-wide mutation exceptions. They are research inputs, not a final
+seven-component role count or verified condition set. Reconstruct the role-split
+safety tests without relaxing Plan 1's grant-topology refusal.
 
 ### Condition construction rules
 
@@ -267,12 +211,8 @@ refusal or assume the unpublished helper is available.
   required operation cannot be safely conditioned, keep an explicit reviewed
   exception or change the supported architecture and state the weaker guarantee.
 
-Keep the request-specific findings about CCM regional backend use, DNS absent versus
-existing Get/List, generic plus PSC-specific permissions and Directory side effects
-from [Plan 1](wifconfigtemplate-catalog-and-iam-lifecycle.md#2-component-iam-baseline-and-its-assurance-limits).
-An ACCEPTED/REJECTED PSC connection policy is not an IAM result. Error prose alone
-does not isolate the missing permission; fixture/admin operations and asynchronous
-settlement must be distinguished from component calls.
+Use the [permission research limits](../experiments/wifconfigtemplate-integration-inventory/README.md#permission-research-and-assurance-limits)
+when designing fixtures and interpreting permission failures.
 
 ## 4. Contract/API and CLI extension
 
@@ -349,9 +289,9 @@ admission. Naming-capability checks must also fail closed in the NodePool path.
 For unmarked existing fleets, prove byte/semantic stability of ignition, config,
 rollout hashes and selected identity inputs; no automatic rollout merely because
 the operator learned a new field. Marked clusters cannot be downgraded to consumers
-that do not understand their immutable naming policy. Use Plan 1's compatible
-API/consumer-before-write staging, migration-Job preservation, durable receipts and
-GitOps verification controls; no new bypass is introduced here.
+that do not understand their immutable naming policy. Follow
+[Plan 1's rollout protocol](wifconfigtemplate-catalog-and-iam-lifecycle.md#11-packaging-authorization-and-staged-rollout)
+for compatible consumers, migration-Job preservation, durable receipts and GitOps controls.
 
 ## 6. Existing-installation transition is a separate gate
 
@@ -412,10 +352,9 @@ Customer-owned external grants and inherited/org policy need explicit treatment.
 | P2.8 — Scoped runtime proof | Owning E2E/IAM suites; selected capabilities complete | Positive lifecycle plus controlled outside-prefix denial, async settlement, same-project coexistence, restart/upgrade and safe cleanup; exceptions accurately reported |
 | P2.9 — Optional transition design | IAM/security + lifecycle owners; not implicit in fresh-install release | Reviewed grant retirement/mixed-name policy with no widening, outage or isolation overclaim; otherwise document fresh-only support |
 
-Do not place P2 IAM work under the naming-only epic by default. Create linked,
-reviewable work items during refinement and use normal owning-repository review,
-generation, tests/race, CI and the team's Definition of Done. No issue creation or
-source/runtime rollout is performed merely by approving this document.
+Refine these work packages under GCP-895, linking GCP-1446 naming dependencies.
+Use owning-repository review, generation, tests/race, CI and the team's Definition
+of Done. Approval of this plan does not authorize a source/runtime rollout.
 
 ## Validation matrix
 
