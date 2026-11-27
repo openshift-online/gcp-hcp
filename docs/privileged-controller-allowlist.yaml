@@ -1,0 +1,44 @@
+# Machine-readable allowlist of cluster-admin-equivalent controllers.
+#
+# This file exists so the release verification check can fail closed when a
+# rendered manifest binds a cluster-admin-equivalent identity that nobody has
+# reviewed. It intentionally carries only what the check needs: the identity,
+# its kind, and whether the check must observe it in a render.
+#
+# The rationale, evidence, guardrails, owners and review triggers are NOT here.
+# They live in the platform register:
+#   https://redhat.atlassian.net/wiki/spaces/GCP/pages/521209731
+# Update both together. Do not add prose to this file.
+#
+# inRepo: true means the identity is bound in a manifest under this repository
+# and the check must observe it. inRepo: false means the identity is managed
+# outside this repository and the check cannot observe it.
+#
+# An identity belongs here when a ClusterRole bound to it has a rule with
+# escalate or bind, or a rule with apiGroups/resources/verbs all set to "*",
+# or when a ClusterRoleBinding attaches the built-in cluster-admin role.
+
+version: 1
+reviewed: "2026-11-11"
+nextReview: "2027-01-31"
+
+entries:
+  - id: config-sync-root-reconciler
+    identity: config-management-system/root-reconciler
+    kind: ServiceAccount
+    inRepo: false
+
+  - id: argocd-application-controller
+    identity: argocd/argocd-application-controller
+    kind: ServiceAccount
+    inRepo: true
+
+  - id: gitops-application-controller
+    identity: argocd/gitops-argocd-application-controller
+    kind: ServiceAccount
+    inRepo: true
+
+  - id: gitops-operator-manager
+    identity: gitops-operator/openshift-gitops-operator-controller-manager
+    kind: ServiceAccount
+    inRepo: true

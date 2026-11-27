@@ -1,0 +1,1402 @@
+# FIXTURE ONLY — NOT REVIEWED POLICY FOR ANY PERSISTENT ENVIRONMENT.
+#
+# Derived mechanically from the GCP-1285 disposable-pair overrides (see
+# provenance below) plus the cert-manager startupapicheck delta found on
+# 2026-11-18. It exists to exercise the assembly path and the offline tests in
+# tools/gitops-bootstrap/tests/. Do not copy it to integration, stage or
+# production, and do not infer missing grants for a different target. A real
+# target needs its own reviewed inventory.
+#
+# Scoped-mode note: `gitops-hcp-controller-writes` in the clusterRules
+# escalate/bind names is an aggregation role that does not exist under scoped
+# mode, so that name is inert here. `gitops-hcp-controller-local` does exist
+# and stays reachable by the controller's own escalate rule; that self-
+# modification path is part of the reviewed residual authority, not a defect
+# introduced by this fixture.
+#
+# `lifecycle: existing` marks namespaces the bundle never declares (default,
+# kube-system): they are always present, so only their finite grants are
+# emitted. Every other prerequisite namespace is declared by the bundle with
+# deletion: detach and becomes the namespace's single declarative owner.
+target: region
+name: gitops-hcp-controller-local
+clusterName: gitops-hcp-controller-cluster
+subject: gitops-argocd-application-controller
+localRules:
+- apiGroups:
+  - ''
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - services
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - argoproj.io
+  resources:
+  - argocds
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - argoproj.io
+  resources:
+  - notificationsconfigurations
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - certificatemanager.cnrm.cloud.google.com
+  resources:
+  - certificatemanagercertificatemapentries
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - certificatemanager.cnrm.cloud.google.com
+  resources:
+  - certificatemanagercertificates
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - external-secrets.io
+  resources:
+  - externalsecrets
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - external-secrets.io
+  resources:
+  - secretstores
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - monitoring.googleapis.com
+  resources:
+  - podmonitorings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - networking.gke.io
+  resources:
+  - gcpbackendpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - networking.gke.io
+  resources:
+  - healthcheckpolicies
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - bind
+  resourceNames:
+  - argocd-cache-watchdog
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - escalate
+  resourceNames:
+  - argocd-cache-watchdog
+- apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  - applications/status
+  - applications/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ''
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+clusterRules:
+- apiGroups:
+  - ''
+  resources:
+  - namespaces
+  verbs:
+  - create
+- apiGroups:
+  - ''
+  resources:
+  - namespaces
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - argocd
+  - cert-manager
+  - config-connector
+  - configconnector-operator-system
+  - default
+  - external-dns
+  - gateway-system
+  - gcp-dashboards
+  - gecko-system
+  - kube-system
+  - monitoring
+  - platform-gateway
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingadmissionpolicies
+  verbs:
+  - create
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingadmissionpolicies
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - gar-image-rewriter-gcp-hcp-images
+  - kcc-common-labels
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingadmissionpolicybindings
+  verbs:
+  - create
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingadmissionpolicybindings
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - gar-image-rewriter-gcp-hcp-images
+  - kcc-common-labels
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - create
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - cert-manager-webhook
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - cert-manager-webhook
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - certificaterequests.cert-manager.io
+  - certificates.cert-manager.io
+  - challenges.acme.cert-manager.io
+  - clusterissuers.cert-manager.io
+  - configconnectorcontexts.core.cnrm.cloud.google.com
+  - configconnectors.core.cnrm.cloud.google.com
+  - controllerreconcilers.customize.core.cnrm.cloud.google.com
+  - controllerresources.customize.core.cnrm.cloud.google.com
+  - dnsendpoints.externaldns.k8s.io
+  - issuers.cert-manager.io
+  - mutatingwebhookconfigurationcustomizations.customize.core.cnrm.cloud.google.com
+  - namespacedcontrollerreconcilers.customize.core.cnrm.cloud.google.com
+  - namespacedcontrollerresources.customize.core.cnrm.cloud.google.com
+  - orders.acme.cert-manager.io
+  - validatingwebhookconfigurationcustomizations.customize.core.cnrm.cloud.google.com
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - create
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - v1.gcp.managed.openshift.io
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - clusterissuers
+  verbs:
+  - create
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - clusterissuers
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - selfsigned
+- apiGroups:
+  - core.cnrm.cloud.google.com
+  resources:
+  - configconnectors
+  verbs:
+  - create
+- apiGroups:
+  - core.cnrm.cloud.google.com
+  resources:
+  - configconnectors
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - configconnector.core.cnrm.cloud.google.com
+- apiGroups:
+  - gcp.managed.openshift.io
+  resources:
+  - channels
+  verbs:
+  - create
+- apiGroups:
+  - gcp.managed.openshift.io
+  resources:
+  - channels
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - candidate
+  - eus
+  - fast
+  - stable
+- apiGroups:
+  - gcp.managed.openshift.io
+  resources:
+  - platformroles
+  verbs:
+  - create
+- apiGroups:
+  - gcp.managed.openshift.io
+  resources:
+  - platformroles
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - cluster-admin
+  - cluster-viewer
+  - service-admin
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - create
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - argocd-cache-watchdog
+  - cert-manager-cainjector
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer-role-binding
+  - configconnector-operator-rolebinding
+  - external-dns-viewer
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - kube-state-metrics-custom
+  - platform-api-server:system:auth-delegator
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - create
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - update
+  - patch
+  - delete
+  resourceNames:
+  - argocd-cache-watchdog
+  - cert-manager-cainjector
+  - cert-manager-cluster-view
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-edit
+  - cert-manager-view
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - gitops-hcp-controller-local
+  - gitops-hcp-controller-writes
+  - kube-state-metrics-custom
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - bind
+  resourceNames:
+  - argocd-cache-watchdog
+  - cert-manager-cainjector
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - kube-state-metrics-custom
+  - system:auth-delegator
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - escalate
+  resourceNames:
+  - argocd-cache-watchdog
+  - cert-manager-cainjector
+  - cert-manager-cluster-view
+  - cert-manager-controller-approve:cert-manager-io
+  - cert-manager-controller-certificates
+  - cert-manager-controller-certificatesigningrequests
+  - cert-manager-controller-challenges
+  - cert-manager-controller-clusterissuers
+  - cert-manager-controller-ingress-shim
+  - cert-manager-controller-issuers
+  - cert-manager-controller-orders
+  - cert-manager-edit
+  - cert-manager-view
+  - cert-manager-webhook:subjectaccessreviews
+  - configconnector-operator-cnrm-viewer
+  - configconnector-operator-manager-role
+  - external-dns
+  - gecko-control-plane-upgrade
+  - gecko-hc
+  - gecko-nodepool
+  - gecko-nodepool-vr-resolution
+  - gecko-placement
+  - gecko-version-resolution
+  - gecko-version-sync
+  - gitops-hcp-controller-local
+  - gitops-hcp-controller-writes
+  - kube-state-metrics-custom
+namespacePrerequisites:
+- namespace: cert-manager
+  rules:
+  - apiGroups:
+    - ''
+    resources:
+    - serviceaccounts
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ''
+    resources:
+    - services
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - apps
+    resources:
+    - deployments
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - cert-manager-cainjector:leaderelection
+    - cert-manager-webhook:dynamic-serving
+    - cert-manager:leaderelection
+    - gitops-hcp-controller
+    - cert-manager-startupapicheck:create-cert
+    - cert-manager-tokenrequest
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - cert-manager-cainjector:leaderelection
+    - cert-manager-webhook:dynamic-serving
+    - cert-manager:leaderelection
+    - gitops-hcp-controller
+    - cert-manager-startupapicheck:create-cert
+    - cert-manager-tokenrequest
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+  - apiGroups:
+    - batch
+    resources:
+    - jobs
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - patch
+    - delete
+- namespace: config-connector
+  rules:
+  - apiGroups:
+    - compute.cnrm.cloud.google.com
+    resources:
+    - computesecuritypolicies
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: configconnector-operator-system
+  rules:
+  - apiGroups:
+    - ''
+    resources:
+    - serviceaccounts
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ''
+    resources:
+    - services
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - apps
+    resources:
+    - statefulsets
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: default
+  lifecycle: existing
+  rules:
+  - apiGroups:
+    - ''
+    resources:
+    - configmaps
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: external-dns
+  rules:
+  - apiGroups:
+    - ''
+    resources:
+    - serviceaccounts
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ''
+    resources:
+    - services
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - apps
+    resources:
+    - deployments
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: gateway-system
+  rules:
+  - apiGroups:
+    - certificatemanager.cnrm.cloud.google.com
+    resources:
+    - certificatemanagercertificatemaps
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - gateway.networking.k8s.io
+    resources:
+    - gateways
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - iam.cnrm.cloud.google.com
+    resources:
+    - iampolicymembers
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: gcp-dashboards
+  rules:
+  - apiGroups:
+    - monitoring.cnrm.cloud.google.com
+    resources:
+    - monitoringdashboards
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: gecko-system
+  rules:
+  - apiGroups:
+    - ''
+    resources:
+    - configmaps
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ''
+    resources:
+    - serviceaccounts
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ''
+    resources:
+    - services
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - apps
+    resources:
+    - deployments
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - cert-manager.io
+    resources:
+    - certificates
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - certificatemanager.cnrm.cloud.google.com
+    resources:
+    - certificatemanagercertificatemapentries
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - certificatemanager.cnrm.cloud.google.com
+    resources:
+    - certificatemanagercertificates
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - compute.cnrm.cloud.google.com
+    resources:
+    - computesecuritypolicies
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - gateway.networking.k8s.io
+    resources:
+    - httproutes
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - iam.cnrm.cloud.google.com
+    resources:
+    - iampolicymembers
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - iam.cnrm.cloud.google.com
+    resources:
+    - iamserviceaccounts
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - networking.gke.io
+    resources:
+    - gcpbackendpolicies
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - networking.gke.io
+    resources:
+    - healthcheckpolicies
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - policy
+    resources:
+    - poddisruptionbudgets
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: kube-system
+  lifecycle: existing
+  rules:
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - extension-apiserver-authentication-reader
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: monitoring
+  rules:
+  - apiGroups:
+    - ''
+    resources:
+    - configmaps
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ''
+    resources:
+    - serviceaccounts
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - ''
+    resources:
+    - services
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - apps
+    resources:
+    - deployments
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - monitoring.googleapis.com
+    resources:
+    - podmonitorings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+- namespace: platform-gateway
+  rules:
+  - apiGroups:
+    - certificatemanager.cnrm.cloud.google.com
+    resources:
+    - certificatemanagercertificatemaps
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - gateway.networking.k8s.io
+    resources:
+    - gateways
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - rolebindings
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - create
+    - update
+    - patch
+    - delete
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - bind
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - roles
+    verbs:
+    - escalate
+    resourceNames:
+    - gitops-hcp-controller
+  - apiGroups:
+    - ''
+    resources:
+    - events
+    verbs:
+    - create
+    - patch
+    - update
+provenance:
+  chartRepo: openshift-online/gcp-hcp-infra
+  chartCommit: c9ca69510ee90e0fb74092bd45ade0c7e7990004
+  valuesPath: argocd/config/region/argocd-config/dev/rflores-gcp1285/northamerica-northeast2/override.yaml
+  operatorSource: argoproj-labs/argocd-operator@a213c171036a
+  reviewedFor: GCP-1285 disposable pair, 2026-11-13, not a production review
+  fixtureOnly: 'true'
+  fixtureDelta: cert-manager startupapicheck PostSync job grant and named role bind/escalate names; not
+    present in the reviewed pair policy

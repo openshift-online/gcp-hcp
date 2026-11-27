@@ -1,0 +1,14 @@
+apiVersion: v2
+name: gitops-operator-crds
+description: >-
+  Locally maintained CRD packaging for the OpenShift GitOps operator 1.22.2
+  (GCP-1280). CRDs are copied from the official operator bundle; the only
+  adaptation is documented in chart-src/PROVENANCE.md. This is a local
+  packaging, not a vendor-supported or certified chart.
+type: application
+version: 0.1.0
+appVersion: "1.22.2"
+annotations:
+  gke-bootstrap/source-bundle: registry.redhat.io/openshift-gitops-1/gitops-operator-bundle@sha256:2ba58c50f771c08bbc5a1d8572c7b058df55bc71667cc66026d42840eb4bee6d
+  gke-bootstrap/upstream-source: https://github.com/redhat-developer/gitops-operator.git@cf32771491be2ed7f03d43d279171d6c265f2d2b
+  gke-bootstrap/license: Apache-2.0 (upstream gitops-operator repository LICENSE)

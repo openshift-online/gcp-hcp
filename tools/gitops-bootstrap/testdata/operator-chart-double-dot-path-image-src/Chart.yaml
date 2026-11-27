@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-double-dot-path-image
+description: Synthetic fixture whose manager image has an invalid double-dot repository path segment, used to test render.sh's repository-grammar rejection. Not a real product chart.
+version: 0.1.0

@@ -1,0 +1,55 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Inactive GLOBAL bundle: Argo CD operator adoption only. It declares no
+# promoter.argoproj.io CRD or CR by default, so the existing standalone upstream
+# Promoter v0.49 owner keeps the shared newer schema, its CRs, namespace,
+# credentials, gates, dashboard, TLS and topology. The three shared
+# Application/ApplicationSet/AppProject CRDs and the argocd namespace, ESO and
+# bootstrap stores are owned by the parent and are NOT declared here.
+resources:
+  - crds.yaml
+  - operator.yaml
+  - registry.yaml
+  - networkpolicy.yaml
+  - gitops-instance.yaml
+__CONTROLLER_RBAC_RESOURCES__
+patches:
+__PROMOTER_CRD_PATCH__
+__SCOPED_PATCH__
+  # Operator-managed Promoter and Source Hydrator stay off on every global
+  # target. Absent already means disabled in the pinned operator
+  # (PromoterSpec.IsEnabled is false for nil and for enabled: false, and every
+  # promoter reconciler skips creation), but the global seed states both so a
+  # later edit cannot silently enable a second writer or hydrator.
+  - target:
+      group: argoproj.io
+      version: v1beta1
+      kind: ArgoCD
+      name: __INSTANCE_NAME__
+      namespace: __INSTANCE_NAMESPACE__
+    patch: |-
+      apiVersion: argoproj.io/v1beta1
+      kind: ArgoCD
+      metadata:
+        name: __INSTANCE_NAME__
+        namespace: __INSTANCE_NAMESPACE__
+      spec:
+        promoter:
+          enabled: false
+        sourceHydrator:
+          enabled: false
+  # The manager's controllers need these APIs and the pull secret to exist.
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: openshift-gitops-operator-controller-manager
+      namespace: __OPERATOR_NAMESPACE__
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: openshift-gitops-operator-controller-manager
+        namespace: __OPERATOR_NAMESPACE__
+        annotations:
+          config.kubernetes.io/depends-on: __MANAGER_DEPENDS_ON__

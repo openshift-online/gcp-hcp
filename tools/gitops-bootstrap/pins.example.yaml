@@ -1,0 +1,45 @@
+# Pin/input contract for render.sh.
+#
+# This file is a SCHEMA EXAMPLE with synthetic values and must never be
+# pointed at by a real render. The real pins for the reviewed OpenShift GitOps
+# 1.22.2 charts are in pins.yaml (provenance: chart-src/PROVENANCE.md).
+# render.sh always verifies `checksum` against the local chart archive
+# byte-for-byte and fails closed on any mismatch; it never fetches a chart
+# itself.
+#
+# This file only pins the chart archives. render.sh separately requires a
+# mandatory, non-empty approved-image set (--allowed-image / a non-empty
+# --image-allowlist file) covering every container/initContainer image and
+# every env value whose name contains the uppercase string IMAGE anywhere
+# (case-sensitive, e.g. ARGOCD_IMAGE, RELATED_IMAGE_*,
+# GITOPS_CONSOLE_PLUGIN_IMAGE_PF5) that the charts render; there is no default
+# for that either. See tools/gitops-bootstrap/README.md.
+#
+# Fields:
+#   path:     path to a local, already-vendored Helm chart archive (.tgz).
+#   version:  chart version expected in the archive's Chart.yaml. render.sh
+#             fails closed if the archive's actual version differs.
+#   origin:   where the archive's content was obtained or derived from
+#             (OCI ref, URL, source bundle, etc.), preserved as provenance
+#             metadata. It describes provenance only and is not necessarily
+#             a chart registry location. Leave null if unknown.
+#   digest:   upstream content digest of `origin` (e.g. the OCI manifest
+#             digest `helm pull` reports for an OCI chart, or the digest of
+#             the source bundle a local chart was authored from). Not the
+#             digest of the local archive: that is `checksum`. Preserved as
+#             provenance metadata. Leave null if unknown. NEVER invent a
+#             value here.
+#   checksum: sha256 of the local archive file. Always required; always
+#             verified by render.sh before use.
+crdsChart:
+  path: ./testdata/charts/synthetic-crds-chart-0.1.0.tgz
+  version: "0.1.0"
+  origin: null
+  digest: null
+  checksum: "sha256:REPLACE_WITH_SHA256_OF_LOCAL_ARCHIVE"
+operatorChart:
+  path: ./testdata/charts/synthetic-operator-chart-0.1.0.tgz
+  version: "0.1.0"
+  origin: null
+  digest: null
+  checksum: "sha256:REPLACE_WITH_SHA256_OF_LOCAL_ARCHIVE"

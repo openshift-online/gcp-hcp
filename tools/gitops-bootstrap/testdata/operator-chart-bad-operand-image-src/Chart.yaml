@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-bad-operand-image
+description: Synthetic fixture with a floating operand image tag (ARGOCD_IMAGE), used to test render.sh's operand-image rejection even when the manager image is approved. Not a real product chart.
+version: 0.1.0

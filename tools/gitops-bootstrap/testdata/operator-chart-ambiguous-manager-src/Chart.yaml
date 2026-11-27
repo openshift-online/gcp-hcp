@@ -1,0 +1,4 @@
+apiVersion: v2
+name: synthetic-operator-chart-ambiguous-manager
+description: Synthetic fixture with two containers both named 'manager', used to test render.sh's ambiguous-manager-identity rejection. Not a real product chart.
+version: 0.1.0
